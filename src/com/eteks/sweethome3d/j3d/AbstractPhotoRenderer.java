@@ -101,7 +101,7 @@ public abstract class AbstractPhotoRenderer {
   }
 
   public static List<String> getAvailableRenderers() {
-    String rendererClassNames = System.getProperty("com.eteks.sweethome3d.j3d.rendererClassNames", PhotoRenderer.class.getName() + "," + YafarayRenderer.class.getName());
+    String rendererClassNames = System.getProperty("com.eteks.sweethome3d.j3d.rendererClassNames", PhotoRenderer.class.getName() + "," + YafarayRenderer.class.getName() + "," + BlenderRenderer.class.getName());
     List<String> renderers = new ArrayList<String>();
     for (String rendererClassName : rendererClassNames.split(",")) {
       rendererClassName = rendererClassName.trim();
