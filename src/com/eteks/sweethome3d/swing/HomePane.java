@@ -3264,6 +3264,7 @@ public class HomePane extends JRootPane implements HomeView {
         addPrimarySideBarSection(primarySideBar, "catalogSection", catalogView, home, controller);
       }
       if (furnitureView != null) {
+        addFurniturePropertiesSection(primarySideBar, home, preferences, controller);
         addPrimarySideBarSection(primarySideBar, "furnitureSection", furnitureView, home, controller);
       }
       primarySideBar.addPropertyChangeListener(PrimarySideBar.SECTION_WEIGHTS_PROPERTY,
@@ -3276,6 +3277,46 @@ public class HomePane extends JRootPane implements HomeView {
             }
           });
       return primarySideBar;
+    }
+  }
+
+  /**
+   * Adds to the given side bar a section which edits the properties of the selected furniture,
+   * and displays this section when the user requests to modify furniture.
+   */
+  private void addFurniturePropertiesSection(final PrimarySideBar primarySideBar,
+                                             Home home,
+                                             UserPreferences preferences,
+                                             HomeController controller) {
+    final FurniturePropertiesPanel propertiesPanel =
+        new FurniturePropertiesPanel(home, preferences, controller.getFurnitureController());
+    final CollapsibleSection propertiesSection =
+        addPrimarySideBarSection(primarySideBar, "propertiesSection", propertiesPanel, home, controller);
+    // Update properties panel only when it's visible
+    PropertyChangeListener visibilityListener = new PropertyChangeListener() {
+        public void propertyChange(PropertyChangeEvent ev) {
+          propertiesPanel.setActive(!primarySideBar.isCollapsed() && !propertiesSection.isCollapsed());
+        }
+      };
+    propertiesSection.addPropertyChangeListener(CollapsibleSection.COLLAPSED_PROPERTY, visibilityListener);
+    primarySideBar.addPropertyChangeListener(PrimarySideBar.COLLAPSED_PROPERTY, visibilityListener);
+    visibilityListener.propertyChange(null);
+
+    Runnable selectedFurnitureModifier = new Runnable() {
+        public void run() {
+          primarySideBar.setCollapsed(false);
+          propertiesSection.setCollapsed(false);
+          // Request focus once properties panel is updated
+          EventQueue.invokeLater(new Runnable() {
+              public void run() {
+                propertiesPanel.requestFocusInEditedView();
+              }
+            });
+        }
+      };
+    controller.getFurnitureController().setSelectedFurnitureModifier(selectedFurnitureModifier);
+    if (controller.getPlanController() != null) {
+      controller.getPlanController().setSelectedFurnitureModifier(selectedFurnitureModifier);
     }
   }
 

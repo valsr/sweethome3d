@@ -65,6 +65,7 @@ public class FurnitureController implements Controller {
   private final ViewFactory         viewFactory;
   private final ContentManager      contentManager;
   private final UndoableEditSupport undoSupport;
+  private Runnable                  selectedFurnitureModifier;
   private View                      furnitureView;
   private HomePieceOfFurniture      leadSelectedPieceOfFurniture;
 
@@ -805,9 +806,29 @@ public class FurnitureController implements Controller {
    */
   public void modifySelectedFurniture() {
     if (!Home.getFurnitureSubList(this.home.getSelectedItems()).isEmpty()) {
-      new HomeFurnitureController(this.home, this.preferences,
-          this.viewFactory, this.contentManager, this.undoSupport).displayView(getView());
+      if (this.selectedFurnitureModifier != null) {
+        this.selectedFurnitureModifier.run();
+      } else {
+        createHomeFurnitureController().displayView(getView());
+      }
     }
+  }
+
+  /**
+   * Returns a new controller able to edit the furniture currently selected in home.
+   */
+  public HomeFurnitureController createHomeFurnitureController() {
+    return new HomeFurnitureController(this.home, this.preferences,
+        this.viewFactory, this.contentManager, this.undoSupport);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifySelectedFurniture() modify
+   * selected furniture}, in replacement of the dialog box displayed by default.
+   * @param selectedFurnitureModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setSelectedFurnitureModifier(Runnable selectedFurnitureModifier) {
+    this.selectedFurnitureModifier = selectedFurnitureModifier;
   }
 
   /**

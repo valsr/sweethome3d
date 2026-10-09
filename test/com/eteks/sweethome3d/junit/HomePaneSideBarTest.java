@@ -19,6 +19,8 @@
  */
 package com.eteks.sweethome3d.junit;
 
+import java.awt.EventQueue;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -27,9 +29,12 @@ import javax.swing.SwingUtilities;
 
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
 import com.eteks.sweethome3d.model.Home;
+import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.RecorderException;
+import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.swing.CollapsibleSection;
+import com.eteks.sweethome3d.swing.FurniturePropertiesPanel;
 import com.eteks.sweethome3d.swing.HomePane;
 import com.eteks.sweethome3d.swing.PrimarySideBar;
 import com.eteks.sweethome3d.swing.SwingTools;
@@ -123,5 +128,88 @@ public class HomePaneSideBarTest extends TestCase {
     assertNotSame(treeView, listView);
     assertTrue(SwingUtilities.isDescendingFrom(listView, getSection("Catalog").getContent()));
     assertFalse(SwingUtilities.isDescendingFrom(treeView, this.homePane));
+  }
+
+  private FurniturePropertiesPanel getPropertiesPanel() {
+    return SwingTools.findChildren(getSection("Properties"), FurniturePropertiesPanel.class).get(0);
+  }
+
+  /**
+   * Adds a selected piece to home and returns it.
+   */
+  private HomePieceOfFurniture addSelectedPiece() {
+    HomePieceOfFurniture piece = new HomePieceOfFurniture(
+        this.preferences.getFurnitureCatalog().getCategories().get(0).getFurniture().get(0));
+    this.home.addPieceOfFurniture(piece);
+    this.home.setSelectedItems(Arrays.asList(new Selectable [] {piece}));
+    return piece;
+  }
+
+  private void waitForUpdate() throws Exception {
+    EventQueue.invokeAndWait(new Runnable() {
+        public void run() {
+        }
+      });
+  }
+
+  public void testFurniturePropertiesAreDisplayedBetweenCatalogAndFurniture() throws Exception {
+    List<CollapsibleSection> sections = this.sideBar.getSections();
+    assertEquals(3, sections.size());
+    assertEquals("Properties", sections.get(1).getTitle());
+
+    HomePieceOfFurniture piece = addSelectedPiece();
+    waitForUpdate();
+    assertEquals(piece.getName(), getPropertiesPanel().getFurnitureController().getName());
+  }
+
+  public void testModifyFurnitureRevealsPropertiesSectionInsteadOfDialog() throws Exception {
+    HomePieceOfFurniture piece = addSelectedPiece();
+    getSection("Properties").setCollapsed(true);
+    this.sideBar.setCollapsed(true);
+
+    this.homeController.getFurnitureController().modifySelectedFurniture();
+    waitForUpdate();
+
+    assertFalse(this.sideBar.isCollapsed());
+    assertFalse(getSection("Properties").isCollapsed());
+    assertEquals(piece.getName(), getPropertiesPanel().getFurnitureController().getName());
+  }
+
+  public void testModifyFurnitureSelectedInPlanRevealsPropertiesSection() throws Exception {
+    addSelectedPiece();
+    getSection("Properties").setCollapsed(true);
+
+    this.homeController.getPlanController().modifySelectedItem();
+    waitForUpdate();
+
+    assertFalse(getSection("Properties").isCollapsed());
+  }
+
+  public void testModifyFurnitureKeepsPendingEdits() throws Exception {
+    addSelectedPiece();
+    waitForUpdate();
+    getPropertiesPanel().getFurnitureController().setName("Renamed");
+
+    this.homeController.getFurnitureController().modifySelectedFurniture();
+    waitForUpdate();
+
+    assertEquals("Renamed", getPropertiesPanel().getFurnitureController().getName());
+  }
+
+  public void testFurniturePropertiesAreNotUpdatedWhileHidden() throws Exception {
+    getSection("Properties").setCollapsed(true);
+    addSelectedPiece();
+    waitForUpdate();
+    assertNull(getPropertiesPanel().getFurnitureController());
+
+    // Collapse side bar first to avoid an update between the two changes
+    this.sideBar.setCollapsed(true);
+    getSection("Properties").setCollapsed(false);
+    waitForUpdate();
+    assertNull(getPropertiesPanel().getFurnitureController());
+
+    this.sideBar.setCollapsed(false);
+    waitForUpdate();
+    assertNotNull(getPropertiesPanel().getFurnitureController());
   }
 }
