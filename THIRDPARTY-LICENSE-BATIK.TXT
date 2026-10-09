@@ -1,4 +1,4 @@
-The following additional provisions apply to batik-svgpathparser-1.7.jar third party software
+The following additional provisions apply to batik-svgpathparser-1.19.jar third party software
 included as part of this product.
 
 batik-svgpathparser library is useful in Sweet Home 3D to parse paths defined with the  
@@ -8,7 +8,7 @@ http://www.w3.org/TR/SVG/paths.html
 batik-svgpathparser library is a subset of batik library available at:
 http://xmlgraphics.apache.org/batik/ 
 and source code can be downloaded at:
-http://www.apache.org/dist/xmlgraphics/batik/batik-src-1.7.zip
+http://www.apache.org/dist/xmlgraphics/batik/source/batik-src-1.19.zip
 
 
 

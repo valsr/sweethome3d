@@ -30,7 +30,7 @@
     <cp>lib/Textures.jar</cp>
     <cp>lib/Examples.jar</cp>
     <cp>lib/Help.jar</cp>
-    <cp>lib/batik-svgpathparser-1.7.jar</cp>
+    <cp>lib/batik-svgpathparser-1.19.jar</cp>
     <cp>lib/jeksparser-calculator.jar</cp>
     <cp>lib/iText-2.1.7.jar</cp>
     <cp>lib/freehep-vectorgraphics-svg-2.1.1c.jar</cp>

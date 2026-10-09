@@ -50,7 +50,7 @@ public class SweetHome3DBootstrap {
         InvocationTargetException, NoSuchMethodException, ClassNotFoundException {
     Class<?> sweetHome3DBootstrapClass = SweetHome3DBootstrap.class;
     List<String> extensionJarsAndDlls = new ArrayList<String>(Arrays.asList(new String [] {
-        "batik-svgpathparser-1.7.jar", // Jars included in Sweet Home 3D executable jar file
+        "batik-svgpathparser-1.19.jar", // Jars included in Sweet Home 3D executable jar file
         "jeksparser-calculator.jar",
         "iText-2.1.7.jar",
         "freehep-vectorgraphics-svg-2.1.1c.jar",

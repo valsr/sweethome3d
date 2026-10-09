@@ -249,13 +249,13 @@
     <mkdir dir="deploy/lib"/>
     <!-- Copy jar files adding to their manifest security attributes
          (these attributes are necessary to be able to call applet methods from JavaScript) -->
-    <jar destfile="deploy/lib/batik-svgpathparser-1.7.jar">
+    <jar destfile="deploy/lib/batik-svgpathparser-1.19.jar">
       <manifest>
         <attribute name="Permissions"               value="all-permissions"/>
         <attribute name="Codebase"                  value="*"/>
         <attribute name="Caller-Allowable-Codebase" value="*"/>
       </manifest>
-      <zipfileset src="lib/batik-svgpathparser-1.7.jar"/>
+      <zipfileset src="lib/batik-svgpathparser-1.19.jar"/>
     </jar>
     <!-- No Print to PDF, Export to SVG, Export to PNG and Create video in viewer -->
   </target>
