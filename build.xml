@@ -979,6 +979,7 @@
       <fileset dir=".">
         <include name="build.xml"/>
         <include name="*.TXT"/>
+        <include name="README.md"/>
         <include name="THIRDPARTY-LICENSE-*.HTML"/>
         <include name="*-diff.zip"/>
         <include name="src/**"/>
