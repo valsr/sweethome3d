@@ -20,6 +20,7 @@
 package com.eteks.sweethome3d.swing;
 
 import java.awt.Color;
+import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
@@ -57,6 +58,7 @@ import java.util.UUID;
 
 import javax.media.j3d.BranchGroup;
 import javax.swing.AbstractAction;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultCellEditor;
 import javax.swing.DefaultComboBoxModel;
@@ -72,6 +74,7 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
@@ -156,6 +159,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
   private NullableCheckBox        visibleCheckBox;
   private JLabel                  lightPowerLabel;
   private JSpinner                lightPowerSpinner;
+  private JTabbedPane             tabbedPane;
   private String                  dialogTitle;
 
   /**
@@ -1214,6 +1218,10 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         HomeFurniturePanel.class, priceDisplayed  ?  "nameAndPricePanel.title"  : "namePanel.title"));
     int standardGap = Math.round(5 * SwingTools.getResolutionScale());
     int rowGap = OperatingSystem.isMacOSXLeopardOrSuperior() ? 0 : standardGap;
+    // Panels displayed in the tabs of this panel
+    JPanel generalPanel = new JPanel(new GridBagLayout());
+    final JPanel colorAndTexturePanel = new JPanel(new GridBagLayout());
+    JPanel lightPanel = new JPanel(new GridBagLayout());
     if (this.nameLabel != null) {
       namePanel.add(this.nameLabel, new GridBagConstraints(
           0, 0, 1, 1, 0, 0, labelAlignment, GridBagConstraints.NONE,
@@ -1252,7 +1260,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       }
     }
     if (namePanel.getComponentCount() > 0) {
-      add(namePanel, new GridBagConstraints(0, 0, orientationPanelDisplayed ? 4 : 3, 1, 0, 0, labelAlignment,
+      generalPanel.add(namePanel, new GridBagConstraints(0, 0, orientationPanelDisplayed ? 4 : 3, 1, 0, 0, labelAlignment,
           GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
     }
     // Location panel
@@ -1307,7 +1315,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       locationPanel.add(new JLabel(), new GridBagConstraints(
           0, 100, 2, 1, 0, 1, GridBagConstraints.LINE_START,
           GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
-      add(locationPanel, new GridBagConstraints(
+      generalPanel.add(locationPanel, new GridBagConstraints(
           0, 1, 1, 1, 1, 1, labelAlignment, GridBagConstraints.BOTH, new Insets(
           0, 0, rowGap, 0), 0, 0));
     }
@@ -1380,8 +1388,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         }
       }
       if (orientationPanel.getComponentCount() > 0) {
-        add(orientationPanel, new GridBagConstraints(
-            1, 1, 1, 2, 1, 0, labelAlignment, GridBagConstraints.BOTH, new Insets(
+        generalPanel.add(orientationPanel, new GridBagConstraints(
+            1, 1, 1, 1, 1, 0, labelAlignment, GridBagConstraints.BOTH, new Insets(
             0, 0, rowGap, 0), 0, 0));
       }
     }
@@ -1426,7 +1434,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       sizePanel.add(new JLabel(), new GridBagConstraints(
           0, 100, 2, 1, 0, 1, GridBagConstraints.LINE_START,
           GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
-      add(sizePanel, new GridBagConstraints(
+      generalPanel.add(sizePanel, new GridBagConstraints(
           orientationPanelDisplayed ? 2 : 1, 1, 2, 1, 1, 1, labelAlignment,
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
     }
@@ -1470,8 +1478,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             1, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
             GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, buttonsBottomInset, 0), 0, buttonPadY));
       }
-      add(paintPanel, new GridBagConstraints(
-          0, 2, 1, 1, 0, 0, labelAlignment,
+      colorAndTexturePanel.add(paintPanel, new GridBagConstraints(
+          0, 0, 1, 1, 1, 0, labelAlignment,
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
 
       controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE,
@@ -1500,8 +1508,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             0, 3, 1, 1, 0, 1, GridBagConstraints.LINE_START,
             GridBagConstraints.NONE, new Insets(standardGap, 0, 0, 0), 0, 0));
       }
-      add(shininessPanel, new GridBagConstraints(
-          orientationPanelDisplayed ? 2 : 1, 2, 2, 1, 0, 0, labelAlignment,
+      colorAndTexturePanel.add(shininessPanel, new GridBagConstraints(
+          1, 0, 1, 1, 1, 0, labelAlignment,
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
 
       controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE,
@@ -1512,25 +1520,59 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           });
       shininessPanel.setVisible(controller.isTexturable());
     }
-    // Last row
+    // Last row of general panel
     if (this.visibleCheckBox != null) {
-      add(this.visibleCheckBox, new GridBagConstraints(
-          0, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+      generalPanel.add(this.visibleCheckBox, new GridBagConstraints(
+          0, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.NONE, new Insets(0, 10, 0, 0), 0, 0));
     }
     if (this.additionalPropertiesButton != null) {
-      add(this.additionalPropertiesButton, new GridBagConstraints(
-          1, this.lightPowerLabel != null && !orientationPanelDisplayed ? 4 : 3,
-          orientationPanelDisplayed ? 1 : 2, 1, 0, 0, GridBagConstraints.CENTER,
+      generalPanel.add(this.additionalPropertiesButton, new GridBagConstraints(
+          1, 2, orientationPanelDisplayed ? 3 : 2, 1, 0, 0, GridBagConstraints.LINE_END,
           GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     }
     if (this.lightPowerLabel != null) {
-      add(this.lightPowerLabel, new GridBagConstraints(
-          orientationPanelDisplayed ? 2 : 1, 3, 1, 1, 0, 0, labelAlignment,
-          GridBagConstraints.NONE, new Insets(0, 10, 0, standardGap), 0, 0));
-      add(this.lightPowerSpinner, new GridBagConstraints(
-          orientationPanelDisplayed ? 3 : 2, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+      // Light panel
+      lightPanel.add(this.lightPowerLabel, new GridBagConstraints(
+          0, 0, 1, 1, 0, 0, labelAlignment,
           GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+      lightPanel.add(this.lightPowerSpinner, new GridBagConstraints(
+          1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
+    }
+
+    // Display the panels which contain some components in tabs
+    this.tabbedPane = new JTabbedPane();
+    addTab(preferences, generalPanel, "generalTab.title");
+    addTab(preferences, colorAndTexturePanel, "colorAndTextureTab.title");
+    addTab(preferences, lightPanel, "lightTab.title");
+    add(this.tabbedPane, new GridBagConstraints(
+        0, 0, 1, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+
+    final int colorAndTextureTabIndex = this.tabbedPane.indexOfComponent(colorAndTexturePanel.getParent());
+    if (colorAndTextureTabIndex != -1) {
+      // Color and texture tab can be used only for texturable furniture
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE,
+          new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              tabbedPane.setEnabledAt(colorAndTextureTabIndex, controller.isTexturable());
+            }
+          });
+      this.tabbedPane.setEnabledAt(colorAndTextureTabIndex, controller.isTexturable());
+    }
+  }
+
+  /**
+   * Adds a tab displaying the given <code>panel</code> at its top if it contains some components.
+   */
+  private void addTab(UserPreferences preferences, JPanel panel, String titleKey) {
+    if (panel.getComponentCount() > 0) {
+      int standardGap = Math.round(5 * SwingTools.getResolutionScale());
+      JPanel tabPanel = new JPanel(new BorderLayout());
+      tabPanel.setBorder(BorderFactory.createEmptyBorder(standardGap, standardGap, standardGap, standardGap));
+      tabPanel.add(panel, BorderLayout.NORTH);
+      this.tabbedPane.addTab(preferences.getLocalizedString(HomeFurniturePanel.class, titleKey), tabPanel);
     }
   }
 
