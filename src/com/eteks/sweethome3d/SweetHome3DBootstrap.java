@@ -76,83 +76,43 @@ public class SweetHome3DBootstrap {
       System.setProperty("jogamp.gluegen.UseTempJarCache", "false");
 
       // Yafaray DLLs for Mac OS X
-      if ("64".equals(System.getProperty("sun.arch.data.model"))) {
-        extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
-            "yafaray/macosx/libyafaray_v3_core.dylib",
-            "yafaray/macosx/libyafarayjni.dylib"}));
-        yafarayPluginsFolder = "yafaray/macosx/yafaray-plugins";
-      }
+      extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
+          "yafaray/macosx/libyafaray_v3_core.dylib",
+          "yafaray/macosx/libyafarayjni.dylib"}));
+      yafarayPluginsFolder = "yafaray/macosx/yafaray-plugins";
     } else { // Other OS
       extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
           "java3d-1.6/j3dcore.jar", // Java 3D 1.6 jars
           "java3d-1.6/vecmath.jar",
-          "java3d-1.6/j3dutils.jar"}));
-      if ("64".equals(System.getProperty("sun.arch.data.model"))) {
-        extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
+          "java3d-1.6/j3dutils.jar",
           "java3d-1.6/gluegen-rt.jar",
-          "java3d-1.6/jogl-java3d.jar"}));
-      } else {
-        extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
-          "java3d-1.6/i586/gluegen-rt.jar",
-          "java3d-1.6/i586/jogl-java3d.jar"}));
-      }
+          "java3d-1.6/jogl-java3d.jar",
+          "java3d-1.6/linux/amd64/libgluegen_rt.so", // Linux 64 bits DLLs for Java 3D 1.6
+          "java3d-1.6/linux/amd64/libjogl_desktop.so",
+          "java3d-1.6/linux/amd64/libnativewindow_awt.so",
+          "java3d-1.6/linux/amd64/libnativewindow_x11.so",
+          "java3d-1.6/windows/amd64/gluegen_rt.dll", // Windows 64 bits DLLs for Java 3D 1.6
+          "java3d-1.6/windows/amd64/jogl_desktop.dll",
+          "java3d-1.6/windows/amd64/nativewindow_awt.dll",
+          "java3d-1.6/windows/amd64/nativewindow_win32.dll"}));
       // Disable JOGL library loader
       System.setProperty("jogamp.gluegen.UseTempJarCache", "false");
-      if ("64".equals(System.getProperty("sun.arch.data.model"))) {
-        extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
-            "java3d-1.6/linux/amd64/libgluegen_rt.so", // Linux 64 bits DLLs for Java 3D 1.6
-            "java3d-1.6/linux/amd64/libjogl_desktop.so",
-            "java3d-1.6/linux/amd64/libnativewindow_awt.so",
-            "java3d-1.6/linux/amd64/libnativewindow_x11.so",
-            "java3d-1.6/windows/amd64/gluegen_rt.dll", // Windows 64 bits DLLs for Java 3D 1.6
-            "java3d-1.6/windows/amd64/jogl_desktop.dll",
-            "java3d-1.6/windows/amd64/nativewindow_awt.dll",
-            "java3d-1.6/windows/amd64/nativewindow_win32.dll"}));
-      } else {
-        extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
-            "java3d-1.6/linux/i586/libgluegen_rt.so", // Linux 32 bits DLLs for Java 3D 1.6
-            "java3d-1.6/linux/i586/libjogl_desktop.so",
-            "java3d-1.6/linux/i586/libnativewindow_awt.so",
-            "java3d-1.6/linux/i586/libnativewindow_x11.so",
-            "java3d-1.6/windows/i586/gluegen_rt.dll", // Windows 32 bits DLLs for Java 3D 1.6
-            "java3d-1.6/windows/i586/jogl_desktop.dll",
-            "java3d-1.6/windows/i586/nativewindow_awt.dll",
-            "java3d-1.6/windows/i586/nativewindow_win32.dll"}));
-      }
 
       if (operatingSystemName.startsWith("Windows")) {
-        // Yafaray DLLs for Windows
-        if ("64".equals(System.getProperty("sun.arch.data.model"))) {
-          // YafaRay Windows DLLs are managed differently to be loaded by System#load method
-          yafarayWindowsDlls.addAll(Arrays.asList(new String [] {
-              "yafaray/windows/x64/libgcc_s_seh-1.dll",
-              "yafaray/windows/x64/libstdc++-6.dll",
-              "yafaray/windows/x64/libwinpthread-1.dll",
-              "yafaray/windows/x64/libyafaray_v3_core.dll",
-              "yafaray/windows/x64/libyafarayjni.dll"}));
-          yafarayPluginsFolder = "yafaray/windows/x64/yafaray-plugins";
-        } else {
-          yafarayWindowsDlls.addAll(Arrays.asList(new String [] {
-              "yafaray/windows/i386/libgcc_s_dw2-1.dll",
-              "yafaray/windows/i386/libstdc++-6.dll",
-              "yafaray/windows/i386/libwinpthread-1.dll",
-              "yafaray/windows/i386/libyafaray_v3_core.dll",
-              "yafaray/windows/i386/libyafarayjni.dll"}));
-          yafarayPluginsFolder = "yafaray/windows/i386/yafaray-plugins";
-        }
+        // YafaRay Windows DLLs are managed differently to be loaded by System#load method
+        yafarayWindowsDlls.addAll(Arrays.asList(new String [] {
+            "yafaray/windows/x64/libgcc_s_seh-1.dll",
+            "yafaray/windows/x64/libstdc++-6.dll",
+            "yafaray/windows/x64/libwinpthread-1.dll",
+            "yafaray/windows/x64/libyafaray_v3_core.dll",
+            "yafaray/windows/x64/libyafarayjni.dll"}));
+        yafarayPluginsFolder = "yafaray/windows/x64/yafaray-plugins";
       } else if (operatingSystemName.startsWith("Linux")) {
         // Yafaray DLLs for Linux
-        if ("64".equals(System.getProperty("sun.arch.data.model"))) {
-          extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
-              "yafaray/linux/x64/libyafaray_v3_core.so",
-              "yafaray/linux/x64/libyafarayjni.so"}));
-          yafarayPluginsFolder = "yafaray/linux/x64/yafaray-plugins";
-        } else {
-          extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
-              "yafaray/linux/i386/libyafaray_v3_core.so",
-              "yafaray/linux/i386/libyafarayjni.so"}));
-          yafarayPluginsFolder = "yafaray/linux/i386/yafaray-plugins";
-        }
+        extensionJarsAndDlls.addAll(Arrays.asList(new String [] {
+            "yafaray/linux/x64/libyafaray_v3_core.so",
+            "yafaray/linux/x64/libyafarayjni.so"}));
+        yafarayPluginsFolder = "yafaray/linux/x64/yafaray-plugins";
       }
     }
 

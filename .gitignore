@@ -6,3 +6,11 @@
 /install/source/
 /install/windows/build/
 /install/SweetHome3D-*.jar
+/jre/
+/install/SweetHome3D-*.tgz
+/install/SweetHome3D-*.exe
+/install/SweetHome3D-*.dmg
+/install/SweetHome3D-*.zip
+/install/linux/x64/
+/install/macosx/SweetHome3D-*/
+/install/portable/SweetHome3D-*-portable/

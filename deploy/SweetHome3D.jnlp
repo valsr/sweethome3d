@@ -87,10 +87,6 @@
     <jar href="lib/SweetHome3D.jar"/>
   </resources>
  
-  <resources os="Windows" arch="x86">
-    <jar href="lib/openpdf-3.0.5.jar"/>
-    <jar href="lib/windows/i386/java3d.jar"/>
-  </resources>
   <resources os="Windows" arch="x86_64 amd64">
     <jar href="lib/openpdf-3.0.5.jar"/>
     <jar href="lib/windows/x64/java3d.jar"/>
@@ -103,10 +99,6 @@
     <property name="j3d.rend" value="jogl"/>
   </resources>
 
-  <resources os="Linux" arch="i386">
-    <jar href="lib/openpdf-3.0.5.jar"/>
-    <jar href="lib/linux/i386/java3d.jar"/>
-  </resources>
   <resources os="Linux" arch="x86_64 amd64">
     <jar href="lib/openpdf-3.0.5.jar"/>
     <jar href="lib/linux/x64/java3d.jar"/>

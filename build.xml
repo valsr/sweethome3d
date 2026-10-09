@@ -17,7 +17,6 @@
      - windowsSignedInstaller     : Builds signed SweetHome3D-version-windows.exe file in install directory
      - macosxInstaller            : Builds SweetHome3D-version-macosx.dmg file in install directory
      - macosxSignedInstaller      : Builds signed SweetHome3D-version-macosx.dmg file in install directory
-     - linux32Installer           : Builds SweetHome3D-version-linux-x86.tgz file in install directory
      - linux64Installer           : Builds SweetHome3D-version-linux-x64.tgz file in install directory
      - portableArchive            : Builds SweetHome3D-version-portable files in install/portable directory
      - sourceArchive              : Builds SweetHome3D-version-src.zip file in install directory
@@ -30,23 +29,61 @@
   <property name="version" value="7.5"/>
   <!-- Java release used to compile classes -->
   <property name="javaRelease" value="25"/>
-  <!-- JRE or OpenJDK home for Windows, Mac OS X and Linux -->
-  <property name="javaHome_windows_x86" value="C:\Program Files (x86)\Java\jre1.8.0_202"/>
-  <property name="javaHome_windows_x64" value="C:\Program Files\OpenJDK\zulu11.62.17-ca-jdk11.0.18-win_x64"/>
-  <property name="javaHome_macosx_x86_64" value="/Library/Java/JavaVirtualMachines/zulu-15.0.10-macosx_x86_64.jdk/Contents/Home"/>
-  <property name="javaHome_macosx_arm64" value="/Library/Java/JavaVirtualMachines/zulu-15.0.10-macosx_aarch64.jdk/Contents/Home"/>
-  <property name="javaHome_linux_x86" value="jre1.8.0_202"/>
-  <property name="javaHome_linux_x64" value="jre1.8.0_202"/>
+  <!-- Version of the Java runtime bundled with installers and directory where
+       Eclipse Temurin JREs are downloaded and extracted for Windows, Mac OS X and Linux -->
+  <property name="bundledJavaVersion" value="25"/>
+  <property name="jreDir" location="jre"/>
+  <property name="javaHome_windows_x64" location="${jreDir}/windows-x64"/>
+  <property name="javaHome_macosx_x86_64" location="${jreDir}/mac-x64/Contents/Home"/>
+  <property name="javaHome_macosx_arm64" location="${jreDir}/mac-aarch64/Contents/Home"/>
+  <property name="javaHome_linux_x64" location="${jreDir}/linux-x64"/>
   <!-- jarsigner path -->
-  <condition property="jarsigner" value="${javaHome_windows_x64}\bin\jarsigner.exe">
-    <os family="windows"/>
-  </condition>
-  <condition property="jarsigner" value="${javaHome_macosx_x86_64}/bin/jarsigner">
-    <os family="mac"/>
-  </condition>
-  <condition property="jarsigner" value="jdk1.8.0_202/bin/jarsigner">
-    <os family="unix"/>
-  </condition>
+  <property name="jarsigner" location="${java.home}/bin/jarsigner"/>
+
+  <!-- Downloads the last Eclipse Temurin JRE of bundledJavaVersion for the given os and arch
+       then extracts it in jreDir/os-arch directory -->
+  <macrodef name="temurin-jre">
+    <attribute name="os"/>
+    <attribute name="arch"/>
+    <attribute name="extension"/>
+    <sequential>
+      <mkdir dir="${jreDir}"/>
+      <get src="https://api.adoptium.net/v3/binary/latest/${bundledJavaVersion}/ga/@{os}/@{arch}/jre/hotspot/normal/eclipse"
+           dest="${jreDir}/temurin-jre-${bundledJavaVersion}-@{os}-@{arch}.@{extension}" skipexisting="true"/>
+      <delete dir="${jreDir}/@{os}-@{arch}"/>
+      <mkdir dir="${jreDir}/@{os}-@{arch}"/>
+      <!-- Extract archive with tar command to keep permissions and symbolic links -->
+      <exec executable="tar" failonerror="yes">
+        <arg value="-xf"/>
+        <arg value="${jreDir}/temurin-jre-${bundledJavaVersion}-@{os}-@{arch}.@{extension}"/>
+        <arg value="-C"/>
+        <arg value="${jreDir}/@{os}-@{arch}"/>
+        <arg value="--strip-components=1"/>
+      </exec>
+    </sequential>
+  </macrodef>
+
+  <target name="jreWindows64"
+          description="Downloads Windows 64 bit JRE in jre/windows-x64">
+    <mkdir dir="${jreDir}"/>
+    <get src="https://api.adoptium.net/v3/binary/latest/${bundledJavaVersion}/ga/windows/x64/jre/hotspot/normal/eclipse"
+         dest="${jreDir}/temurin-jre-${bundledJavaVersion}-windows-x64.zip" skipexisting="true"/>
+    <delete dir="${jreDir}/windows-x64"/>
+    <unzip src="${jreDir}/temurin-jre-${bundledJavaVersion}-windows-x64.zip" dest="${jreDir}/windows-x64">
+      <cutdirsmapper dirs="1"/>
+    </unzip>
+  </target>
+
+  <target name="jreMacosx"
+          description="Downloads Mac OS X x86_64 and arm64 JREs in jre/mac-x64 and jre/mac-aarch64">
+    <temurin-jre os="mac" arch="x64" extension="tar.gz"/>
+    <temurin-jre os="mac" arch="aarch64" extension="tar.gz"/>
+  </target>
+
+  <target name="jreLinux64"
+          description="Downloads Linux 64 bit JRE in jre/linux-x64">
+    <temurin-jre os="linux" arch="x64" extension="tar.gz"/>
+  </target>
 
   <target name="build"
           description="Builds build/SweetHome3D.jar with all its classes">
@@ -145,13 +182,6 @@
     </zip>
   </target>
 
-  <target name="jogl-java3d-x86"
-          description="Builds jogl-java3d.jar that contains only packages required for Java 3D under x86">
-    <antcall target="jogl-java3d">
-      <param name="jogl-folder" value="i586"/>
-    </antcall>
-  </target>
-
   <target name="manifest"
           description="Builds build/META-INF/MANIFEST.MF with security attributes">
     <mkdir dir="build/META-INF"/>
@@ -162,25 +192,8 @@
     </manifest>
   </target>
 
-  <target name="java3dLibraries" depends="jogl-java3d,jogl-java3d-x86,manifest"
+  <target name="java3dLibraries" depends="jogl-java3d,manifest"
           description="Builds JNLP Java 3D libraries in deploy/lib subdirectories">
-    <!-- Create java3d.jar containing Windows 32 bit Java 3D DLLs and jars -->
-    <mkdir dir="deploy/lib/windows/i386"/>
-    <jar destfile="deploy/lib/windows/i386/java3d.jar" manifest="build/META-INF/MANIFEST.MF">
-      <fileset dir="lib">
-        <include name="java3d-1.6/*.jar"/>
-        <include name="java3d-1.6/i586/gluegen-rt.jar"/>
-        <exclude name="java3d-1.6/gluegen-rt.jar"/>
-        <exclude name="java3d-1.6/jogl-all.jar"/>
-      </fileset>
-      <fileset dir="build">
-        <include name="java3d-1.6/i586/jogl-java3d.jar"/>
-      </fileset>
-      <fileset dir="lib">
-        <include name="java3d-1.6/windows/i586/*.dll"/>
-      </fileset>
-    </jar>
-
     <!-- Create java3d.jar containing Windows 64 bit Java 3D DLLs and jars -->
     <mkdir dir="deploy/lib/windows/x64"/>
     <jar destfile="deploy/lib/windows/x64/java3d.jar" manifest="build/META-INF/MANIFEST.MF">
@@ -193,23 +206,6 @@
       </fileset>
       <fileset dir="lib">
         <include name="java3d-1.6/windows/amd64/*.dll"/>
-      </fileset>
-    </jar>
-
-    <!-- Create java3d.jar containing Linux 32 bit Java 3D DLLs and jars -->
-    <mkdir dir="deploy/lib/linux/i386"/>
-    <jar destfile="deploy/lib/linux/i386/java3d.jar" manifest="build/META-INF/MANIFEST.MF">
-      <fileset dir="lib">
-        <include name="java3d-1.6/*.jar"/>
-        <include name="java3d-1.6/i586/gluegen-rt.jar"/>
-        <exclude name="java3d-1.6/gluegen-rt.jar"/>
-        <exclude name="java3d-1.6/jogl-all.jar"/>
-      </fileset>
-      <fileset dir="build">
-        <include name="java3d-1.6/i586/jogl-java3d.jar"/>
-      </fileset>
-      <fileset dir="lib">
-        <include name="java3d-1.6/linux/i586/*.so"/>
       </fileset>
     </jar>
 
@@ -363,7 +359,7 @@
     <echo message="deploy dir ready for ftp"/>
   </target>
 
-  <target name="jarExecutable" depends="application,furniture,textures,examples,help,jogl-java3d,jogl-java3d-x86"
+  <target name="jarExecutable" depends="application,furniture,textures,examples,help,jogl-java3d"
           description="Builds install/SweetHome3D-version.jar executable Jar">
     <!-- Create SweetHome3D-version.jar containing Sweet Home 3D classes and resources,
          and other DLLs and jars -->
@@ -380,12 +376,10 @@
       <fileset dir="lib">
         <include name="*.jar"/>
         <include name="java3d-1.6/*.jar"/>
-        <include name="java3d-1.6/i586/gluegen-rt.jar"/>
         <exclude name="java3d-1.6/jogl-all.jar"/>
       </fileset>
       <fileset dir="build">
         <include name="java3d-1.6/jogl-java3d.jar"/>
-        <include name="java3d-1.6/i586/jogl-java3d.jar"/>
       </fileset>
       <fileset dir="lib">
         <include name="java3d-1.6/windows/**/*.dll"/>
@@ -421,14 +415,11 @@
 
   <!-- Builds Sweet Home 3D Windows launcher in install/windows/build directory.
        CAUTION : May be run only under Windows 64 bit and requires 
-                 Windows 32 bit JRE 1.8.0_202 installed in ${javaHome_windows_x86},
-                 Windows 64 bit OpenJDK installed in ${javaHome_windows_x64}, 
-                 and launch4j installed in their default location -->
-  <target name="windowsLauncher" depends="application,furniture,textures,examples,help,jogl-java3d,jogl-java3d-x86"
+                 launch4j installed in its default location -->
+  <target name="windowsLauncher" depends="application,furniture,textures,examples,help,jogl-java3d,jreWindows64"
           description="Builds Sweet Home 3D Windows launcher">
     <!-- Copy SweetHome3D JARs and Windows Java 3D DLLs and JARs for Java 3D
          to install/windows/build/lib -->
-    <mkdir dir="install/windows/build/lib/java3d-1.6/x86"/>
     <move file="build/SweetHome3D.jar" todir="install/windows/build/lib" />
     <move file="build/Furniture.jar"   todir="install/windows/build/lib" />
     <move file="build/Textures.jar"    todir="install/windows/build/lib" />
@@ -438,26 +429,13 @@
       <fileset dir="lib">
         <include name="*.jar"/>
         <include name="java3d-1.6/*.jar"/>
-        <include name="java3d-1.6/i586/gluegen-rt.jar"/>
         <exclude name="java3d-1.6/jogl-all.jar"/>
       </fileset>
       <fileset dir="build">
         <include name="java3d-1.6/jogl-java3d.jar"/>
-        <include name="java3d-1.6/i586/jogl-java3d.jar"/>
       </fileset>
     </copy>
     <copy file="libtest/jnlp.jar" todir="install/windows/build/lib"/>
-    <mkdir dir="install/windows/build/lib/yafaray/i386"/>
-    <copy todir="install/windows/build/lib/yafaray/i386" >
-      <fileset dir="lib/yafaray/windows/i386">
-        <include name="**/*.dll"/>
-      </fileset>
-    </copy>
-    <copy todir="install/windows/build/lib/java3d-1.6/x86" >
-      <fileset dir="lib/java3d-1.6/windows/i586">
-        <include name="*.dll"/>
-      </fileset>
-    </copy>
     <mkdir dir="install/windows/build/lib/java3d-1.6/x64"/>
     <copy todir="install/windows/build/lib/java3d-1.6/x64" >
       <fileset dir="lib/java3d-1.6/windows/amd64">
@@ -487,112 +465,20 @@
     <copy file="THIRDPARTY-LICENSE-LAUNCH4J.TXT"  todir="install/windows/build" />
     <copy file="THIRDPARTY-LICENSE-INNOSETUP.TXT" todir="install/windows/build" />
 
-    <!-- Copy 32 bit JRE to install/windows/build/runtime/x86... excluding files mentioned
-         in JRE README.TXT file (JRE bin/javaw.exe command excepted) -->
-    <copy todir="install/windows/build/runtime/x86">
-      <fileset dir="${javaHome_windows_x86}">
-        <include name="*"/>
-        <include name="bin/**"/>
-        <include name="lib/**"/>
-
-        <exclude name="lib/ext/sunec.jar"/>
-        <exclude name="lib/ext/sunpkcs11.jar"/>
-        <exclude name="bin/rmid.exe"/>
-        <exclude name="bin/rmiregistry.exe"/>
-        <exclude name="bin/tnameserv.exe"/>
-        <exclude name="bin/keytool.exe"/>
-        <exclude name="bin/kinit.exe"/>
-        <exclude name="bin/klist.exe"/>
-        <exclude name="bin/ktab.exe"/>
-        <exclude name="bin/policytool.exe"/>
-        <exclude name="bin/orbd.exe"/>
-        <exclude name="bin/servertool.exe"/>
-        <exclude name="lib/jfr/**"/>
-        <exclude name="lib/jfr.jar"/>
-
-        <exclude name="bin/java.exe"/>
-        <exclude name="bin/javaws.exe"/>
-        <exclude name="bin/javacpl.exe"/>
-        <exclude name="bin/jucheck.exe"/>
-        <exclude name="bin/dtplugin/**"/>
-        <exclude name="bin/jabswitch.exe"/>
-        <exclude name="bin/java_crw_demo.dll"/>
-        <exclude name="bin/wsdetect.dll"/>
-        <exclude name="bin/plugin2/**"/>
-        <exclude name="bin/deploy.dll"/>
-        <exclude name="bin/jfr.dll"/>
-        <exclude name="bin/javacpl.dll"/>
-        <exclude name="lib/deploy.jar"/>
-        <exclude name="lib/plugin.jar"/>
-        <exclude name="lib/deploy/**"/>
-        <exclude name="lib/cmm/PYCC.pf"/>
-        <!-- No need of JavaFX support -->
-        <exclude name="THIRDPARTYLICENSEREADME-JAVAFX.txt"/>
-        <exclude name="lib/javafx.properties"/>
-        <exclude name="lib/jfxswt.jar"/>
-        <exclude name="bin/decora_sse.dll"/>
-        <exclude name="bin/fxplugins.dll"/>
-        <exclude name="bin/glass.dll"/>
-        <exclude name="bin/glib-lite.dll"/>
-        <exclude name="bin/gstreamer-lite.dll"/>
-        <exclude name="bin/javafx_font.dll"/>
-        <exclude name="bin/javafx_font_t2k.dll"/>
-        <exclude name="bin/javafx_iio.dll"/>
-        <exclude name="bin/jfxmedia.dll"/>
-        <exclude name="bin/jfxwebkit.dll"/>
-        <exclude name="bin/prism_common.dll"/>
-        <exclude name="bin/prism_d3d.dll"/>
-        <exclude name="bin/prism_es2.dll"/>
-        <exclude name="bin/prism_sw.dll"/>
-        <exclude name="lib/ext/jfxrt.jar"/>
-        <exclude name="lib/ext/nashorn.jar"/>
-      </fileset>
-    </copy>
-
-     <!-- Copy 64 bit OpenJDK to install/windows/build/runtime/x64... -->
+    <!-- Copy 64 bit JRE to install/windows/build/runtime/x64 -->
     <copy todir="install/windows/build/runtime/x64">
-      <fileset dir="${javaHome_windows_x64}">
-        <include name="release"/>
-        <include name="readme.txt"/>
-        <include name="DISCLAIMER"/>
-        <include name="bin/*.dll"/>
-        <include name="bin/server/*.dll"/>
-        <include name="bin/javaw.exe"/>
-        <include name="conf/**"/>
-        <include name="lib/**"/>
-        <include name="legal/**"/>
-        <exclude name="bin/jabsysinfo.dll"/>
-        <exclude name="bin/saproc.dll"/>
-        <exclude name="lib/src.zip"/>
-      </fileset>
+      <fileset dir="${javaHome_windows_x64}"/>
     </copy>
-    <!-- Remove legal files not exported by jpackage -->
-    <delete dir="install/windows/build/runtime/x64/legal/jdk.jcmd"/>
-    <delete dir="install/windows/build/runtime/x64/legal/jdk.hotspot.agent"/>
-    <delete dir="install/windows/build/runtime/x64/legal/java.se"/>
 
-    <!-- Create SweetHome3D-x86.exe and SweetHome3D-x64.exe with launch4j -->
-    <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
-      <arg value="${basedir}\install\windows\installerLaunch4j-x86.xml"/>
-    </exec>
+    <!-- Create SweetHome3D-x64.exe with launch4j -->
     <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
       <arg value="${basedir}\install\windows\installerLaunch4j-x64.xml"/>
     </exec>
-
-    <!-- Pack 32 bit JRE rt.jar -->
-    <exec executable="${javaHome_windows_x86}\bin\pack200.exe" failonerror="yes">
-      <arg value="-J-Xmx512m"/>
-      <arg value="${basedir}\install\windows\build\runtime\x86\lib\rt.pack.gz"/>
-      <arg value="${basedir}\install\windows\build\runtime\x86\lib\rt.jar"/>
-    </exec>
-    <delete file="${basedir}\install\windows\build\runtime\x86\lib\rt.jar"/>
   </target>
 
   <!-- Builds install/SweetHome3D-version-windows.exe installer able to install SweetHome3D.exe
        with a Windows JRE and Sweet Home 3D libraries.
        CAUTION : May be run only under Windows 64 bit and requires 
-                 Windows 32 bit JRE 1.8.0_202 installed in ${javaHome_windows_x86},
-                 Windows 64 bit OpenJDK installed in ${javaHome_windows_x64}, 
                  launch4j, Inno Setup 5 Unicode and SignTool included in Windows platform SDK
                  installed in their default location -->
   <target name="windowsInstaller" depends="windowsLauncher"
@@ -618,8 +504,6 @@
   <!-- Builds install/SweetHome3D-version-windows.exe signed installer able to install SweetHome3D.exe
        with a Windows JRE and Sweet Home 3D libraries.
        CAUTION : May be run only under Windows 64 bit and requires 
-                 Windows 32 bit JRE 1.8.0_202 installed in ${javaHome_windows_x86},
-                 Windows 64 bit OpenJDK installed in ${javaHome_windows_x64}, 
                  launch4j, Inno Setup 5 Unicode and SignTool included in Windows platform SDK
                  installed in their default location -->
   <target name="windowsSignedInstaller" depends="windowsLauncher"
@@ -638,7 +522,6 @@
       <arg value="/fd"/>
       <arg value="sha256"/>
       <arg value="/as"/>
-      <arg value="${basedir}\install\windows\build\SweetHome3D-x86.exe"/>
       <arg value="${basedir}\install\windows\build\SweetHome3D-x64.exe"/>
     </exec>
     <!-- Create signed SweetHome3D-version-windows.exe with Inno Setup 5 Unicode -->
@@ -661,10 +544,8 @@
   </target>
 
   <!-- Builds Sweet Home 3D Mac OS X application bundle in install/macosx/SweetHome3D-version directory.
-       CAUTION : May be run only under Mac OS X and requires lipo,
-       OpenJDK for x86_64 installed in ${javaHome_macosx_x86_64} and
-       OpenJDK for arm64  installed in ${javaHome_macosx_arm64} -->
-  <target name="macosxBundle" depends="application,furniture,textures,examples,help,jogl-java3d"
+       CAUTION : May be run only under Mac OS X and requires lipo -->
+  <target name="macosxBundle" depends="application,furniture,textures,examples,help,jogl-java3d,jreMacosx"
           description="Builds Sweet Home 3D Mac OS X application bundle">
     <!-- Copy Sweet Home 3D files to install/macosx/SweetHome3D-version/Sweet Home 3D.app -->
     <mkdir dir="install/macosx/SweetHome3D-${version}"/>
@@ -716,8 +597,8 @@
           todir="install/macosx/SweetHome3D-${version}/Sweet Home 3D.app/Contents/runtime/Contents/MacOS"/>
     <copy todir="install/macosx/SweetHome3D-${version}/Sweet Home 3D.app/Contents/runtime/Contents/Home">
       <fileset dir="${javaHome_macosx_arm64}">
-        <include name="readme.txt"/>
-        <include name="DISCLAIMER"/>
+        <include name="release"/>
+        <include name="NOTICE"/>
         <include name="conf/**"/>
         <include name="lib/**"/>
         <exclude name="lib/libsaproc.dylib"/>
@@ -779,9 +660,7 @@
 
   <!-- Builds install/SweetHome3D-version-macosx.dmg archive that contains SweetHome3D.app
        and Sweet Home 3D libraries.
-       CAUTION : May be run only under Mac OS X and requires Disk Utility,
-                 OpenJDK for x86_64 installed in ${javaHome_macosx_x86_64} and
-                 OpenJDK for arm64  installed in ${javaHome_macosx_arm64} -->
+       CAUTION : May be run only under Mac OS X and requires lipo and Disk Utility -->
   <target name="macosxInstaller" depends="macosxBundle"
           description="Builds install/SweetHome3D-version-macosx.dmg archive">
     <!-- Create install/SweetHome3D-version-macosx.dmg with Disk Utility -->
@@ -807,8 +686,6 @@
   <!-- Builds install/SweetHome3D-version-macosx.dmg signed archive that contains SweetHome3D.app
        and Sweet Home 3D libraries.
        CAUTION : May be run only under Mac OS X and requires
-                 OpenJDK for x86_64 installed in ${javaHome_macosx_x86_64},
-                 OpenJDK for arm64  installed in ${javaHome_macosx_arm64},
                  lipo, hdiutil, codesign and a certificate imported in Keychain Access -->
   <target name="macosxSignedInstaller" depends="macosxBundle"
           description="Builds install/SweetHome3D-version-macosx.dmg archive">
@@ -885,125 +762,10 @@
     <echo message="signed install/SweetHome3D-${version}-macosx.dmg ready for ftp"/>
   </target>
 
-  <!-- Builds install/SweetHome3D-version-linux-x86.tgz archive that contains SweetHome3D command
-       with a Linux JRE and Sweet Home 3D libraries.
-       CAUTION : Requires a Linux 32 bit JRE installed in jre1.8.0_202 -->
-  <target name="linux32Installer" depends="application,furniture,textures,examples,help,jogl-java3d-x86"
-          description="Builds install/SweetHome3D-version-linux-x86.tgz archive">
-    <!-- Copy SweetHome3D.jar and Linux Java 3D DLLs and JARs for Java 3D
-         to install/linux/x86/SweetHome3D-version/lib -->
-    <mkdir dir="install/linux/x86/SweetHome3D-${version}/lib"/>
-    <!-- Copy SweetHome3D commands -->
-    <copy todir="install/linux/x86/SweetHome3D-${version}" file="install/linux/SweetHome3D"/>
-
-    <!-- Copy SweetHome3D JARs and its direct libs
-         to install/linux/x86/SweetHome3D-version/lib -->
-    <move file="build/SweetHome3D.jar" todir="install/linux/x86/SweetHome3D-${version}/lib" />
-    <move file="build/Furniture.jar"   todir="install/linux/x86/SweetHome3D-${version}/lib" />
-    <move file="build/Textures.jar"    todir="install/linux/x86/SweetHome3D-${version}/lib" />
-    <move file="build/Examples.jar"    todir="install/linux/x86/SweetHome3D-${version}/lib" />
-    <move file="build/Help.jar"        todir="install/linux/x86/SweetHome3D-${version}/lib" />
-    <copy todir="install/linux/x86/SweetHome3D-${version}/lib" >
-      <fileset dir="lib">
-        <include name="*.jar"/>
-        <include name="java3d-1.6/*.jar"/>
-        <exclude name="java3d-1.6/gluegen-rt.jar"/>
-        <exclude name="java3d-1.6/jogl-all.jar"/>
-      </fileset>
-    </copy>
-    <copy file="lib/java3d-1.6/i586/gluegen-rt.jar" todir="install/linux/x86/SweetHome3D-${version}/lib/java3d-1.6" />
-    <copy file="build/java3d-1.6/i586/jogl-java3d.jar" todir="install/linux/x86/SweetHome3D-${version}/lib/java3d-1.6" />
-    <copy file="libtest/jnlp.jar" todir="install/linux/x86/SweetHome3D-${version}/lib"/>
-    <copy todir="install/linux/x86/SweetHome3D-${version}/lib/java3d-1.6" >
-      <fileset dir="lib/java3d-1.6/linux/i586">
-        <include name="*.so"/>
-      </fileset>
-    </copy>
-    <copy todir="install/linux/x86/SweetHome3D-${version}/lib/yafaray" >
-      <fileset dir="lib/yafaray/linux/i386">
-        <include name="**/*.so"/>
-      </fileset>
-    </copy>
-    <copy file="COPYING.TXT" todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="LICENSE.TXT" todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JAVA.TXT"      todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JAVA3D.TXT"    todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JOGL.TXT"      todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-BATIK.TXT"     todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JEKSPARSER.TXT"     todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-OPENPDF.TXT"          todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-VECTORGRAPHICS.TXT" todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-SUNFLOW.TXT"   todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-YAFARAY.TXT"   todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JMF.HTML"      todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="src/com/eteks/sweethome3d/swing/resources/aboutIcon.png"
-        tofile="install/linux/x86/SweetHome3D-${version}/SweetHome3DIcon.png"/>
-
-    <!-- Copy JRE to install/linux/x86/SweetHome3D-version/runtime... excluding files mentioned
-         in JRE README.TXT file (JRE bin/java command excepted) -->
-    <copy todir="install/linux/x86/SweetHome3D-${version}/runtime">
-      <fileset dir="${javaHome_linux_x86}">
-        <include name="**"/>
-        <exclude name="lib/ext/sunec.jar"/>
-        <exclude name="lib/ext/sunpkcs11.jar"/>
-        <exclude name="bin/rmid"/>
-        <exclude name="bin/rmiregistry"/>
-        <exclude name="bin/tnameserv"/>
-        <exclude name="bin/keytool"/>
-        <exclude name="bin/policytool"/>
-        <exclude name="bin/orbd"/>
-        <exclude name="bin/servertool"/>
-        <exclude name="lib/cmm/PYCC.pf"/>
-        <exclude name="lib/jfr"/>
-        <exclude name="lib/jfr.jar"/>
-        <!-- No need of JavaFX support -->
-        <exclude name="THIRDPARTYLICENSEREADME-JAVAFX.txt"/>
-        <exclude name="lib/javafx.properties"/>
-        <exclude name="lib/i386/libdecora_sse.so"/>
-        <exclude name="lib/i386/libfxplugins.so"/>
-        <exclude name="lib/i386/libglass.so"/>
-        <exclude name="lib/i386/libgstreamer-lite.so"/>
-        <exclude name="lib/i386/libjavafx_font_freetype.so"/>
-        <exclude name="lib/i386/libjavafx_font_pango.so"/>
-        <exclude name="lib/i386/libjavafx_font_t2k.so"/>
-        <exclude name="lib/i386/libjavafx_font.so"/>
-        <exclude name="lib/i386/libjavafx_iio.so"/>
-        <exclude name="lib/i386/libjfxmedia.so"/>
-        <exclude name="lib/i386/libjfxwebkit.so"/>
-        <exclude name="lib/i386/libprism_common.so"/>
-        <exclude name="lib/i386/libprism_es2.so"/>
-        <exclude name="lib/i386/libprism_sw.so"/>
-        <exclude name="lib/ext/jfxrt.jar"/>
-        <exclude name="lib/ext/nashorn.jar"/>
-      </fileset>
-    </copy>
-
-    <!-- Create SweetHome3D-version-linux-x86.tgz archive -->
-    <tar destfile="install/SweetHome3D-${version}-linux-x86.tgz"
-         compression="gzip">
-      <tarfileset dir="install/linux/x86"
-                  includes="SweetHome3D-${version}/**">
-        <exclude name="SweetHome3D-${version}/SweetHome3D"/>
-        <exclude name="SweetHome3D-${version}/runtime/bin/java"/>
-      </tarfileset>
-      <!-- Change executable permission of SweetHome3D and java commands -->
-      <tarfileset dir="install/linux/x86" mode="755">
-        <include name="SweetHome3D-${version}/SweetHome3D"/>
-        <include name="SweetHome3D-${version}/runtime/bin/java"/>
-      </tarfileset>
-    </tar>
-
-    <!-- Clean build directories -->
-    <delete dir="build"/>
-    <delete dir="install/linux/x86"/>
-
-    <echo message="install/SweetHome3D-${version}-linux-x86.tgz ready for ftp"/>
-  </target>
-
   <!-- Builds install/SweetHome3D-version-linux-x64.tgz archive that contains SweetHome3D command
        with a Linux JRE and Sweet Home 3D libraries.
-       CAUTION : Requires a Linux 64 bit JRE installed in jre1.8.0_202 -->
-  <target name="linux64Installer" depends="application,furniture,textures,examples,help,jogl-java3d"
+       CAUTION : Requires tar command to extract the downloaded Linux 64 bit JRE -->
+  <target name="linux64Installer" depends="application,furniture,textures,examples,help,jogl-java3d,jreLinux64"
           description="Builds install/SweetHome3D-version-linux-x64.tgz archive">
     <!-- Copy SweetHome3D.jar and Linux Java 3D DLLs and JARs for Java 3D
          to install/linux/x64/SweetHome3D-version/lib -->
@@ -1056,43 +818,9 @@
     <copy file="src/com/eteks/sweethome3d/swing/resources/aboutIcon.png"
         tofile="install/linux/x64/SweetHome3D-${version}/SweetHome3DIcon.png"/>
 
-    <!-- Copy JRE to install/linux/x64/SweetHome3D-version/runtime... excluding files mentioned
-         in JRE README.TXT file (JRE bin/java command excepted) -->
+    <!-- Copy JRE to install/linux/x64/SweetHome3D-version/runtime -->
     <copy todir="install/linux/x64/SweetHome3D-${version}/runtime">
-      <fileset dir="${javaHome_linux_x64}">
-        <include name="**"/>
-        <exclude name="lib/ext/sunec.jar"/>
-        <exclude name="lib/ext/sunpkcs11.jar"/>
-        <exclude name="bin/rmid"/>
-        <exclude name="bin/rmiregistry"/>
-        <exclude name="bin/tnameserv"/>
-        <exclude name="bin/keytool"/>
-        <exclude name="bin/policytool"/>
-        <exclude name="bin/orbd"/>
-        <exclude name="bin/servertool"/>
-        <exclude name="lib/cmm/PYCC.pf"/>
-        <exclude name="lib/jfr"/>
-        <exclude name="lib/jfr.jar"/>
-        <!-- No need of JavaFX support -->
-        <exclude name="THIRDPARTYLICENSEREADME-JAVAFX.txt"/>
-        <exclude name="lib/javafx.properties"/>
-        <exclude name="lib/amd64/libdecora_sse.so"/>
-        <exclude name="lib/amd64/libprism_common.so"/>
-        <exclude name="lib/amd64/libprism_es2.so"/>
-        <exclude name="lib/amd64/libprism_sw.so"/>
-        <exclude name="lib/amd64/libfxplugins.so"/>
-        <exclude name="lib/amd64/libglass.so"/>
-        <exclude name="lib/amd64/libgstreamer-lite.so"/>
-        <exclude name="lib/amd64/libjavafx_font_freetype.so"/>
-        <exclude name="lib/amd64/libjavafx_font_pango.so"/>
-        <exclude name="lib/amd64/libjavafx_font_t2k.so"/>
-        <exclude name="lib/amd64/libjavafx_font.so"/>
-        <exclude name="lib/amd64/libjavafx_iio.so"/>
-        <exclude name="lib/amd64/libjfxmedia.so"/>
-        <exclude name="lib/amd64/libjfxwebkit.so"/>
-        <exclude name="lib/ext/jfxrt.jar"/>
-        <exclude name="lib/ext/nashorn.jar"/>
-      </fileset>
+      <fileset dir="${javaHome_linux_x64}"/>
     </copy>
 
     <!-- Create SweetHome3D-version-linux-x64.tgz archive -->
@@ -1101,12 +829,16 @@
       <tarfileset dir="install/linux/x64"
                   includes="SweetHome3D-${version}/**">
         <exclude name="SweetHome3D-${version}/SweetHome3D"/>
-        <exclude name="SweetHome3D-${version}/runtime/bin/java"/>
+        <exclude name="SweetHome3D-${version}/runtime/bin/*"/>
+        <exclude name="SweetHome3D-${version}/runtime/lib/jexec"/>
+        <exclude name="SweetHome3D-${version}/runtime/lib/jspawnhelper"/>
       </tarfileset>
-      <!-- Change executable permission of SweetHome3D and java commands -->
+      <!-- Change executable permission of SweetHome3D and Java commands lost during copy task -->
       <tarfileset dir="install/linux/x64" mode="755">
         <include name="SweetHome3D-${version}/SweetHome3D"/>
-        <include name="SweetHome3D-${version}/runtime/bin/java"/>
+        <include name="SweetHome3D-${version}/runtime/bin/*"/>
+        <include name="SweetHome3D-${version}/runtime/lib/jexec"/>
+        <include name="SweetHome3D-${version}/runtime/lib/jspawnhelper"/>
       </tarfileset>
     </tar>
 
@@ -1123,9 +855,6 @@
   <target name="windowsSignedPortableLaunchers"
           description="Builds Sweet Home 3D Windows portable launchers">
     <!-- Create portable executable files with launch4j -->
-    <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
-      <arg value="${basedir}\install\portable\SweetHome3D-windows-x86.xml"/>
-    </exec>
     <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
       <arg value="${basedir}\install\portable\SweetHome3D-windows-x64.xml"/>
     </exec>
@@ -1144,21 +873,19 @@
       <arg value="/fd"/>
       <arg value="sha256"/>
       <arg value="/as"/>
-      <arg value="${basedir}\install\portable\SweetHome3D-windows-x86.exe"/>
       <arg value="${basedir}\install\portable\SweetHome3D-windows-x64.exe"/>
     </exec>
 
     <mkdir dir="install/portable/SweetHome3D-${version}-portable"/>
-    <move file="install/portable/SweetHome3D-windows-x86.exe" todir="install/portable/SweetHome3D-${version}-portable" />
     <move file="install/portable/SweetHome3D-windows-x64.exe" todir="install/portable/SweetHome3D-${version}-portable" />
   </target>
 
   <!-- Builds install/portable/SweetHome3D-version-portable files required for SweetHome3D portable version -->
-  <target name="portableArchive" depends="application,furniture,textures,examples,help,jogl-java3d,jogl-java3d-x86"
+  <target name="portableArchive" depends="application,furniture,textures,examples,help,jogl-java3d,jreWindows64,jreLinux64"
           description="Builds install/portable/SweetHome3D-version-portable files">
     <!-- Copy SweetHome3D JARs and its libs
          to install/portable/SweetHome3D-${version}/lib -->
-    <mkdir dir="install/portable/SweetHome3D-${version}-portable/lib/java3d-1.6/i586"/>
+    <mkdir dir="install/portable/SweetHome3D-${version}-portable/lib/java3d-1.6"/>
     <move file="build/SweetHome3D.jar" todir="install/portable/SweetHome3D-${version}-portable/lib" />
     <move file="build/Furniture.jar"   todir="install/portable/SweetHome3D-${version}-portable/lib" />
     <move file="build/Textures.jar"    todir="install/portable/SweetHome3D-${version}-portable/lib" />
@@ -1177,7 +904,6 @@
       <fileset dir="lib">
         <include name="jmf.jar"/>
         <include name="java3d-1.6/*.jar"/>
-        <include name="java3d-1.6/i586/gluegen-rt.jar"/>
         <include name="java3d-1.6/windows/**"/>
         <include name="java3d-1.6/linux/**"/>
         <exclude name="java3d-1.6/jogl-all.jar"/>
@@ -1190,7 +916,6 @@
         <include name="yafaray/windows/**"/>
       </fileset>
     </copy>
-    <copy file="build/java3d-1.6/i586/jogl-java3d.jar" todir="install/portable/SweetHome3D-${version}-portable/lib/java3d-1.6/i586"/>
 
     <!-- Copy README.TXT and licenses texts to install/portable/SweetHome3D-${version}/ -->
     <copy file="install/portable/README.TXT" todir="install/portable/SweetHome3D-${version}-portable"/>
@@ -1215,16 +940,25 @@
     <copy file="THIRDPARTY-LICENSE-SCOPIA.TXT"      todir="install/portable/SweetHome3D-${version}-portable" />
 
     <!-- Copy Linux command files -->
-    <copy file="install/portable/SweetHome3D-linux-x86" todir="install/portable/SweetHome3D-${version}-portable"/>
     <copy file="install/portable/SweetHome3D-linux-x64" todir="install/portable/SweetHome3D-${version}-portable"/>
     <!-- Change executable permission of command files lost during copy task -->
     <chmod perm="+x" file="install/portable/SweetHome3D-${version}-portable/SweetHome3D-linux-*"/>
 
-    <!-- Prepare bundle Java runtime directories -->
-    <mkdir dir="install/portable/SweetHome3D-${version}-portable/runtime/windows/i586"/>
-    <mkdir dir="install/portable/SweetHome3D-${version}-portable/runtime/windows/x64"/>
-    <mkdir dir="install/portable/SweetHome3D-${version}-portable/runtime/linux/i586"/>
-    <mkdir dir="install/portable/SweetHome3D-${version}-portable/runtime/linux/x64"/>
+    <!-- Copy bundled Java runtimes -->
+    <copy todir="install/portable/SweetHome3D-${version}-portable/runtime/windows/x64/runtime">
+      <fileset dir="${javaHome_windows_x64}"/>
+    </copy>
+    <copy todir="install/portable/SweetHome3D-${version}-portable/runtime/linux/x64/runtime">
+      <fileset dir="${javaHome_linux_x64}"/>
+    </copy>
+    <!-- Change executable permission of Linux Java commands lost during copy task -->
+    <chmod perm="+x">
+      <fileset dir="install/portable/SweetHome3D-${version}-portable/runtime/linux/x64/runtime">
+        <include name="bin/*"/>
+        <include name="lib/jexec"/>
+        <include name="lib/jspawnhelper"/>
+      </fileset>
+    </chmod>
 
     <!-- Prepare data directories for SH3F, SH3T, SH3L and SH3P files -->
     <mkdir dir="install/portable/SweetHome3D-${version}-portable/data/furniture"/>
@@ -1232,7 +966,7 @@
     <mkdir dir="install/portable/SweetHome3D-${version}-portable/data/languages"/>
     <mkdir dir="install/portable/SweetHome3D-${version}-portable/data/plugins"/>
 
-    <echo message="copy Windows portable launchers, JREs for Windows and Linux, SH3F, SH3T, SH3L and SH3P files
+    <echo message="copy Windows portable launcher, SH3F, SH3T, SH3L and SH3P files
                    to install/portable/SweetHome3D-${version}-portable and prepare compressed archive"/>
   </target>
 
