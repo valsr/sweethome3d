@@ -12231,7 +12231,7 @@ public class PlanController extends FurnitureController implements Controller {
       float [] bottomLeftPoint = this.selectedLight.getPoints() [3];
       float deltaX = x - this.deltaXToModificationPoint - bottomLeftPoint [0];
       float newPower = this.oldPower + deltaX / 100f * getScale();
-      newPower = Math.min(Math.max(newPower, 0f), 1f);
+      newPower = Math.min(Math.max(newPower, 0f), HomeLight.MAXIMUM_POWER);
       // Update light power
       this.selectedLight.setPower(newPower);
 

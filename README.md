@@ -33,6 +33,20 @@ build and run on current Java.
   | FreeHEP VectorGraphics (patched) | 2.1.1c | 2.4a |
   | Java 3D, Sunflow, JMF, YafaRay, JeksParser | unchanged | unchanged |
 
+- **Smoother 3D navigation under Linux.** The plan is repainted partially and in an
+  in-memory image, and the 3D view is capped at the screen refresh rate.
+- **Tabbed furniture modification panel**, with *General*, *Color and texture* and
+  *Light* tabs.
+- **Light color and power.** A light can be given a color or a color temperature that
+  replaces the color of its sources, and its power can be entered in percentage or in
+  lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,
+  `lightColorTemperature` and `powerUnit` attributes of lights, which the original
+  program ignores.
+- **Linear light power in photos.** Photo renderers use a brightness proportional to the
+  power of a light instead of its square, so homes created with the original program
+  render differently unless their lights are at the default 50%: lights above 50% are
+  dimmer and lights below 50% are brighter.
+
 ## Building
 
 Requirements:

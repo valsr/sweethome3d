@@ -64,13 +64,24 @@ public class HomeFurnitureController implements Controller {
   public enum Property {ICON, NAME, NAME_VISIBLE, DESCRIPTION, ADDITIONAL_PROPERTIES, PRICE, VALUE_ADDED_TAX_PERCENTAGE,
       X, Y, ELEVATION, BASE_PLAN_ITEM,
       ANGLE, ANGLE_IN_DEGREES, ROLL, PITCH, HORIZONTAL_AXIS, WIDTH, DEPTH, HEIGHT, PROPORTIONAL,
-      COLOR, PAINT, SHININESS, VISIBLE, MODEL_MIRRORED, MODEL_TRANSFORMATIONS, LIGHT_POWER,
+      COLOR, PAINT, SHININESS, VISIBLE, MODEL_MIRRORED, MODEL_TRANSFORMATIONS, LIGHT_POWER, LIGHT_POWER_UNIT,
+      LIGHT_COLOR_MODE, LIGHT_COLOR, LIGHT_COLOR_TEMPERATURE,
       RESIZABLE, DEFORMABLE, TEXTURABLE}
 
   /**
    * The possible values for {@linkplain #getPaint() paint type}.
    */
   public enum FurniturePaint {DEFAULT, COLORED, TEXTURED, MODEL_MATERIALS}
+
+  /**
+   * The possible values for {@linkplain #getLightColorMode() light color mode}.
+   */
+  public enum LightColorMode {DEFAULT, COLOR, TEMPERATURE}
+
+  /**
+   * The color temperature in kelvins proposed by default for a light.
+   */
+  public static final int DEFAULT_LIGHT_COLOR_TEMPERATURE = 2700;
 
   /**
    * The possible values for {@linkplain #getShininess() shininess type}.
@@ -130,6 +141,10 @@ public class HomeFurnitureController implements Controller {
   private boolean            basePlanItemEnabled;
   private boolean            lightPowerEditable;
   private Float              lightPower;
+  private HomeLight.PowerUnit lightPowerUnit;
+  private LightColorMode     lightColorMode;
+  private Integer            lightColor;
+  private Integer            lightColorTemperature;
   private boolean            resizable;
   private boolean            deformable;
   private boolean            widthDepthDeformable;
@@ -328,6 +343,10 @@ public class HomeFurnitureController implements Controller {
       setModelMirrored(null);
       this.lightPowerEditable = false;
       setLightPower(null);
+      setLightPowerUnit(null);
+      setLightColorMode(null);
+      setLightColor(null);
+      setLightColorTemperature(null);
       setResizable(true);
       setDeformable(true);
       setTexturable(true);
@@ -760,8 +779,40 @@ public class HomeFurnitureController implements Controller {
           }
         }
         setLightPower(lightPower);
+
+        HomeLight firstLight = (HomeLight)firstPiece;
+        HomeLight.PowerUnit lightPowerUnit = firstLight.getPowerUnit();
+        for (int i = 1; i < selectedFurniture.size(); i++) {
+          if (lightPowerUnit != ((HomeLight)selectedFurniture.get(i)).getPowerUnit()) {
+            lightPowerUnit = null;
+            break;
+          }
+        }
+        setLightPowerUnit(lightPowerUnit);
+        LightColorMode lightColorMode = getLightColorMode(firstLight);
+        Integer lightColor = firstLight.getLightColor();
+        Integer lightColorTemperature = firstLight.getLightColorTemperature();
+        for (int i = 1; i < selectedFurniture.size(); i++) {
+          HomeLight light = (HomeLight)selectedFurniture.get(i);
+          if (lightColorMode != getLightColorMode(light)) {
+            lightColorMode = null;
+          }
+          if (lightColor != null && !lightColor.equals(light.getLightColor())) {
+            lightColor = null;
+          }
+          if (lightColorTemperature != null && !lightColorTemperature.equals(light.getLightColorTemperature())) {
+            lightColorTemperature = null;
+          }
+        }
+        setLightColor(lightColor);
+        setLightColorTemperature(lightColorTemperature);
+        setLightColorMode(lightColorMode);
       } else {
         setLightPower(null);
+        setLightPowerUnit(null);
+        setLightColorMode(null);
+        setLightColor(null);
+        setLightColorTemperature(null);
       }
 
       // Enable size components only if all pieces are resizable
@@ -849,6 +900,10 @@ public class HomeFurnitureController implements Controller {
       case MODEL_TRANSFORMATIONS :
         return getModelTransformations() != null;
       case LIGHT_POWER :
+      case LIGHT_POWER_UNIT :
+      case LIGHT_COLOR_MODE :
+      case LIGHT_COLOR :
+      case LIGHT_COLOR_TEMPERATURE :
         return isLightPowerEditable();
       case VISIBLE :
         return this.visibleEditable;
@@ -1628,6 +1683,93 @@ public class HomeFurnitureController implements Controller {
   }
 
   /**
+   * Returns the unit in which the edited light power is displayed.
+   */
+  public HomeLight.PowerUnit getLightPowerUnit() {
+    return this.lightPowerUnit;
+  }
+
+  /**
+   * Sets the unit in which the edited light power is displayed.
+   */
+  public void setLightPowerUnit(HomeLight.PowerUnit lightPowerUnit) {
+    if (lightPowerUnit != this.lightPowerUnit) {
+      HomeLight.PowerUnit oldLightPowerUnit = this.lightPowerUnit;
+      this.lightPowerUnit = lightPowerUnit;
+      this.propertyChangeSupport.firePropertyChange(Property.LIGHT_POWER_UNIT.name(), oldLightPowerUnit, lightPowerUnit);
+    }
+  }
+
+  /**
+   * Returns the way the color of the given light is defined.
+   */
+  private static LightColorMode getLightColorMode(HomeLight light) {
+    if (light.getLightColorTemperature() != null) {
+      return LightColorMode.TEMPERATURE;
+    } else if (light.getLightColor() != null) {
+      return LightColorMode.COLOR;
+    } else {
+      return LightColorMode.DEFAULT;
+    }
+  }
+
+  /**
+   * Returns whether the edited light uses the color of its sources, a color or a color temperature.
+   */
+  public LightColorMode getLightColorMode() {
+    return this.lightColorMode;
+  }
+
+  /**
+   * Sets whether the edited light uses the color of its sources, a color or a color temperature.
+   */
+  public void setLightColorMode(LightColorMode lightColorMode) {
+    if (lightColorMode != this.lightColorMode) {
+      LightColorMode oldLightColorMode = this.lightColorMode;
+      this.lightColorMode = lightColorMode;
+      this.propertyChangeSupport.firePropertyChange(Property.LIGHT_COLOR_MODE.name(), oldLightColorMode, lightColorMode);
+    }
+  }
+
+  /**
+   * Returns the edited color of the light.
+   */
+  public Integer getLightColor() {
+    return this.lightColor;
+  }
+
+  /**
+   * Sets the edited color of the light.
+   */
+  public void setLightColor(Integer lightColor) {
+    if (lightColor != this.lightColor
+        && (lightColor == null || !lightColor.equals(this.lightColor))) {
+      Integer oldLightColor = this.lightColor;
+      this.lightColor = lightColor;
+      this.propertyChangeSupport.firePropertyChange(Property.LIGHT_COLOR.name(), oldLightColor, lightColor);
+    }
+  }
+
+  /**
+   * Returns the edited color temperature of the light in kelvins.
+   */
+  public Integer getLightColorTemperature() {
+    return this.lightColorTemperature;
+  }
+
+  /**
+   * Sets the edited color temperature of the light in kelvins.
+   */
+  public void setLightColorTemperature(Integer lightColorTemperature) {
+    if (lightColorTemperature != this.lightColorTemperature
+        && (lightColorTemperature == null || !lightColorTemperature.equals(this.lightColorTemperature))) {
+      Integer oldLightColorTemperature = this.lightColorTemperature;
+      this.lightColorTemperature = lightColorTemperature;
+      this.propertyChangeSupport.firePropertyChange(Property.LIGHT_COLOR_TEMPERATURE.name(), oldLightColorTemperature, lightColorTemperature);
+    }
+  }
+
+  /**
    * Sets whether furniture model can be resized or not.
    */
   private void setResizable(boolean resizable) {
@@ -1746,6 +1888,10 @@ public class HomeFurnitureController implements Controller {
       Boolean visible = getVisible();
       Boolean modelMirrored = getModelMirrored();
       Float lightPower = getLightPower();
+      HomeLight.PowerUnit lightPowerUnit = getLightPowerUnit();
+      LightColorMode lightColorMode = getLightColorMode();
+      Integer lightColor = getLightColor();
+      Integer lightColorTemperature = getLightColorTemperature();
 
       // Create an array of modified furniture with their current properties values
       ModifiedPieceOfFurniture [] modifiedFurniture =
@@ -1768,7 +1914,7 @@ public class HomeFurnitureController implements Controller {
           x, y, elevation, angle, roll, pitch, horizontalAxis, basePlanItem,
           width, depth, height, proportional, modelTransformations,
           this.wallThickness, this.wallDistance, this.wallWidth, this.wallLeft, this.wallHeight, this.wallTop, this.sashes,
-          paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower);
+          paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower, lightPowerUnit, lightColorMode, lightColor, lightColorTemperature);
       if (this.undoSupport != null) {
         List<Selectable> newSelection = this.home.getSelectedItems();
         this.undoSupport.postEdit(new FurnitureModificationUndoableEdit(this.home, this.preferences,
@@ -1777,7 +1923,7 @@ public class HomeFurnitureController implements Controller {
             x, y, elevation, angle, roll, pitch, horizontalAxis, basePlanItem,
             width, depth, height, proportional, modelTransformations,
             this.wallThickness, this.wallDistance, this.wallWidth, this.wallLeft, this.wallHeight, this.wallTop, this.sashes,
-            paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower));
+            paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower, lightPowerUnit, lightColorMode, lightColor, lightColorTemperature));
       }
       if (name != null) {
         this.preferences.addAutoCompletionString("HomePieceOfFurnitureName", name);
@@ -1831,6 +1977,10 @@ public class HomeFurnitureController implements Controller {
     private final Boolean                     visible;
     private final Boolean                     modelMirrored;
     private final Float                       lightPower;
+    private final HomeLight.PowerUnit         lightPowerUnit;
+    private final LightColorMode              lightColorMode;
+    private final Integer                     lightColor;
+    private final Integer                     lightColorTemperature;
     private final float                       wallThickness;
     private final float                       wallDistance;
     private final float                       wallWidth;
@@ -1858,7 +2008,8 @@ public class HomeFurnitureController implements Controller {
                                               boolean defaultShininess, Float shininess,
                                               Boolean visible,
                                               Boolean modelMirrored,
-                                              Float lightPower) {
+                                              Float lightPower, HomeLight.PowerUnit lightPowerUnit,
+                                              LightColorMode lightColorMode, Integer lightColor, Integer lightColorTemperature) {
       super(preferences, HomeFurnitureController.class, "undoModifyFurnitureName");
       this.home = home;
       this.oldSelection = oldSelection;
@@ -1902,6 +2053,10 @@ public class HomeFurnitureController implements Controller {
       this.visible = visible;
       this.modelMirrored = modelMirrored;
       this.lightPower = lightPower;
+      this.lightPowerUnit = lightPowerUnit;
+      this.lightColorMode = lightColorMode;
+      this.lightColor = lightColor;
+      this.lightColorTemperature = lightColorTemperature;
       this.widthsInPlan = new float [modifiedFurniture.length];
       this.depthsInPlan = new float [modifiedFurniture.length];
       this.heightsInPlan = new float [modifiedFurniture.length];
@@ -1932,7 +2087,8 @@ public class HomeFurnitureController implements Controller {
           this.wallThickness, this.wallDistance, this.wallWidth, this.wallLeft, this.wallHeight, this.wallTop, this.sashes,
           this.paint, this.color, this.texture, this.modelMaterials,
           this.defaultShininess, this.shininess,
-          this.visible, this.modelMirrored, this.lightPower);
+          this.visible, this.modelMirrored, this.lightPower, this.lightPowerUnit,
+          this.lightColorMode, this.lightColor, this.lightColorTemperature);
       // Force size in plan in case internal size update performed in PlanController can't be done again
       for (int i = 0; i < this.modifiedFurniture.length; i++) {
         HomePieceOfFurniture piece = this.modifiedFurniture[i].getPieceOfFurniture();
@@ -1957,7 +2113,8 @@ public class HomeFurnitureController implements Controller {
                                         FurniturePaint paint, Integer color,
                                         HomeTexture texture, HomeMaterial [] modelMaterials,
                                         boolean defaultShininess, Float shininess,
-                                        Boolean visible, Boolean modelMirrored, Float lightPower) {
+                                        Boolean visible, Boolean modelMirrored, Float lightPower, HomeLight.PowerUnit lightPowerUnit,
+                                        LightColorMode lightColorMode, Integer lightColor, Integer lightColorTemperature) {
     for (ModifiedPieceOfFurniture modifiedPiece : modifiedFurniture) {
       HomePieceOfFurniture piece = modifiedPiece.getPieceOfFurniture();
       if (name != null) {
@@ -2116,6 +2273,21 @@ public class HomeFurnitureController implements Controller {
       }
       if (lightPower != null) {
         ((HomeLight)piece).setPower(lightPower);
+      }
+      if (lightPowerUnit != null) {
+        ((HomeLight)piece).setPowerUnit(lightPowerUnit);
+      }
+      if (lightColorMode == LightColorMode.DEFAULT) {
+        ((HomeLight)piece).setLightColor(null);
+        ((HomeLight)piece).setLightColorTemperature(null);
+      } else if (lightColorMode == LightColorMode.COLOR
+                 && lightColor != null) {
+        ((HomeLight)piece).setLightColor(lightColor);
+        ((HomeLight)piece).setLightColorTemperature(null);
+      } else if (lightColorMode == LightColorMode.TEMPERATURE
+                 && lightColorTemperature != null) {
+        ((HomeLight)piece).setLightColor(null);
+        ((HomeLight)piece).setLightColorTemperature(lightColorTemperature);
       }
     }
   }
@@ -2300,16 +2472,26 @@ public class HomeFurnitureController implements Controller {
    * Stores the current properties values of a modified light.
    */
   private static class ModifiedLight extends ModifiedPieceOfFurniture {
-    private final float power;
+    private final float   power;
+    private final HomeLight.PowerUnit powerUnit;
+    private final Integer lightColor;
+    private final Integer lightColorTemperature;
 
     public ModifiedLight(HomeLight light) {
       super(light);
       this.power = light.getPower();
+      this.powerUnit = light.getPowerUnit();
+      this.lightColor = light.getLightColor();
+      this.lightColorTemperature = light.getLightColorTemperature();
     }
 
     public void reset() {
       super.reset();
-      ((HomeLight)getPieceOfFurniture()).setPower(this.power);
+      HomeLight light = (HomeLight)getPieceOfFurniture();
+      light.setPower(this.power);
+      light.setPowerUnit(this.powerUnit);
+      light.setLightColor(this.lightColor);
+      light.setLightColorTemperature(this.lightColorTemperature);
     }
   }
 

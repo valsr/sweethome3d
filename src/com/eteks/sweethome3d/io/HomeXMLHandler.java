@@ -296,7 +296,10 @@ import com.eteks.sweethome3d.tools.URLContent;
  *       %furnitureCommonAttributes;
  *       %pieceOfFurnitureCommonAttributes;
  *       %pieceOfFurnitureHorizontalRotationAttributes;
- *       power CDATA "0.5">
+ *       power CDATA "0.5"
+ *       powerUnit (PERCENTAGE | LUMEN) "PERCENTAGE"
+ *       lightColor CDATA #IMPLIED
+ *       lightColorTemperature CDATA #IMPLIED>
  *
  * &lt;!ELEMENT lightSource EMPTY>
  * &lt;!ATTLIST lightSource
@@ -1427,9 +1430,20 @@ public class HomeXMLHandler extends DefaultHandler {
         }
       }
 
-      if (piece instanceof HomeLight
-          && attributes.get("power") != null) {
-        ((HomeLight)piece).setPower(parseFloat(attributes, "power"));
+      if (piece instanceof HomeLight) {
+        HomeLight light = (HomeLight)piece;
+        if (attributes.get("power") != null) {
+          light.setPower(parseFloat(attributes, "power"));
+        }
+        if (attributes.get("powerUnit") != null) {
+          try {
+            light.setPowerUnit(HomeLight.PowerUnit.valueOf(attributes.get("powerUnit")));
+          } catch (IllegalArgumentException ex) {
+            // Keep default unit
+          }
+        }
+        light.setLightColor(parseOptionalColor(attributes, "lightColor"));
+        light.setLightColorTemperature(parseOptionalInteger(attributes, "lightColorTemperature"));
       } else if (piece instanceof HomeDoorOrWindow
                  && "doorOrWindow".equals(elementName)) {
         HomeDoorOrWindow doorOrWindow = (HomeDoorOrWindow)piece;

@@ -35,11 +35,29 @@ public class HomeLight extends HomePieceOfFurniture implements Light {
    * The properties of a light that may change. <code>PropertyChangeListener</code>s added
    * to a light will be notified under a property name equal to the string value of one these properties.
    */
-  public enum Property {POWER, LIGHT_SOURCES, LIGHT_SOURCE_MATERIAL_NAMES};
+  public enum Property {POWER, LIGHT_SOURCES, LIGHT_SOURCE_MATERIAL_NAMES, LIGHT_COLOR, LIGHT_COLOR_TEMPERATURE, POWER_UNIT};
+
+  /**
+   * The units in which the power of a light may be displayed.
+   */
+  public enum PowerUnit {PERCENTAGE, LUMEN};
+
+  /**
+   * The luminous flux in lumens emitted by a light at a power equal to 1, i.e. 100%.
+   */
+  public static final float FULL_POWER_LUMINOUS_FLUX = 800f;
+
+  /**
+   * The maximum power proposed to users for a light, which matches 10,000 lumens.
+   */
+  public static final float MAXIMUM_POWER = 10000f / FULL_POWER_LUMINOUS_FLUX;
 
   private LightSource [] lightSources;
   private String []      lightSourceMaterialNames;
   private float power;
+  private Integer lightColor;
+  private Integer lightColorTemperature;
+  private PowerUnit powerUnit;
 
   /**
    * Creates a home light from an existing one.
@@ -184,6 +202,140 @@ public class HomeLight extends HomePieceOfFurniture implements Light {
       this.power = power;
       firePropertyChange(Property.POWER.name(), oldPower, power);
     }
+  }
+
+  /**
+   * Returns the unit in which the power of this light is displayed.
+   */
+  public PowerUnit getPowerUnit() {
+    return this.powerUnit != null
+        ? this.powerUnit
+        : PowerUnit.PERCENTAGE;
+  }
+
+  /**
+   * Sets the unit in which the power of this light is displayed. Once this light is updated,
+   * listeners added to this light will receive a change notification.
+   * @param powerUnit the unit of the power of the light
+   */
+  public void setPowerUnit(PowerUnit powerUnit) {
+    PowerUnit oldPowerUnit = getPowerUnit();
+    if (powerUnit != oldPowerUnit) {
+      this.powerUnit = powerUnit;
+      firePropertyChange(Property.POWER_UNIT.name(), oldPowerUnit, powerUnit);
+    }
+  }
+
+  /**
+   * Returns the luminous flux in lumens emitted by this light.
+   */
+  public float getLuminousFlux() {
+    return this.power * FULL_POWER_LUMINOUS_FLUX;
+  }
+
+  /**
+   * Returns the factor by which the light emitted by this light should be multiplied when it's rendered.
+   * This factor is proportional to the power of this light and equal to 0.25 at its default power of 50%.
+   */
+  public float getRenderedPower() {
+    return this.power / 2;
+  }
+
+  /**
+   * Returns the RGB color of the light emitted by all the sources of this light,
+   * or <code>null</code> if the sources use their own color.
+   * This color is ignored when a {@linkplain #getLightColorTemperature() color temperature} is set.
+   */
+  public Integer getLightColor() {
+    return this.lightColor;
+  }
+
+  /**
+   * Sets the RGB color of the light emitted by all the sources of this light. Once this light is updated,
+   * listeners added to this light will receive a change notification.
+   * @param lightColor the color of the light or <code>null</code> if the sources should use their own color
+   */
+  public void setLightColor(Integer lightColor) {
+    if (lightColor != this.lightColor
+        && (lightColor == null || !lightColor.equals(this.lightColor))) {
+      Integer oldLightColor = this.lightColor;
+      this.lightColor = lightColor;
+      firePropertyChange(Property.LIGHT_COLOR.name(), oldLightColor, lightColor);
+    }
+  }
+
+  /**
+   * Returns the color temperature in kelvins of the light emitted by all the sources of this light,
+   * or <code>null</code> if the color of the light isn't defined by a temperature.
+   */
+  public Integer getLightColorTemperature() {
+    return this.lightColorTemperature;
+  }
+
+  /**
+   * Sets the color temperature in kelvins of the light emitted by all the sources of this light.
+   * Once this light is updated, listeners added to this light will receive a change notification.
+   * @param lightColorTemperature the temperature of the light or <code>null</code>
+   *            if the color of the light shouldn't be defined by a temperature
+   */
+  public void setLightColorTemperature(Integer lightColorTemperature) {
+    if (lightColorTemperature != this.lightColorTemperature
+        && (lightColorTemperature == null || !lightColorTemperature.equals(this.lightColorTemperature))) {
+      Integer oldLightColorTemperature = this.lightColorTemperature;
+      this.lightColorTemperature = lightColorTemperature;
+      firePropertyChange(Property.LIGHT_COLOR_TEMPERATURE.name(), oldLightColorTemperature, lightColorTemperature);
+    }
+  }
+
+  /**
+   * Returns the RGB color of the light emitted by the given source of this light,
+   * i.e. the color matching the temperature of this light if it's set,
+   * otherwise the color of this light if it's set, otherwise the color of the source.
+   */
+  public int getLightSourceColor(LightSource lightSource) {
+    Integer emittedLightColor = getEmittedLightColor();
+    return emittedLightColor != null
+        ? emittedLightColor
+        : lightSource.getColor();
+  }
+
+  /**
+   * Returns the RGB color of the light emitted by this light if its temperature or its color is set,
+   * or <code>null</code> if its sources use their own color.
+   */
+  public Integer getEmittedLightColor() {
+    if (this.lightColorTemperature != null) {
+      return getColorAtTemperature(this.lightColorTemperature);
+    } else {
+      return this.lightColor;
+    }
+  }
+
+  /**
+   * Returns an approximation of the RGB color of a black body at the given temperature in kelvins.
+   */
+  public static int getColorAtTemperature(int temperature) {
+    // Algorithm of Tanner Helland fitted on the CIE 1964 10 degree color matching functions
+    double hundredsOfKelvins = Math.max(1000, Math.min(temperature, 40000)) / 100.;
+    double red;
+    double green;
+    double blue;
+    if (hundredsOfKelvins <= 66) {
+      red = 255;
+      green = 99.4708025861 * Math.log(hundredsOfKelvins) - 161.1195681661;
+      blue = hundredsOfKelvins <= 19
+          ? 0
+          : 138.5177312231 * Math.log(hundredsOfKelvins - 10) - 305.0447927307;
+    } else {
+      red = 329.698727446 * Math.pow(hundredsOfKelvins - 60, -0.1332047592);
+      green = 288.1221695283 * Math.pow(hundredsOfKelvins - 60, -0.0755148492);
+      blue = 255;
+    }
+    return (getColorComponent(red) << 16) | (getColorComponent(green) << 8) | getColorComponent(blue);
+  }
+
+  private static int getColorComponent(double value) {
+    return (int)Math.round(Math.max(0, Math.min(value, 255)));
   }
 
   /**

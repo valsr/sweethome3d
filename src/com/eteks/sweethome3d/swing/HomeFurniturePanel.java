@@ -20,6 +20,7 @@
 package com.eteks.sweethome3d.swing;
 
 import java.awt.Color;
+import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
@@ -57,6 +58,7 @@ import java.util.UUID;
 
 import javax.media.j3d.BranchGroup;
 import javax.swing.AbstractAction;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultCellEditor;
 import javax.swing.DefaultComboBoxModel;
@@ -72,6 +74,7 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
@@ -92,6 +95,7 @@ import javax.swing.table.TableColumnModel;
 
 import com.eteks.sweethome3d.j3d.ModelManager;
 import com.eteks.sweethome3d.model.Content;
+import com.eteks.sweethome3d.model.HomeLight;
 import com.eteks.sweethome3d.model.ObjectProperty;
 import com.eteks.sweethome3d.model.Transformation;
 import com.eteks.sweethome3d.model.UserPreferences;
@@ -156,6 +160,17 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
   private NullableCheckBox        visibleCheckBox;
   private JLabel                  lightPowerLabel;
   private JSpinner                lightPowerSpinner;
+  private JComboBox               lightPowerUnitComboBox;
+  private boolean                 lightPowerSpinnerUpdated;
+  private JRadioButton            defaultLightColorRadioButton;
+  private JRadioButton            lightColorRadioButton;
+  private ColorButton             lightColorButton;
+  private JRadioButton            lightColorTemperatureRadioButton;
+  private JSpinner                lightColorTemperatureSpinner;
+  private JTabbedPane             tabbedPane;
+
+  private static final int MINIMUM_LIGHT_COLOR_TEMPERATURE = 1500;
+  private static final int MAXIMUM_LIGHT_COLOR_TEMPERATURE = 10000;
   private String                  dialogTitle;
 
   /**
@@ -937,9 +952,9 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     }
 
     if (controller.isPropertyEditable(HomeFurnitureController.Property.LIGHT_POWER)) {
-      // Create power label and its spinner bound to POWER controller property
+      // Create power label and its spinner bound to LIGHT_POWER controller property
       this.lightPowerLabel = new JLabel(SwingTools.getLocalizedLabelText(preferences, HomeFurniturePanel.class,
-          "lightPowerLabel.text", "%"));
+          "lightPowerValueLabel.text"));
       final NullableSpinner.NullableSpinnerNumberModel lightPowerSpinnerModel =
           new NullableSpinner.NullableSpinnerNumberModel(0f, 0f, 100f, 5f) {
             @Override
@@ -948,28 +963,146 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             }
           };
       this.lightPowerSpinner = new NullableSpinner(lightPowerSpinnerModel);
-      lightPowerSpinnerModel.setNullable(controller.getLightPower() == null);
-      lightPowerSpinnerModel.setValue(controller.getLightPower() != null
-          ? controller.getLightPower() * 100
-          : null);
+      // Create power unit combo box bound to LIGHT_POWER_UNIT controller property
+      this.lightPowerUnitComboBox = new JComboBox(HomeLight.PowerUnit.values());
+      this.lightPowerUnitComboBox.setRenderer(new DefaultListCellRenderer() {
+          @Override
+          public Component getListCellRendererComponent(JList list, Object value, int index,
+                                                        boolean isSelected, boolean cellHasFocus) {
+            return super.getListCellRendererComponent(list,
+                value == HomeLight.PowerUnit.LUMEN  ? "lm"  : (value == HomeLight.PowerUnit.PERCENTAGE  ? "%"  : " "),
+                index, isSelected, cellHasFocus);
+          }
+        });
+      this.lightPowerUnitComboBox.setSelectedItem(controller.getLightPowerUnit());
+      updateLightPowerSpinner(controller);
       final PropertyChangeListener lightPowerChangeListener = new PropertyChangeListener() {
           public void propertyChange(PropertyChangeEvent ev) {
-            Float lightPower = (Float)ev.getNewValue();
-            lightPowerSpinnerModel.setNullable(lightPower == null);
-            lightPowerSpinnerModel.setValue(lightPower != null
-                ? lightPower * 100
-                : null);
+            updateLightPowerSpinner(controller);
           }
         };
       controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER, lightPowerChangeListener);
       lightPowerSpinnerModel.addChangeListener(new ChangeListener() {
           public void stateChanged(ChangeEvent ev) {
-            controller.removePropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER,
-                lightPowerChangeListener);
-            controller.setLightPower(((Number)lightPowerSpinnerModel.getValue()).floatValue() / 100f);
-            controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER, lightPowerChangeListener);
+            // Ignore changes due to a different unit
+            if (!lightPowerSpinnerUpdated
+                && lightPowerSpinnerModel.getValue() != null) {
+              controller.removePropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER,
+                  lightPowerChangeListener);
+              controller.setLightPower(((Number)lightPowerSpinnerModel.getValue()).floatValue()
+                  / getLightPowerUnitFactor(controller.getLightPowerUnit()));
+              controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER, lightPowerChangeListener);
+            }
           }
         });
+      this.lightPowerUnitComboBox.addItemListener(new ItemListener() {
+          public void itemStateChanged(ItemEvent ev) {
+            controller.setLightPowerUnit((HomeLight.PowerUnit)lightPowerUnitComboBox.getSelectedItem());
+          }
+        });
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER_UNIT, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            lightPowerUnitComboBox.setSelectedItem(controller.getLightPowerUnit());
+            updateLightPowerSpinner(controller);
+          }
+        });
+    }
+
+    if (controller.isPropertyEditable(HomeFurnitureController.Property.LIGHT_COLOR_MODE)) {
+      // Create radio buttons bound to LIGHT_COLOR_MODE controller property
+      ButtonGroup buttonGroup = new ButtonGroup();
+      this.defaultLightColorRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences,
+          HomeFurniturePanel.class, "defaultLightColorRadioButton.text"));
+      buttonGroup.add(this.defaultLightColorRadioButton);
+      this.defaultLightColorRadioButton.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            if (defaultLightColorRadioButton.isSelected()) {
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.DEFAULT);
+            }
+          }
+        });
+
+      this.lightColorRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences,
+          HomeFurniturePanel.class, "lightColorRadioButton.text"));
+      buttonGroup.add(this.lightColorRadioButton);
+      this.lightColorRadioButton.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            if (lightColorRadioButton.isSelected()) {
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.COLOR);
+            }
+          }
+        });
+
+      // Create color button bound to LIGHT_COLOR controller property
+      this.lightColorButton = new ColorButton(preferences);
+      if (OperatingSystem.isMacOSX()) {
+        this.lightColorButton.putClientProperty("JButton.buttonType", "segmented");
+        this.lightColorButton.putClientProperty("JButton.segmentPosition", "only");
+      }
+      this.lightColorButton.setColorDialogTitle(preferences
+          .getLocalizedString(HomeFurniturePanel.class, "lightColorDialog.title"));
+      this.lightColorButton.setColor(controller.getLightColor());
+      this.lightColorButton.addPropertyChangeListener(ColorButton.COLOR_PROPERTY, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            controller.setLightColor(lightColorButton.getColor());
+            controller.setLightColorMode(HomeFurnitureController.LightColorMode.COLOR);
+          }
+        });
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            lightColorButton.setColor(controller.getLightColor());
+          }
+        });
+
+      this.lightColorTemperatureRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences,
+          HomeFurniturePanel.class, "lightColorTemperatureRadioButton.text"));
+      buttonGroup.add(this.lightColorTemperatureRadioButton);
+      this.lightColorTemperatureRadioButton.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            if (lightColorTemperatureRadioButton.isSelected()) {
+              if (controller.getLightColorTemperature() == null) {
+                controller.setLightColorTemperature(HomeFurnitureController.DEFAULT_LIGHT_COLOR_TEMPERATURE);
+              }
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.TEMPERATURE);
+            }
+          }
+        });
+
+      // Create temperature spinner bound to LIGHT_COLOR_TEMPERATURE controller property
+      final NullableSpinner.NullableSpinnerNumberModel lightColorTemperatureSpinnerModel =
+          new NullableSpinner.NullableSpinnerNumberModel(HomeFurnitureController.DEFAULT_LIGHT_COLOR_TEMPERATURE,
+              MINIMUM_LIGHT_COLOR_TEMPERATURE, MAXIMUM_LIGHT_COLOR_TEMPERATURE, 100);
+      this.lightColorTemperatureSpinner = new NullableSpinner(lightColorTemperatureSpinnerModel);
+      lightColorTemperatureSpinnerModel.setNullable(controller.getLightColorTemperature() == null);
+      lightColorTemperatureSpinnerModel.setValue(controller.getLightColorTemperature());
+      final PropertyChangeListener lightColorTemperatureChangeListener = new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            lightColorTemperatureSpinnerModel.setNullable(ev.getNewValue() == null);
+            lightColorTemperatureSpinnerModel.setValue((Integer)ev.getNewValue());
+          }
+        };
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_TEMPERATURE,
+          lightColorTemperatureChangeListener);
+      lightColorTemperatureSpinnerModel.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            Number temperature = (Number)lightColorTemperatureSpinnerModel.getValue();
+            if (temperature != null) {
+              controller.removePropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_TEMPERATURE,
+                  lightColorTemperatureChangeListener);
+              controller.setLightColorTemperature(temperature.intValue());
+              controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_TEMPERATURE,
+                  lightColorTemperatureChangeListener);
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.TEMPERATURE);
+            }
+          }
+        });
+
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_MODE, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            updateLightColorRadioButtons(controller);
+          }
+        });
+      updateLightColorRadioButtons(controller);
     }
 
     updateSizeComponents(controller);
@@ -1028,6 +1161,52 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           break;
       }
       updateShininessRadioButtons(controller);
+    }
+  }
+
+  /**
+   * Returns the number by which the power of a light is multiplied to be displayed in the given unit.
+   */
+  private static float getLightPowerUnitFactor(HomeLight.PowerUnit powerUnit) {
+    return powerUnit == HomeLight.PowerUnit.LUMEN
+        ? HomeLight.FULL_POWER_LUMINOUS_FLUX
+        : 100f;
+  }
+
+  /**
+   * Updates the bounds and the value of light power spinner according to the unit in which power is displayed.
+   */
+  private void updateLightPowerSpinner(HomeFurnitureController controller) {
+    NullableSpinner.NullableSpinnerNumberModel lightPowerSpinnerModel =
+        (NullableSpinner.NullableSpinnerNumberModel)this.lightPowerSpinner.getModel();
+    float unitFactor = getLightPowerUnitFactor(controller.getLightPowerUnit());
+    Float lightPower = controller.getLightPower();
+    this.lightPowerSpinnerUpdated = true;
+    try {
+      lightPowerSpinnerModel.setNullable(lightPower == null);
+      lightPowerSpinnerModel.setMaximum(HomeLight.MAXIMUM_POWER * unitFactor);
+      lightPowerSpinnerModel.setStepSize(unitFactor / 20);
+      lightPowerSpinnerModel.setValue(lightPower != null
+          ? lightPower * unitFactor
+          : null);
+    } finally {
+      this.lightPowerSpinnerUpdated = false;
+    }
+  }
+
+  /**
+   * Updates light color radio buttons.
+   */
+  private void updateLightColorRadioButtons(HomeFurnitureController controller) {
+    if (controller.getLightColorMode() == HomeFurnitureController.LightColorMode.DEFAULT) {
+      this.defaultLightColorRadioButton.setSelected(true);
+    } else if (controller.getLightColorMode() == HomeFurnitureController.LightColorMode.COLOR) {
+      this.lightColorRadioButton.setSelected(true);
+    } else if (controller.getLightColorMode() == HomeFurnitureController.LightColorMode.TEMPERATURE) {
+      this.lightColorTemperatureRadioButton.setSelected(true);
+    } else { // null
+      SwingTools.deselectAllRadioButtons(this.defaultLightColorRadioButton,
+          this.lightColorRadioButton, this.lightColorTemperatureRadioButton);
     }
   }
 
@@ -1190,9 +1369,17 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         this.visibleCheckBox.setMnemonic(KeyStroke.getKeyStroke(
             preferences.getLocalizedString(HomeFurniturePanel.class, "visibleCheckBox.mnemonic")).getKeyCode());
       }
+      if (this.defaultLightColorRadioButton != null) {
+        this.defaultLightColorRadioButton.setMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
+            HomeFurniturePanel.class, "defaultLightColorRadioButton.mnemonic")).getKeyCode());
+        this.lightColorRadioButton.setMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
+            HomeFurniturePanel.class, "lightColorRadioButton.mnemonic")).getKeyCode());
+        this.lightColorTemperatureRadioButton.setMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
+            HomeFurniturePanel.class, "lightColorTemperatureRadioButton.mnemonic")).getKeyCode());
+      }
       if (this.lightPowerLabel != null) {
         this.lightPowerLabel.setDisplayedMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
-            HomeFurniturePanel.class, "lightPowerLabel.mnemonic")).getKeyCode());
+            HomeFurniturePanel.class, "lightPowerValueLabel.mnemonic")).getKeyCode());
         this.lightPowerLabel.setLabelFor(this.lightPowerSpinner);
       }
     }
@@ -1214,6 +1401,10 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         HomeFurniturePanel.class, priceDisplayed  ?  "nameAndPricePanel.title"  : "namePanel.title"));
     int standardGap = Math.round(5 * SwingTools.getResolutionScale());
     int rowGap = OperatingSystem.isMacOSXLeopardOrSuperior() ? 0 : standardGap;
+    // Panels displayed in the tabs of this panel
+    JPanel generalPanel = new JPanel(new GridBagLayout());
+    final JPanel colorAndTexturePanel = new JPanel(new GridBagLayout());
+    JPanel lightPanel = new JPanel(new GridBagLayout());
     if (this.nameLabel != null) {
       namePanel.add(this.nameLabel, new GridBagConstraints(
           0, 0, 1, 1, 0, 0, labelAlignment, GridBagConstraints.NONE,
@@ -1252,7 +1443,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       }
     }
     if (namePanel.getComponentCount() > 0) {
-      add(namePanel, new GridBagConstraints(0, 0, orientationPanelDisplayed ? 4 : 3, 1, 0, 0, labelAlignment,
+      generalPanel.add(namePanel, new GridBagConstraints(0, 0, orientationPanelDisplayed ? 4 : 3, 1, 0, 0, labelAlignment,
           GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
     }
     // Location panel
@@ -1307,7 +1498,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       locationPanel.add(new JLabel(), new GridBagConstraints(
           0, 100, 2, 1, 0, 1, GridBagConstraints.LINE_START,
           GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
-      add(locationPanel, new GridBagConstraints(
+      generalPanel.add(locationPanel, new GridBagConstraints(
           0, 1, 1, 1, 1, 1, labelAlignment, GridBagConstraints.BOTH, new Insets(
           0, 0, rowGap, 0), 0, 0));
     }
@@ -1380,8 +1571,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         }
       }
       if (orientationPanel.getComponentCount() > 0) {
-        add(orientationPanel, new GridBagConstraints(
-            1, 1, 1, 2, 1, 0, labelAlignment, GridBagConstraints.BOTH, new Insets(
+        generalPanel.add(orientationPanel, new GridBagConstraints(
+            1, 1, 1, 1, 1, 0, labelAlignment, GridBagConstraints.BOTH, new Insets(
             0, 0, rowGap, 0), 0, 0));
       }
     }
@@ -1426,7 +1617,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       sizePanel.add(new JLabel(), new GridBagConstraints(
           0, 100, 2, 1, 0, 1, GridBagConstraints.LINE_START,
           GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
-      add(sizePanel, new GridBagConstraints(
+      generalPanel.add(sizePanel, new GridBagConstraints(
           orientationPanelDisplayed ? 2 : 1, 1, 2, 1, 1, 1, labelAlignment,
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
     }
@@ -1470,8 +1661,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             1, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
             GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, buttonsBottomInset, 0), 0, buttonPadY));
       }
-      add(paintPanel, new GridBagConstraints(
-          0, 2, 1, 1, 0, 0, labelAlignment,
+      colorAndTexturePanel.add(paintPanel, new GridBagConstraints(
+          0, 0, 1, 1, 1, 0, labelAlignment,
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
 
       controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE,
@@ -1500,8 +1691,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             0, 3, 1, 1, 0, 1, GridBagConstraints.LINE_START,
             GridBagConstraints.NONE, new Insets(standardGap, 0, 0, 0), 0, 0));
       }
-      add(shininessPanel, new GridBagConstraints(
-          orientationPanelDisplayed ? 2 : 1, 2, 2, 1, 0, 0, labelAlignment,
+      colorAndTexturePanel.add(shininessPanel, new GridBagConstraints(
+          1, 0, 1, 1, 1, 0, labelAlignment,
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
 
       controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE,
@@ -1512,25 +1703,98 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           });
       shininessPanel.setVisible(controller.isTexturable());
     }
-    // Last row
+    // Last row of general panel
     if (this.visibleCheckBox != null) {
-      add(this.visibleCheckBox, new GridBagConstraints(
-          0, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+      generalPanel.add(this.visibleCheckBox, new GridBagConstraints(
+          0, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.NONE, new Insets(0, 10, 0, 0), 0, 0));
     }
     if (this.additionalPropertiesButton != null) {
-      add(this.additionalPropertiesButton, new GridBagConstraints(
-          1, this.lightPowerLabel != null && !orientationPanelDisplayed ? 4 : 3,
-          orientationPanelDisplayed ? 1 : 2, 1, 0, 0, GridBagConstraints.CENTER,
+      generalPanel.add(this.additionalPropertiesButton, new GridBagConstraints(
+          1, 2, orientationPanelDisplayed ? 3 : 2, 1, 0, 0, GridBagConstraints.LINE_END,
           GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     }
-    if (this.lightPowerLabel != null) {
-      add(this.lightPowerLabel, new GridBagConstraints(
-          orientationPanelDisplayed ? 2 : 1, 3, 1, 1, 0, 0, labelAlignment,
-          GridBagConstraints.NONE, new Insets(0, 10, 0, standardGap), 0, 0));
-      add(this.lightPowerSpinner, new GridBagConstraints(
-          orientationPanelDisplayed ? 3 : 2, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+    if (this.defaultLightColorRadioButton != null) {
+      // Light color panel
+      JPanel lightColorPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "lightColorPanel.title"));
+      lightColorPanel.add(this.defaultLightColorRadioButton, new GridBagConstraints(
+          0, 0, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, labelInsets, 0, 0));
+      lightColorPanel.add(this.lightColorRadioButton, new GridBagConstraints(
+          0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, labelInsets, 0, 0));
+      lightColorPanel.add(this.lightColorButton, new GridBagConstraints(
+          1, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, standardGap, 0), 0, 0));
+      lightColorPanel.add(this.lightColorTemperatureRadioButton, new GridBagConstraints(
+          0, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+      lightColorPanel.add(this.lightColorTemperatureSpinner, new GridBagConstraints(
+          1, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+      // Keep components at the left of the panel
+      lightColorPanel.add(new JLabel(), new GridBagConstraints(
+          2, 0, 1, 3, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+      lightPanel.add(lightColorPanel, new GridBagConstraints(
+          0, 0, 1, 1, 1, 0, labelAlignment,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
+    }
+    if (this.lightPowerLabel != null) {
+      // Light power panel
+      JPanel lightPowerPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "lightPowerPanel.title"));
+      lightPowerPanel.add(this.lightPowerLabel, new GridBagConstraints(
+          0, 0, 1, 1, 0, 0, labelAlignment,
+          GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+      lightPowerPanel.add(this.lightPowerSpinner, new GridBagConstraints(
+          1, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 30, 0));
+      lightPowerPanel.add(this.lightPowerUnitComboBox, new GridBagConstraints(
+          2, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
+      // Keep components at the left of the panel
+      lightPowerPanel.add(new JLabel(), new GridBagConstraints(
+          3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+      lightPanel.add(lightPowerPanel, new GridBagConstraints(
+          0, 1, 1, 1, 1, 0, labelAlignment,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
+    }
+
+    // Display the panels which contain some components in tabs
+    this.tabbedPane = new JTabbedPane();
+    addTab(preferences, generalPanel, "generalTab.title");
+    addTab(preferences, colorAndTexturePanel, "colorAndTextureTab.title");
+    addTab(preferences, lightPanel, "lightTab.title");
+    add(this.tabbedPane, new GridBagConstraints(
+        0, 0, 1, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+
+    final int colorAndTextureTabIndex = this.tabbedPane.indexOfComponent(colorAndTexturePanel.getParent());
+    if (colorAndTextureTabIndex != -1) {
+      // Color and texture tab can be used only for texturable furniture
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE,
+          new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              tabbedPane.setEnabledAt(colorAndTextureTabIndex, controller.isTexturable());
+            }
+          });
+      this.tabbedPane.setEnabledAt(colorAndTextureTabIndex, controller.isTexturable());
+    }
+  }
+
+  /**
+   * Adds a tab displaying the given <code>panel</code> at its top if it contains some components.
+   */
+  private void addTab(UserPreferences preferences, JPanel panel, String titleKey) {
+    if (panel.getComponentCount() > 0) {
+      int standardGap = Math.round(5 * SwingTools.getResolutionScale());
+      JPanel tabPanel = new JPanel(new BorderLayout());
+      tabPanel.setBorder(BorderFactory.createEmptyBorder(standardGap, standardGap, standardGap, standardGap));
+      tabPanel.add(panel, BorderLayout.NORTH);
+      this.tabbedPane.addTab(preferences.getLocalizedString(HomeFurniturePanel.class, titleKey), tabPanel);
     }
   }
 

@@ -330,7 +330,7 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
         Group lightsBranch = (Group)getChild(2);
         for (int i = 0; i < lightSources.length; i++) {
           LightSource lightSource = lightSources [i];
-          Color lightColor = new Color(lightSource.getColor());
+          Color lightColor = new Color(light.getLightSourceColor(lightSource));
           float power = light.getPower();
           PointLight pointLight = (PointLight)lightsBranch.getChild(i);
           pointLight.setColor(new Color3f(
