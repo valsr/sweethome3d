@@ -81,12 +81,10 @@ Type: filesandordirs; Name: "{app}\jre8"
 Type: filesandordirs; Name: "{app}\jre1.8.0_51"
 Type: filesandordirs; Name: "{app}\jre1.8.0_60"
 Type: filesandordirs; Name: "{app}\jre1.8.0_66"
-; Remove Java3D 1.5.2 if not used
-Type: files; Name: "{app}\lib\vecmath.jar"; Check: not IsJava3D152Installed
-Type: files; Name: "{app}\lib\j3d*.jar"; Check: not IsJava3D152Installed
-Type: files; Name: "{app}\lib\j3d*.dll"; Check: not IsJava3D152Installed
-; Remove other Java3D if Java3D 1.5.2 used
-Type: filesandordirs; Name: "{app}\lib\java3d-1.6"; Check: IsJava3D152Installed
+; Remove Java3D 1.5.2 of previous versions
+Type: files; Name: "{app}\lib\vecmath.jar"
+Type: files; Name: "{app}\lib\j3d*.jar"
+Type: files; Name: "{app}\lib\j3d*.dll"
 
 [Files]
 Source: "build\*.TXT"; DestDir: "{app}"; Flags: ignoreversion 
@@ -102,35 +100,24 @@ Source: "build\lib\freehep-vectorgraphics-svg-*.jar"; DestDir: "{app}\lib"; Flag
 Source: "build\lib\iText-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\jmf.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\jnlp.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
-; Install Java 3D 1.5.2 Jars
-Source: "build\lib\j3d*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: IsJava3D152Installed
-Source: "build\lib\vecmath.jar"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: IsJava3D152Installed
-; Install Java 3D not 1.5.2 Jars
-Source: "build\lib\java3d-1.6\j3d*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\vecmath.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\i586\*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not Is64BitInstalled and not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\gluegen*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\jogl*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
+; Install Java 3D Jars
+Source: "build\lib\java3d-1.6\j3d*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion
+Source: "build\lib\java3d-1.6\vecmath.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion
+Source: "build\lib\java3d-1.6\i586\*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not Is64BitInstalled
+Source: "build\lib\java3d-1.6\gluegen*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled
+Source: "build\lib\java3d-1.6\jogl*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled
 ; Install JRE, Java 3D and Yafaray for not 64 bit
 Source: "build\runtime\x86\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not Is64BitInstalled
-Source: "build\lib\x86\*.dll"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: not Is64BitInstalled and IsJava3D152Installed
-Source: "build\lib\java3d-1.6\x86\*.dll"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not Is64BitInstalled and not IsJava3D152Installed
+Source: "build\lib\java3d-1.6\x86\*.dll"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not Is64BitInstalled
 Source: "build\lib\yafaray\i386\*.dll"; DestDir: "{app}\lib\yafaray"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not Is64BitInstalled
 ; Install JRE, Java 3D and Yafaray for 64 bit
 Source: "build\runtime\x64\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: Is64BitInstalled
-Source: "build\lib\x64\*.dll"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: Is64BitInstalled and IsJava3D152Installed
-Source: "build\lib\java3d-1.6\x64\*.dll"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
+Source: "build\lib\java3d-1.6\x64\*.dll"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled
 Source: "build\lib\yafaray\x64\*.dll"; DestDir: "{app}\lib\yafaray"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: Is64BitInstalled
-; Install program for not 64 bit and Java 3D 1.5.2
-Source: "build\SweetHome3D-java3d-1.5.2-x86.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: not Is64BitInstalled and IsJava3D152Installed and not IsARM64
-; Install program for not 64 bit and not Java 3D 1.5.2
-Source: "build\SweetHome3D-x86.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: not Is64BitInstalled and not IsJava3D152Installed
-; Install program for 64 bit and Java 3D 1.5.2
-Source: "build\SweetHome3D-java3d-1.5.2-x64.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: Is64BitInstalled and IsJava3D152Installed
-; Install program for 64 bit and not Java 3D 1.5.2
-Source: "build\SweetHome3D-x64.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
-; Install program for ARM 64 bit 
-Source: "build\SweetHome3D-java3d-1.5.2-x86-d3d.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: not Is64BitInstalled and IsJava3D152Installed and IsARM64
+; Install program for not 64 bit
+Source: "build\SweetHome3D-x86.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: not Is64BitInstalled
+; Install program for 64 bit
+Source: "build\SweetHome3D-x64.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: Is64BitInstalled
 
 [Icons]
 Name: "{group}\Sweet Home 3D"; Filename: "{app}\SweetHome3D.exe"; Comment: "{cm:SweetHome3DComment}"
@@ -233,28 +220,6 @@ Root: HKCR; Subkey: "Sweet Home 3D Plugin\shell\open\command"; ValueType: string
 [Code]
 var architecture64Bit : boolean;
 var uninstallExistingVersionCheckBox : TCheckBox;
-
-function IsJava3D152Installed : Boolean;
-var
-  windowsVersion : TWindowsVersion;
-  requiredJava3DVersion : String;
-  i : Integer;
-begin
-  (* Uses by default Java 3D 1.5.2 under Windows 7 included or under 64 bit systems when 32 bit is selected *)
-  GetWindowsVersionEx(windowsVersion);
-  Result := (windowsVersion.major < 6) 
-        or ((windowsVersion.major = 6) and (windowsVersion.major < 2))
-        or (Is64BitInstallMode and (not architecture64Bit))
-        or IsARM64;
-  (* Search required Java 3D version in j3d.version custom param *)
-  for i := 1 to ParamCount do
-    if Pos('/j3d.version=', ParamStr(i)) = 1 then
-      begin
-        requiredJava3DVersion := Copy(ParamStr(i), Length('/j3d.version=') + 1, Length(ParamStr(i)));        
-        Result := requiredJava3DVersion = '1.5.2';
-        break;
-      end;
-end; 
 
 function Is64BitInstalled : Boolean;
 begin

@@ -15,8 +15,6 @@
      - jarExecutable              : Builds SweetHome3D-version.jar file in install directory
      - windowsInstaller           : Builds SweetHome3D-version-windows.exe file in install directory
      - windowsSignedInstaller     : Builds signed SweetHome3D-version-windows.exe file in install directory
-     - macosx10.4Installer        : Builds SweetHome3D-version-macosx-10.4-10.9.dmg file in install directory
-     - macosx10.4SignedInstaller  : Builds signed SweetHome3D-version-macosx-10.4-10.9.dmg file in install directory
      - macosxInstaller            : Builds SweetHome3D-version-macosx.dmg file in install directory
      - macosxSignedInstaller      : Builds signed SweetHome3D-version-macosx.dmg file in install directory
      - linux32Installer           : Builds SweetHome3D-version-linux-x86.tgz file in install directory
@@ -59,7 +57,7 @@
            encoding="ISO-8859-1" release="${javaRelease}" includeantruntime="false"
            debug="false" debuglevel="lines,vars,source">
       <classpath>
-        <fileset dir="lib" includes="*.jar"/>
+        <fileset dir="lib" includes="*.jar, java3d-1.6/*.jar"/>
         <pathelement location="libtest/AppleJavaExtensions.jar"/>
         <pathelement location="libtest/javaAwtDesktop.jar"/>
         <pathelement location="libtest/jnlp.jar"/>
@@ -234,10 +232,6 @@
     <mkdir dir="deploy/lib/macosx"/>
     <jar destfile="deploy/lib/macosx/java3d.jar" manifest="build/META-INF/MANIFEST.MF">
       <fileset dir="lib">
-        <include name="j3dcore.jar"/>
-        <include name="j3dutils.jar"/>
-        <include name="vecmath.jar"/>
-        <include name="macosx/*.jar"/>
         <include name="java3d-1.6/*.jar"/>
         <exclude name="java3d-1.6/jogl-all.jar"/>
       </fileset>
@@ -245,7 +239,6 @@
         <include name="java3d-1.6/jogl-java3d.jar"/>
       </fileset>
       <fileset dir="lib">
-        <include name="macosx/*.jnilib"/>
         <include name="java3d-1.6/macosx/*.dylib"/>
       </fileset>
     </jar>
@@ -386,7 +379,6 @@
       <zipfileset src="build/Help.jar"/>
       <fileset dir="lib">
         <include name="*.jar"/>
-        <include name="macosx/*.jar"/>
         <include name="java3d-1.6/*.jar"/>
         <include name="java3d-1.6/i586/gluegen-rt.jar"/>
         <exclude name="java3d-1.6/jogl-all.jar"/>
@@ -396,13 +388,10 @@
         <include name="java3d-1.6/i586/jogl-java3d.jar"/>
       </fileset>
       <fileset dir="lib">
-        <include name="windows/**/*.dll"/>
         <include name="java3d-1.6/windows/**/*.dll"/>
         <include name="yafaray/windows/**/*.dll"/>
-        <include name="linux/**/*.so"/>
         <include name="java3d-1.6/linux/**/*.so"/>
         <include name="yafaray/linux/**/*.so"/>
-        <include name="macosx/*.jnilib"/>
         <include name="java3d-1.6/macosx/*.dylib"/>
         <include name="yafaray/macosx/**/*.dylib"/>
       </fileset>
@@ -458,21 +447,10 @@
       </fileset>
     </copy>
     <copy file="libtest/jnlp.jar" todir="install/windows/build/lib"/>
-    <copy todir="install/windows/build/lib/x86" >
-      <fileset dir="lib/windows/i386">
-        <include name="*.dll"/>
-      </fileset>
-    </copy>
     <mkdir dir="install/windows/build/lib/yafaray/i386"/>
     <copy todir="install/windows/build/lib/yafaray/i386" >
       <fileset dir="lib/yafaray/windows/i386">
         <include name="**/*.dll"/>
-      </fileset>
-    </copy>
-    <mkdir dir="install/windows/build/lib/x64"/>
-    <copy todir="install/windows/build/lib/x64" >
-      <fileset dir="lib/windows/x64">
-        <include name="*.dll"/>
       </fileset>
     </copy>
     <copy todir="install/windows/build/lib/java3d-1.6/x86" >
@@ -595,15 +573,6 @@
 
     <!-- Create SweetHome3D-x86.exe and SweetHome3D-x64.exe with launch4j -->
     <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
-      <arg value="${basedir}\install\windows\installerLaunch4j-java3d-1.5.2-x86.xml"/>
-    </exec>
-    <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
-      <arg value="${basedir}\install\windows\installerLaunch4j-java3d-1.5.2-x86-d3d.xml"/>
-    </exec>
-    <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
-      <arg value="${basedir}\install\windows\installerLaunch4j-java3d-1.5.2-x64.xml"/>
-    </exec>
-    <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
       <arg value="${basedir}\install\windows\installerLaunch4j-x86.xml"/>
     </exec>
     <exec executable="C:\Program Files (x86)\Launch4j\launch4jc.exe" failonerror="yes">
@@ -669,9 +638,6 @@
       <arg value="/fd"/>
       <arg value="sha256"/>
       <arg value="/as"/>
-      <arg value="${basedir}\install\windows\build\SweetHome3D-java3d-1.5.2-x86-d3d.exe"/>
-      <arg value="${basedir}\install\windows\build\SweetHome3D-java3d-1.5.2-x86.exe"/>
-      <arg value="${basedir}\install\windows\build\SweetHome3D-java3d-1.5.2-x64.exe"/>
       <arg value="${basedir}\install\windows\build\SweetHome3D-x86.exe"/>
       <arg value="${basedir}\install\windows\build\SweetHome3D-x64.exe"/>
     </exec>
@@ -692,169 +658,6 @@
     <delete dir="install/windows/build"/>
 
     <echo message="signed install/SweetHome3D-${version}-windows.exe ready for ftp"/>
-  </target>
-
-  <!-- Builds Sweet Home 3D Mac OS X application bundle in install/macosx/10.4/SweetHome3D-version directory. -->
-  <target name="macosx10.4Bundle" depends="application,furniture,textures,examples,help"
-          description="Builds Sweet Home 3D Mac OS X application bundle">
-    <!-- Build Sweet Home 3D version for Mac OS X 10.4 to 10.9 based on Apple Java and Java 3D 1.5.2-->
-    <mkdir dir="install/macosx/10.4/SweetHome3D-${version}"/>
-    <copy todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app">
-      <fileset dir="install/macosx/10.4/Sweet Home 3D"/>
-    </copy>
-    <!-- Copy ICNS files of Mac OS X standard version -->
-    <copy todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources">
-      <fileset dir="install/macosx/Sweet Home 3D/Contents/Resources"/>
-    </copy>
-
-    <!-- Change executable permission of SweetHome3D lost during copy task -->
-    <chmod perm="+x" file="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/MacOS/SweetHome3D"/>
-
-    <!-- Copy SweetHome3D JARs and its direct libs
-         to install/macosx/10.4/SweetHome3D-version/Sweet Home 3D.app/Contents/Resources/Java -->
-    <mkdir dir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java/ext"/>
-    <move file="build/SweetHome3D.jar" todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java" />
-    <move file="build/Furniture.jar"   todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java" />
-    <move file="build/Textures.jar"    todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java" />
-    <move file="build/Examples.jar"    todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java" />
-    <move file="build/Help.jar"        todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java" />
-    <copy todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java" >
-      <fileset dir="lib">
-        <include name="*.jar"/>
-        <exclude name="jmf.jar"/>
-        <exclude name="j3dcore.jar"/>
-        <exclude name="j3dutils.jar"/>
-        <exclude name="vecmath.jar"/>
-        <!-- Print to PDF menu item isn't available under Mac OS X as it's already in standard print dialog -->
-        <exclude name="iText-2.1.7.jar"/>
-      </fileset>
-    </copy>
-    <!-- Copy jnlp.jar, JMF and Mac OS X Java 3D 1.5.2 DLLs and JARs for Java 3D
-         to install/macosx/10.4/SweetHome3D-version/Sweet Home 3D.app/Contents/Resources/Java/ext -->
-    <copy file="libtest/jnlp.jar" todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java/ext"/>
-    <copy file="lib/jmf.jar" todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java/ext"/>
-    <copy todir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java/ext" >
-      <fileset dir="lib">
-        <include name="j3dcore.jar"/>
-        <include name="j3dutils.jar"/>
-        <include name="vecmath.jar"/>
-      </fileset>
-      <fileset dir="lib/macosx">
-        <include name="*.jar"/>
-        <include name="*.jnilib"/>
-      </fileset>
-      <fileset dir="lib/yafaray/macosx">
-        <include name="**/*.dylib"/>
-      </fileset>
-    </copy>
-
-    <!-- Keep only x86_64 arch in YafaRay .dylib files of Java/ext folder with lipo -->
-    <exec executable="find" dir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java/ext" failonerror="yes">
-      <arg value="."/>
-      <arg value="-type"/>
-      <arg value="f"/>
-      <arg value="-name"/>
-      <arg value="libyafaray*.dylib"/>
-      <arg value="-exec"/>
-      <arg value="lipo"/>
-      <arg value="{}"/>
-      <arg value="-thin"/>
-      <arg value="x86_64"/>
-      <arg value="-output"/>
-      <arg value="{}"/>
-      <arg value=";"/>
-    </exec>
-    <exec executable="find" dir="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app/Contents/Resources/Java/ext/yafaray-plugins" failonerror="yes">
-      <arg value="."/>
-      <arg value="-type"/>
-      <arg value="f"/>
-      <arg value="-name"/>
-      <arg value="*.dylib"/>
-      <arg value="-exec"/>
-      <arg value="lipo"/>
-      <arg value="{}"/>
-      <arg value="-thin"/>
-      <arg value="x86_64"/>
-      <arg value="-output"/>
-      <arg value="{}"/>
-      <arg value=";"/>
-    </exec>
-
-    <!-- Copy COPYING.TXT and licenses texts to install/macosx/10.4/SweetHome3D-version/ -->
-    <copy file="COPYING.TXT" todir="install/macosx/10.4/SweetHome3D-${version}"/>
-    <copy file="LICENSE.TXT" todir="install/macosx/10.4/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JAVA3D.TXT"     todir="install/macosx/10.4/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-BATIK.TXT"      todir="install/macosx/10.4/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JEKSPARSER.TXT"     todir="install/macosx/10.4/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-VECTORGRAPHICS.TXT" todir="install/macosx/10.4/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-SUNFLOW.TXT"    todir="install/macosx/10.4/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-YAFARAY.TXT"    todir="install/macosx/10.4/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-JMF.HTML"       todir="install/macosx/10.4/SweetHome3D-${version}" />
-  </target>
-
-  <!-- Builds install/SweetHome3D-version-macosx-10.4-10.9.dmg archive that contains SweetHome3D.app
-       and Sweet Home 3D libraries.
-       CAUTION : May be run only under Mac OS X and requires Disk Utility -->
-  <target name="macosx10.4Installer" depends="macosx10.4Bundle"
-          description="Builds install/SweetHome3D-version-macosx-10.4-10.9.dmg archive">
-    <!-- Create install/SweetHome3D-version-macosx-10.4-10.9.dmg with Disk Utility -->
-    <delete file="install/SweetHome3D-${version}-macosx-10.4-10.9.dmg"/>
-    <exec executable="hdiutil" failonerror="yes">
-      <arg value="create"/>
-      <arg value="-fs"/>
-      <arg value="HFS+"/>
-      <arg value="-srcfolder"/>
-      <arg value="install/macosx/10.4/SweetHome3D-${version}"/>
-      <arg value="install/SweetHome3D-${version}-macosx-10.4-10.9.dmg"/>
-    </exec>
-
-    <!-- Clean build directories -->
-    <delete dir="build"/>
-    <delete dir="install/macosx/10.4/SweetHome3D-${version}"/>
-
-    <echo message="install/SweetHome3D-${version}-macosx-10.4-10.9.dmg ready for ftp"/>
-  </target>
-
-  <!-- Builds install/SweetHome3D-version-macosx-10.4-10.9.dmg signed archive that contains SweetHome3D.app
-       and Sweet Home 3D libraries.
-       CAUTION : May be run only under Mac OS X and requires hdiutil, codesign
-                 and a certificate imported in Keychain Access -->
-  <target name="macosx10.4SignedInstaller" depends="macosx10.4Bundle"
-          description="Builds install/SweetHome3D-version-macosx-10.4-10.9.dmg archive">
-    <input message="Enter Developer ID Application certificate name:" addproperty="certificateName"/>
-    <!-- Sign Sweet Home 3D application bundle -->
-    <exec executable="codesign" failonerror="yes">
-      <arg value="-f"/>
-      <arg value="-s"/>
-      <arg value="${certificateName}"/>
-      <arg value="install/macosx/10.4/SweetHome3D-${version}/Sweet Home 3D.app"/>
-    </exec>
-
-    <!-- Create install/SweetHome3D-version-macosx-10.4-10.9.dmg with Disk Utility -->
-    <delete file="install/SweetHome3D-${version}-macosx-10.4-10.9.dmg"/>
-    <exec executable="hdiutil" failonerror="yes">
-      <arg value="create"/>
-      <arg value="-fs"/>
-      <arg value="HFS+"/>
-      <arg value="-format"/>
-      <arg value="UDBZ"/>
-      <arg value="-srcfolder"/>
-      <arg value="install/macosx/10.4/SweetHome3D-${version}"/>
-      <arg value="install/SweetHome3D-${version}-macosx-10.4-10.9.dmg"/>
-    </exec>
-
-    <!-- Sign Sweet Home 3D DMG image -->
-    <exec executable="codesign" failonerror="yes">
-      <arg value="-s"/>
-      <arg value="${certificateName}"/>
-      <arg value="install/SweetHome3D-${version}-macosx-10.4-10.9.dmg"/>
-    </exec>
-
-    <!-- Clean build directories -->
-    <delete dir="build"/>
-    <delete dir="install/macosx/10.4/SweetHome3D-${version}"/>
-
-    <echo message="signed install/SweetHome3D-${version}-macosx-10.4-10.9.dmg ready for ftp"/>
   </target>
 
   <!-- Builds Sweet Home 3D Mac OS X application bundle in install/macosx/SweetHome3D-version directory.
@@ -882,9 +685,6 @@
     <copy todir="install/macosx/SweetHome3D-${version}/Sweet Home 3D.app/Contents/app" >
       <fileset dir="lib">
         <include name="*.jar"/>
-        <exclude name="j3dcore.jar"/>
-        <exclude name="j3dutils.jar"/>
-        <exclude name="vecmath.jar"/>
         <!-- Print to PDF menu item isn't available under Mac OS X as it's already in standard print dialog -->
         <exclude name="iText-2.1.7.jar"/>
       </fileset>
@@ -1095,7 +895,6 @@
     <mkdir dir="install/linux/x86/SweetHome3D-${version}/lib"/>
     <!-- Copy SweetHome3D commands -->
     <copy todir="install/linux/x86/SweetHome3D-${version}" file="install/linux/SweetHome3D"/>
-    <copy todir="install/linux/x86/SweetHome3D-${version}" file="install/linux/SweetHome3D-Java3D-1_5_2"/>
 
     <!-- Copy SweetHome3D JARs and its direct libs
          to install/linux/x86/SweetHome3D-version/lib -->
@@ -1115,11 +914,6 @@
     <copy file="lib/java3d-1.6/i586/gluegen-rt.jar" todir="install/linux/x86/SweetHome3D-${version}/lib/java3d-1.6" />
     <copy file="build/java3d-1.6/i586/jogl-java3d.jar" todir="install/linux/x86/SweetHome3D-${version}/lib/java3d-1.6" />
     <copy file="libtest/jnlp.jar" todir="install/linux/x86/SweetHome3D-${version}/lib"/>
-    <copy todir="install/linux/x86/SweetHome3D-${version}/lib" >
-      <fileset dir="lib/linux/i386">
-        <include name="*.so"/>
-      </fileset>
-    </copy>
     <copy todir="install/linux/x86/SweetHome3D-${version}/lib/java3d-1.6" >
       <fileset dir="lib/java3d-1.6/linux/i586">
         <include name="*.so"/>
@@ -1190,13 +984,11 @@
       <tarfileset dir="install/linux/x86"
                   includes="SweetHome3D-${version}/**">
         <exclude name="SweetHome3D-${version}/SweetHome3D"/>
-        <exclude name="SweetHome3D-${version}/SweetHome3D-Java3D-1_5_2"/>
         <exclude name="SweetHome3D-${version}/runtime/bin/java"/>
       </tarfileset>
       <!-- Change executable permission of SweetHome3D and java commands -->
       <tarfileset dir="install/linux/x86" mode="755">
         <include name="SweetHome3D-${version}/SweetHome3D"/>
-        <include name="SweetHome3D-${version}/SweetHome3D-Java3D-1_5_2"/>
         <include name="SweetHome3D-${version}/runtime/bin/java"/>
       </tarfileset>
     </tar>
@@ -1218,7 +1010,6 @@
     <mkdir dir="install/linux/x64/SweetHome3D-${version}/lib"/>
     <!-- Copy SweetHome3D commands -->
     <copy todir="install/linux/x64/SweetHome3D-${version}" file="install/linux/SweetHome3D" />
-    <copy todir="install/linux/x64/SweetHome3D-${version}" file="install/linux/SweetHome3D-Java3D-1_5_2"/>
     <!-- Change max memory Java parameter -->
     <replace dir="install/linux/x64" token=" -Xmx1024m " value=" -Xmx2g "/>
 
@@ -1240,11 +1031,6 @@
       </fileset>
     </copy>
     <copy file="libtest/jnlp.jar" todir="install/linux/x64/SweetHome3D-${version}/lib"/>
-    <copy todir="install/linux/x64/SweetHome3D-${version}/lib" >
-      <fileset dir="lib/linux/x64">
-        <include name="*.so"/>
-      </fileset>
-    </copy>
     <copy todir="install/linux/x64/SweetHome3D-${version}/lib/java3d-1.6" >
       <fileset dir="lib/java3d-1.6/linux/amd64">
         <include name="*.so"/>
@@ -1315,13 +1101,11 @@
       <tarfileset dir="install/linux/x64"
                   includes="SweetHome3D-${version}/**">
         <exclude name="SweetHome3D-${version}/SweetHome3D"/>
-        <exclude name="SweetHome3D-${version}/SweetHome3D-Java3D-1_5_2"/>
         <exclude name="SweetHome3D-${version}/runtime/bin/java"/>
       </tarfileset>
       <!-- Change executable permission of SweetHome3D and java commands -->
       <tarfileset dir="install/linux/x64" mode="755">
         <include name="SweetHome3D-${version}/SweetHome3D"/>
-        <include name="SweetHome3D-${version}/SweetHome3D-Java3D-1_5_2"/>
         <include name="SweetHome3D-${version}/runtime/bin/java"/>
       </tarfileset>
     </tar>
@@ -1384,9 +1168,6 @@
       <fileset dir="lib">
         <include name="*.jar"/>
         <exclude name="jmf.jar"/>
-        <exclude name="j3dcore.jar"/>
-        <exclude name="j3dutils.jar"/>
-        <exclude name="vecmath.jar"/>
       </fileset>
     </copy>
     <!-- Copy jnlp.jar, JMF and DLLs and JARs for Java 3D
