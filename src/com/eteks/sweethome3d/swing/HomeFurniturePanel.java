@@ -169,7 +169,6 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
   private JSpinner                lightColorTemperatureSpinner;
   private JTabbedPane             tabbedPane;
 
-  private static final float MAXIMUM_LIGHT_POWER = 1f;
   private static final int MINIMUM_LIGHT_COLOR_TEMPERATURE = 1500;
   private static final int MAXIMUM_LIGHT_COLOR_TEMPERATURE = 10000;
   private String                  dialogTitle;
@@ -1185,7 +1184,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     this.lightPowerSpinnerUpdated = true;
     try {
       lightPowerSpinnerModel.setNullable(lightPower == null);
-      lightPowerSpinnerModel.setMaximum(MAXIMUM_LIGHT_POWER * unitFactor);
+      lightPowerSpinnerModel.setMaximum(HomeLight.MAXIMUM_POWER * unitFactor);
       lightPowerSpinnerModel.setStepSize(unitFactor / 20);
       lightPowerSpinnerModel.setValue(lightPower != null
           ? lightPower * unitFactor

@@ -25,6 +25,7 @@ import java.util.Arrays;
 
 import javax.swing.JComboBox;
 import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
@@ -282,9 +283,21 @@ public class HomeLightPropertiesTest extends TestCase {
             assertEquals(75f, ((Number)powerSpinner.getValue()).floatValue());
             assertEquals(0.75f, controller.getLightPower());
 
+
+            // Power may be greater than 100% up to 10,000 lumens
+            assertEquals(1250f, ((Number)((SpinnerNumberModel)powerSpinner.getModel()).getMaximum()).floatValue());
+            powerSpinner.setValue(250f);
+            assertEquals(2.5f, controller.getLightPower());
+            unitComboBox.setSelectedItem(HomeLight.PowerUnit.LUMEN);
+            assertEquals(2000f, ((Number)powerSpinner.getValue()).floatValue());
+            assertEquals(10000f, ((Number)((SpinnerNumberModel)powerSpinner.getModel()).getMaximum()).floatValue());
+            powerSpinner.setValue(10000f);
+            assertEquals(HomeLight.MAXIMUM_POWER, controller.getLightPower());
+
             controller.modifyFurniture();
-            assertEquals(0.75f, light.getPower());
-            assertEquals(HomeLight.PowerUnit.PERCENTAGE, light.getPowerUnit());
+            assertEquals(12.5f, light.getPower());
+            assertEquals(10000f, light.getLuminousFlux());
+            assertEquals(HomeLight.PowerUnit.LUMEN, light.getPowerUnit());
           } catch (Exception ex) {
             throw new RuntimeException(ex);
           }

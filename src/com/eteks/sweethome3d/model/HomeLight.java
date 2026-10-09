@@ -47,6 +47,11 @@ public class HomeLight extends HomePieceOfFurniture implements Light {
    */
   public static final float FULL_POWER_LUMINOUS_FLUX = 800f;
 
+  /**
+   * The maximum power proposed to users for a light, which matches 10,000 lumens.
+   */
+  public static final float MAXIMUM_POWER = 10000f / FULL_POWER_LUMINOUS_FLUX;
+
   private LightSource [] lightSources;
   private String []      lightSourceMaterialNames;
   private float power;
