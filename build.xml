@@ -5,7 +5,6 @@
 
      Ant build file. Available targets :
      - build       : Builds SweetHome3D.jar file in build directory
-     - application : Builds SweetHome3D.jar file without applet classes in build directory
      - furniture   : Builds Furniture.jar file in build directory
      - textures    : Builds Textures.jar file in build directory
      - examples    : Builds Examples.jar file in build directory
@@ -13,8 +12,6 @@
 
      - java3dLibraries            : Builds JNLP Java 3D libraries in deploy/lib subdirectories
      - javaWebStart               : Builds Java Web Start signed files in deploy/lib directory
-     - applet                     : Builds applet signed files in deploy/lib directory
-     - viewer                     : Builds viewer signed files in deploy/lib directory
      - jarExecutable              : Builds SweetHome3D-version.jar file in install directory
      - windowsInstaller           : Builds SweetHome3D-version-windows.exe file in install directory
      - windowsSignedInstaller     : Builds signed SweetHome3D-version-windows.exe file in install directory
@@ -25,7 +22,6 @@
      - linux32Installer           : Builds SweetHome3D-version-linux-x86.tgz file in install directory
      - linux64Installer           : Builds SweetHome3D-version-linux-x64.tgz file in install directory
      - portableArchive            : Builds SweetHome3D-version-portable files in install/portable directory
-     - viewerInstaller            : Builds SweetHome3DViewer-version.zip file in install directory
      - sourceArchive              : Builds SweetHome3D-version-src.zip file in install directory
      - javadoc                    : Builds SweetHome3D-version-javadoc.zip file install directory
 
@@ -34,19 +30,8 @@
 <project basedir="." default="jarExecutable" name="SweetHome3D">
   <!-- Current version of Sweet Home 3D -->
   <property name="version" value="7.5"/>
-  <!-- Java source and target compatiblity (Java 9 and higher doesn't support 1.5) -->
-  <condition property="appletClassSource" value="1.2" else="1.8">
-    <matches string="${ant.java.version}" pattern="1\.5|1\.6|1\7|1\.8"/>
-  </condition>
-  <condition property="appletClassTarget" value="1.1" else="1.8">
-    <matches string="${ant.java.version}" pattern="1\.5|1\.6|1\7|1\.8"/>
-  </condition>
-  <condition property="classSource" value="1.5" else="1.8">
-    <matches string="${ant.java.version}" pattern="1\.5|1\.6|1\7|1\.8"/>
-  </condition>
-  <condition property="classTarget" value="1.5" else="1.8">
-    <matches string="${ant.java.version}" pattern="1\.5|1\.6|1\7|1\.8"/>
-  </condition>
+  <!-- Java release used to compile classes -->
+  <property name="javaRelease" value="25"/>
   <!-- JRE or OpenJDK home for Windows, Mac OS X and Linux -->
   <property name="javaHome_windows_x86" value="C:\Program Files (x86)\Java\jre1.8.0_202"/>
   <property name="javaHome_windows_x64" value="C:\Program Files\OpenJDK\zulu11.62.17-ca-jdk11.0.18-win_x64"/>
@@ -67,24 +52,14 @@
 
   <target name="build"
           description="Builds build/SweetHome3D.jar with all its classes">
-    <echo message="compiling Sweet Home 3D for Java ${classTarget} minimum version"/>
+    <echo message="compiling Sweet Home 3D for Java ${javaRelease} minimum version"/>
     <!-- Compile Sweet Home 3D -->
     <mkdir dir="build/classes"/>
-    <!-- Compile Sweet Home 3D applets first with javac 1.1 to be able to detect current Java version
-         during applet launch (otherwise Java 1.1 to 1.4 plug-ins refuse to load Applet class) -->
     <javac srcdir="src" destdir="build/classes"
-           includes="com/eteks/sweethome3d/applet/SweetHome3D*.java"
-           encoding="ISO-8859-1" target="${appletClassTarget}" source="${appletClassSource}"
-           debug="false" debuglevel="lines,vars,source"/>
-    <!-- Compile other classes -->
-    <javac srcdir="src" destdir="build/classes"
-           encoding="ISO-8859-1" target="${classTarget}" source="${classSource}"
+           encoding="ISO-8859-1" release="${javaRelease}" includeantruntime="false"
            debug="false" debuglevel="lines,vars,source">
-      <!-- Use lib as an extension directory to override default Java 3D libraries -->
-      <extdirs>
-        <pathelement location="lib"/>
-      </extdirs>
       <classpath>
+        <fileset dir="lib" includes="*.jar"/>
         <pathelement location="libtest/AppleJavaExtensions.jar"/>
         <pathelement location="libtest/javaAwtDesktop.jar"/>
         <pathelement location="libtest/jnlp.jar"/>
@@ -116,13 +91,7 @@
   </target>
 
   <target name="application" depends="build"
-          description="Builds build/SweetHome3D.jar application with all its classes">
-    <zip destfile="build/SweetHome3DStandalone.jar">
-      <zipfileset src="build/SweetHome3D.jar"
-                  excludes="com/eteks/sweethome3d/applet/**"/>
-    </zip>
-    <move file="build/SweetHome3DStandalone.jar" tofile="build/SweetHome3D.jar"/>
-  </target>
+          description="Builds build/SweetHome3D.jar application with all its classes"/>
 
   <target name="furniture"
           description="Builds build/Furniture.jar that contains the furniture files">
@@ -282,34 +251,6 @@
     </jar>
   </target>
 
-  <target name="java3dAllSystemsLibrary" depends="jogl-java3d,jogl-java3d-x86"
-          description="Builds applet Java 3D library suitable for all systems in deploy/lib subdirectory">
-    <mkdir dir="deploy/lib"/>
-    <!-- Create java3d.jar containing Java 3D DLLs and jars for Windows, Linux and Mac OS X
-         (this library is used for Java versions older than Java SE 6 update 10) -->
-    <jar destfile="deploy/lib/java3d.jar" manifest="build/META-INF/MANIFEST.MF">
-      <fileset dir="lib">
-        <include name="j3dcore.jar"/>
-        <include name="j3dutils.jar"/>
-        <include name="vecmath.jar"/>
-        <include name="macosx/*.jar"/>
-        <include name="java3d-1.6/*.jar"/>
-        <include name="java3d-1.6/i586/gluegen-rt.jar"/>
-        <exclude name="java3d-1.6/jogl-all.jar"/>
-      </fileset>
-      <fileset dir="build">
-        <include name="java3d-1.6/jogl-java3d.jar"/>
-        <include name="java3d-1.6/i586/jogl-java3d.jar"/>
-      </fileset>
-      <fileset dir="lib">
-        <include name="java3d-1.6/windows/**/*.dll"/>
-        <include name="java3d-1.6/linux/**/*.so"/>
-        <include name="macosx/*.jnilib"/>
-        <include name="java3d-1.6/macosx/*.dylib"/>
-      </fileset>
-    </jar>
-  </target>
-
   <target name="viewerLibraries"
           description="Copies to deploy/lib the base libraries used by Sweet Home 3D Viewer">
     <mkdir dir="deploy/lib"/>
@@ -395,151 +336,6 @@
       <zipfileset src="build/Textures.jar"/>
       <zipfileset src="build/Examples.jar"/>
       <zipfileset src="build/Help.jar"/>
-    </jar>
-
-    <!-- Clean build directory -->
-    <delete dir="build"/>
-
-    <input message="Enter alias for signature:" addproperty="alias"/>
-    <input message="Enter path of jarsigner provider:" addproperty="jarsignerProvider" defaultvalue="provider.cfg"/>
-    <input message="Enter URL of timestamp authority:" addproperty="timestampAuthorityURL" defaultvalue="http://time.certum.pl/"/>
-    <!-- Sign jar files in deploy/lib dir -->
-    <apply executable="${jarsigner}"> 
-      <arg value="-keystore"/>
-      <arg value="NONE"/>
-      <arg value="-storepass"/>
-      <arg value="0000"/>
-      <arg value="-storetype"/>
-      <arg value="PKCS11"/>
-      <arg value="-providerClass"/>
-      <arg value="sun.security.pkcs11.SunPKCS11"/>
-      <arg value="-providerArg"/>
-      <arg value="${jarsignerProvider}"/>
-      <arg value="-tsa"/>
-      <arg value="${timestampAuthorityURL}"/>
-      <arg value="-certchain"/>
-      <arg value="certificate.pem"/>
-      <srcfile/>
-      <arg value="${alias}"/>
-      <fileset dir="deploy/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </apply>
-
-    <echo message="deploy dir ready for ftp"/>
-  </target>
-
-  <target name="applet" depends="build,java3dLibraries,java3dAllSystemsLibrary,otherLibraries"
-          description="Builds deploy/lib/SweetHome3DApplet.jar and signs jars required by Sweet Home 3D applet">
-    <!-- Create SweetHome3DApplet.jar containing Sweet Home 3D classes and resources -->
-    <mkdir dir="deploy/lib"/>
-    <input message="Enter domain name where applet will be hosted:" addproperty="domain"/>
-    <jar destfile="deploy/lib/SweetHome3DApplet.jar">
-      <manifest>
-        <attribute name="Application-Name"          value="Sweet Home 3D Online"/>
-        <attribute name="Permissions"               value="all-permissions"/>
-        <attribute name="Codebase"                  value="*"/>
-        <!-- From Java 7u55, specifying domain is mandatory to call applet methods from JavaScript
-             without security warning -->
-        <attribute name="Caller-Allowable-Codebase" value="${domain}"/>
-      </manifest>
-      <fileset dir="build" includes="JNLP-INF/APPLICATION.JNLP"/>
-      <zipfileset src="build/SweetHome3D.jar"
-                  excludes="com/eteks/sweethome3d/*.*, com/eteks/sweethome3d/resources/**, com/eteks/sweethome3d/applet/*Viewer*.*"/>
-    </jar>
-
-    <!-- Clean build directory -->
-    <delete dir="build"/>
-
-    <input message="Enter alias for signature:" addproperty="alias"/>
-    <input message="Enter path of jarsigner provider:" addproperty="jarsignerProvider" defaultvalue="provider.cfg"/>
-    <input message="Enter URL of timestamp authority:" addproperty="timestampAuthorityURL" defaultvalue="http://time.certum.pl/"/>
-    <!-- Sign jar files in deploy/lib dir -->
-    <apply executable="${jarsigner}"> 
-      <arg value="-keystore"/>
-      <arg value="NONE"/>
-      <arg value="-storepass"/>
-      <arg value="0000"/>
-      <arg value="-storetype"/>
-      <arg value="PKCS11"/>
-      <arg value="-providerClass"/>
-      <arg value="sun.security.pkcs11.SunPKCS11"/>
-      <arg value="-providerArg"/>
-      <arg value="${jarsignerProvider}"/>
-      <arg value="-tsa"/>
-      <arg value="${timestampAuthorityURL}"/>
-      <arg value="-certchain"/>
-      <arg value="certificate.pem"/>
-      <srcfile/>
-      <arg value="${alias}"/>
-      <fileset dir="deploy/lib">
-        <include name="**/*.jar"/>
-      </fileset>
-    </apply>
-
-    <echo message="deploy dir ready for ftp"/>
-  </target>
-
-  <target name="viewer" depends="java3dLibraries,java3dAllSystemsLibrary,viewerLibraries,manifest"
-          description="Builds deploy/lib/SweetHome3DViewer.jar and signs jars required by Sweet Home 3D viewer">
-    <!-- Compile Sweet Home 3D Viewer-->
-    <mkdir dir="build/classes"/>
-    <!-- Compile Sweet Home 3D Viewer applet first with javac 1.1 to be able to detect current Java version
-         during applet launch (otherwise Java 1.1 to 1.4 plug-ins refuse to load Applet class) -->
-    <javac srcdir="src" destdir="build/classes"
-           includes="com/eteks/sweethome3d/applet/SweetHome3DViewer.java"
-           encoding="ISO-8859-1" target="${appletClassTarget}" source="${appletClassSource}"
-           debug="false" debuglevel="lines,vars,source"/>
-    <!-- Compile only classes depending on ViewerHelper to reduce Jar size -->
-    <javac srcdir="src" destdir="build/classes"
-           encoding="ISO-8859-1" target="${classTarget}" source="${classSource}"
-           debug="false" debuglevel="lines,vars,source">
-      <include name="com/eteks/sweethome3d/applet/ViewerHelper.java"/>
-      <include name="com/eteks/sweethome3d/io/DefaultPatternTexture.java"/>
-      <!-- Use lib as an extension directory to override default Java 3D libraries -->
-      <extdirs>
-        <pathelement location="lib"/>
-      </extdirs>
-      <classpath>
-        <pathelement location="libtest/AppleJavaExtensions.jar"/>
-        <pathelement location="libtest/javaAwtDesktop.jar"/>
-        <pathelement location="libtest/jnlp.jar"/>
-      </classpath>
-    </javac>
-
-    <!-- Copy only resources used by viewer -->
-    <copy todir="build/classes">
-      <fileset dir="src">
-        <include name="com/eteks/sweethome3d/applet/*.properties"/>
-        <include name="com/eteks/sweethome3d/model/*.properties"/>
-        <include name="com/eteks/sweethome3d/tools/*.properties"/>
-        <include name="com/eteks/sweethome3d/io/resources/patterns/*.png"/>
-        <include name="com/eteks/sweethome3d/swing/resources/icons/tango/go-*.png"/>
-        <include name="com/eteks/sweethome3d/swing/HomeComponent3D.properties"/>
-      </fileset>
-    </copy>
-
-    <!-- Create SweetHome3DViewer.jar containing only classes and resources required by Sweet Home 3D Viewer -->
-    <mkdir dir="deploy/lib"/>
-    <copy file="deploy/SweetHome3DViewer.jnlp" tofile="build/JNLP-INF/APPLICATION.JNLP"/>
-    <jar destfile="deploy/lib/SweetHome3DViewer.jar"
-         basedir="build/classes" manifest="build/META-INF/MANIFEST.MF" filesetmanifest="merge">
-      <manifest>
-        <attribute name="Application-Name" value="Sweet Home 3D Viewer"/>
-      </manifest>
-      <fileset dir="build" includes="JNLP-INF/APPLICATION.JNLP"/>
-      <include name="com/eteks/sweethome3d/applet/*"/>
-      <include name="com/eteks/sweethome3d/io/**"/>
-      <include name="com/eteks/sweethome3d/j3d/*"/>
-      <include name="com/eteks/sweethome3d/model/*"/>
-      <include name="com/eteks/sweethome3d/swing/**"/>
-      <include name="com/eteks/sweethome3d/tools/*"/>
-      <include name="com/eteks/sweethome3d/viewcontroller/*View*"/>
-      <include name="com/eteks/sweethome3d/viewcontroller/Controller.*"/>
-      <include name="com/eteks/sweethome3d/viewcontroller/ContentManager*"/>
-      <include name="com/eteks/sweethome3d/viewcontroller/HomeController3D*"/>
-      <include name="com/eteks/sweethome3d/viewcontroller/Object3DFactory*"/>
-      <include name="com/eteks/sweethome3d/viewcontroller/ThreadedTaskController*"/>
     </jar>
 
     <!-- Clean build directory -->
@@ -1659,26 +1455,6 @@
                    to install/portable/SweetHome3D-${version}-portable and prepare compressed archive"/>
   </target>
 
-  <!-- Builds install/SweetHome3DViewer-version.zip archive that contains
-       the files required for SweetHome3DViewer applet -->
-  <target name="viewerInstaller" depends="viewer"
-          description="Builds install/SweetHome3DViewer-version.zip archive">
-    <zip destfile="install/SweetHome3DViewer-${version}.zip">
-      <zipfileset dir="deploy"
-                  includes="lib/**, SweetHome3DViewer.html"/>
-      <zipfileset dir="install/viewer"
-                  includes="README.TXT"/>
-      <zipfileset dir=".">
-        <include name="COPYING.TXT"/>
-        <include name="LICENSE.TXT"/>
-        <include name="THIRDPARTY-LICENSE-JAVA3D.TXT"/>
-        <include name="THIRDPARTY-LICENSE-BATIK.TXT"/>
-      </zipfileset>
-    </zip>
-
-    <echo message="install/SweetHome3DViewer-${version}.zip ready for ftp"/>
-  </target>
-
   <!-- Builds install/SweetHome3D-version-src.zip archive that contains
        SweetHome3D source files in directory named SweetHome3D-version-src -->
   <target name="sourceArchive"
@@ -1702,7 +1478,6 @@
         <include name="install/linux/*"/>
         <include name="install/macosx/**"/>
         <include name="install/portable/*"/>
-        <include name="install/viewer/*"/>
         <include name="install/windows/*"/>
         <!-- Eclipse project files -->
         <include name=".settings/**"/>
@@ -1738,7 +1513,7 @@
       <link href="http://docs.oracle.com/javase/1.5.1/docs/api/"/>
       <link href="http://download.java.net/media/java3d/javadoc/1.5.3/"/>
       <group title="Base classes" packages="*"/>
-      <group title="Application and Applet" packages="com.eteks.sweethome3d:com.eteks.sweethome3d.applet"/>
+      <group title="Application" packages="com.eteks.sweethome3d"/>
       <classpath>
         <fileset dir="lib"/>
         <pathelement location="libtest/AppleJavaExtensions.jar"/>
