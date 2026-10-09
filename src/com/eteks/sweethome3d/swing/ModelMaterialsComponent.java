@@ -35,6 +35,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
@@ -108,10 +110,16 @@ public class ModelMaterialsComponent extends JButton implements View {
   }
 
   /**
-   * A panel that displays available textures in a list to let user make choose one.
+   * A panel that displays the materials of a model in a list to let user modify them.
+   * This panel may be displayed in a dialog box with {@link #displayView(View) displayView},
+   * or embedded in an other panel, where it updates the materials of its controller
+   * each time the user modifies them as long as it's enabled.
    */
-  private static class ModelMaterialsPanel extends JPanel {
+  static class ModelMaterialsPanel extends JPanel {
     private final ModelMaterialsController controller;
+    private final boolean                  embedded;
+    private boolean                        textureChangeListenerInstalled;
+    private MaterialBlinker                selectedMaterialBlinker;
 
     private JLabel                 previewLabel;
     private ModelPreviewComponent  previewComponent;
@@ -130,11 +138,98 @@ public class ModelMaterialsComponent extends JButton implements View {
 
     public ModelMaterialsPanel(UserPreferences preferences,
                                ModelMaterialsController controller) {
+      this(preferences, controller, false);
+    }
+
+    /**
+     * Creates a panel which will be displayed in a dialog box,
+     * or in an other panel if <code>embedded</code> is <code>true</code>.
+     */
+    public ModelMaterialsPanel(UserPreferences preferences,
+                               ModelMaterialsController controller,
+                               boolean embedded) {
       super(new GridBagLayout());
       this.controller = controller;
+      this.embedded = embedded;
       createComponents(preferences, controller);
       setMnemonics(preferences);
       layoutComponents();
+      if (embedded) {
+        installEmbeddedPanelListeners();
+      }
+    }
+
+    /**
+     * Adds the listeners which update controller materials and make the selected material blink
+     * while this panel is shown and enabled in an other panel.
+     */
+    private void installEmbeddedPanelListeners() {
+      this.controller.getTextureController().addPropertyChangeListener(
+          TextureChoiceController.Property.TEXTURE, this.textureChangeListener);
+      this.textureChangeListenerInstalled = true;
+      final MaterialsListModel materialsListModel = (MaterialsListModel)this.materialsList.getModel();
+      materialsListModel.addListDataListener(new ListDataListener() {
+          public void contentsChanged(ListDataEvent ev) {
+            // Ignore the changes notified once the model is loaded
+            if (isEnabled()) {
+              HomeMaterial [] materials = materialsListModel.getMaterials();
+              controller.setMaterials(materials != null  ? materials.clone()  : null);
+            }
+          }
+
+          public void intervalRemoved(ListDataEvent ev) {
+          }
+
+          public void intervalAdded(ListDataEvent ev) {
+          }
+        });
+      this.selectedMaterialBlinker = new MaterialBlinker();
+      this.materialsList.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+          public void valueChanged(ListSelectionEvent ev) {
+            if (selectedMaterialBlinker.isRunning()) {
+              selectedMaterialBlinker.restart();
+            }
+          }
+        });
+      addHierarchyListener(new HierarchyListener() {
+          public void hierarchyChanged(HierarchyEvent ev) {
+            if ((ev.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+              updateSelectedMaterialBlinker();
+            }
+          }
+        });
+    }
+
+    /**
+     * Makes the selected material blink in preview only if this embedded panel is shown and enabled.
+     */
+    private void updateSelectedMaterialBlinker() {
+      if (this.selectedMaterialBlinker != null) {
+        if (isShowing() && isEnabled()) {
+          if (!this.selectedMaterialBlinker.isRunning()) {
+            this.selectedMaterialBlinker.restart();
+          }
+        } else if (this.selectedMaterialBlinker.isRunning()) {
+          this.selectedMaterialBlinker.stop();
+          // Show back the edited materials
+          this.previewComponent.setModelMaterials(((MaterialsListModel)this.materialsList.getModel()).getMaterials());
+        }
+      }
+    }
+
+    /**
+     * Enables or disables all the components of this panel.
+     */
+    @Override
+    public void setEnabled(boolean enabled) {
+      super.setEnabled(enabled);
+      this.previewLabel.setEnabled(enabled);
+      this.materialsLabel.setEnabled(enabled);
+      this.materialsList.setEnabled(enabled);
+      this.colorAndTextureLabel.setEnabled(enabled);
+      this.shininessLabel.setEnabled(enabled);
+      enableComponents();
+      updateSelectedMaterialBlinker();
     }
 
     /**
@@ -348,8 +443,8 @@ public class ModelMaterialsComponent extends JButton implements View {
                 colorRadioButton.removeChangeListener(colorChoiceChangeListener);
                 textureRadioButton.removeChangeListener(textureChoiceChangeListener);
                 colorButton.removePropertyChangeListener(ColorButton.COLOR_PROPERTY, colorChangeListener);
-                if (((JComponent)textureController.getView()).isShowing()) {
-                  // Remove listener only if its texture component is shown because its listener is added later
+                if (textureChangeListenerInstalled) {
+                  // Remove listener only if it was added once this panel is shown
                   textureController.removePropertyChangeListener(TextureChoiceController.Property.TEXTURE, textureChangeListener);
                 }
                 shininessSlider.removeChangeListener(shininessChangeListener);
@@ -408,7 +503,7 @@ public class ModelMaterialsComponent extends JButton implements View {
                 colorRadioButton.addChangeListener(colorChoiceChangeListener);
                 textureRadioButton.addChangeListener(textureChoiceChangeListener);
                 colorButton.addPropertyChangeListener(ColorButton.COLOR_PROPERTY, colorChangeListener);
-                if (((JComponent)textureController.getView()).isShowing()) {
+                if (textureChangeListenerInstalled) {
                   textureController.addPropertyChangeListener(TextureChoiceController.Property.TEXTURE, textureChangeListener);
                 }
                 shininessSlider.addChangeListener(shininessChangeListener);
@@ -548,14 +643,14 @@ public class ModelMaterialsComponent extends JButton implements View {
      * Enables editing components according to current selection in materials list.
      */
     private void enableComponents() {
-      boolean selectionEmpty = this.materialsList.isSelectionEmpty();
-      defaultColorAndTextureRadioButton.setEnabled(!selectionEmpty);
-      invisibleRadioButton.setEnabled(!selectionEmpty);
-      textureRadioButton.setEnabled(!selectionEmpty);
-      textureComponent.setEnabled(!selectionEmpty);
-      colorRadioButton.setEnabled(!selectionEmpty);
-      colorButton.setEnabled(!selectionEmpty);
-      shininessSlider.setEnabled(!selectionEmpty);
+      boolean materialEditable = isEnabled() && !this.materialsList.isSelectionEmpty();
+      defaultColorAndTextureRadioButton.setEnabled(materialEditable);
+      invisibleRadioButton.setEnabled(materialEditable);
+      textureRadioButton.setEnabled(materialEditable);
+      textureComponent.setEnabled(materialEditable);
+      colorRadioButton.setEnabled(materialEditable);
+      colorButton.setEnabled(materialEditable);
+      shininessSlider.setEnabled(materialEditable);
     }
 
     /**
@@ -590,7 +685,9 @@ public class ModelMaterialsComponent extends JButton implements View {
           0, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.NONE, new Insets(0, 0, standardGap, 10), 0, 0));
       float resolutionScale = SwingTools.getResolutionScale();
-      this.previewComponent.setPreferredSize(new Dimension((int)(250 * resolutionScale), (int)(250 * resolutionScale)));
+      // Use a smaller preview in an other panel
+      int previewSize = (int)((this.embedded  ? 200  : 250) * resolutionScale);
+      this.previewComponent.setPreferredSize(new Dimension(previewSize, previewSize));
       add(this.previewComponent, new GridBagConstraints(
           0, 1, 1, 7, 0.5, 1, GridBagConstraints.NORTH,
           GridBagConstraints.BOTH, new Insets(2, 0, 0, 15), 0, 0));
@@ -655,6 +752,7 @@ public class ModelMaterialsComponent extends JButton implements View {
       dialog.setMinimumSize(getPreferredSize());
       this.controller.getTextureController().addPropertyChangeListener(
           TextureChoiceController.Property.TEXTURE, this.textureChangeListener);
+      this.textureChangeListenerInstalled = true;
       // Add a listener that transfer focus to focusable field of texture panel when dialog is shown
       dialog.addComponentListener(new ComponentAdapter() {
           @Override
@@ -679,6 +777,7 @@ public class ModelMaterialsComponent extends JButton implements View {
 
       this.controller.getTextureController().removePropertyChangeListener(
           TextureChoiceController.Property.TEXTURE, this.textureChangeListener);
+      this.textureChangeListenerInstalled = false;
       if (Integer.valueOf(JOptionPane.OK_OPTION).equals(optionPane.getValue())) {
         this.controller.setMaterials(((MaterialsListModel)this.materialsList.getModel()).getMaterials());
       }
@@ -693,7 +792,10 @@ public class ModelMaterialsComponent extends JButton implements View {
       private HomeMaterial [] materials;
 
       public MaterialsListModel(final ModelMaterialsController controller) {
-        this.materials = controller.getMaterials();
+        // Edit a copy of the materials to let controller notify its listeners when they change
+        this.materials = controller.getMaterials() != null
+            ? controller.getMaterials().clone()
+            : null;
         ModelManager.getInstance().loadModel(controller.getModel(),
           new ModelManager.ModelObserver() {
             public void modelUpdated(BranchGroup modelRoot) {

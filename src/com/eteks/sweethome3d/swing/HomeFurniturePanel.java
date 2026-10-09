@@ -860,8 +860,9 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         ModelMaterialsController modelMaterialsController = controller.getModelMaterialsController();
         if (modelMaterialsController != null
             && !Boolean.getBoolean("com.eteks.sweethome3d.no3D")) {
+          // Remove the colon at the end of the label because no component follows this radio button
           this.modelMaterialsRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences,
-              HomeFurniturePanel.class, "modelMaterialsRadioButton.text"));
+              HomeFurniturePanel.class, "modelMaterialsRadioButton.text").replaceAll("\\s*[:\uFF1A]\\s*$", ""));
           this.modelMaterialsRadioButton.addChangeListener(new ChangeListener() {
               public void stateChanged(ChangeEvent ev) {
                 if (modelMaterialsRadioButton.isSelected()) {
@@ -869,15 +870,16 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
                 }
               }
             });
-          this.modelMaterialsComponent = (JComponent)modelMaterialsController.getView();
-          if (OperatingSystem.isMacOSX()) {
-            this.modelMaterialsComponent.putClientProperty("JButton.buttonType", "segmented");
-            this.modelMaterialsComponent.putClientProperty("JButton.segmentPosition", "only");
-          }
           buttonGroup.add(this.modelMaterialsRadioButton);
           boolean uniqueModel = modelMaterialsController.getModel() != null;
           this.modelMaterialsRadioButton.setEnabled(uniqueModel);
-          this.modelMaterialsComponent.setEnabled(uniqueModel);
+          if (uniqueModel) {
+            // Create the panel editing materials, enabled only when materials radio button is selected
+            this.modelMaterialsComponent = new ModelMaterialsComponent.ModelMaterialsPanel(
+                preferences, modelMaterialsController, true);
+            this.modelMaterialsComponent.setEnabled(
+                controller.getPaint() == HomeFurnitureController.FurniturePaint.MODEL_MATERIALS);
+          }
         }
       } catch (AccessControlException ex) {
         // com.eteks.sweethome3d.no3D property can't be read
@@ -1140,6 +1142,10 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
    * Updates color, texture and materials radio buttons.
    */
   private void updatePaintRadioButtons(HomeFurnitureController controller) {
+    if (this.modelMaterialsComponent != null) {
+      this.modelMaterialsComponent.setEnabled(
+          controller.getPaint() == HomeFurnitureController.FurniturePaint.MODEL_MATERIALS);
+    }
     if (controller.getPaint() == null) {
       SwingTools.deselectAllRadioButtons(this.defaultColorAndTextureRadioButton,
           this.colorRadioButton, this.textureRadioButton, this.modelMaterialsRadioButton);
@@ -1653,13 +1659,10 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             1, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
             GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, buttonsBottomInset, 0), 0, buttonPadY));
       }
-      if (this.modelMaterialsComponent != null) {
+      if (this.modelMaterialsRadioButton != null) {
         paintPanel.add(this.modelMaterialsRadioButton, new GridBagConstraints(
-            0, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+            0, 3, 2, 1, 0, 0, GridBagConstraints.LINE_START,
             GridBagConstraints.NONE, new Insets(standardGap, 0, 0, standardGap), 0, 0));
-        paintPanel.add(this.modelMaterialsComponent, new GridBagConstraints(
-            1, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-            GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, buttonsBottomInset, 0), 0, buttonPadY));
       }
       colorAndTexturePanel.add(paintPanel, new GridBagConstraints(
           0, 0, 1, 1, 1, 0, labelAlignment,
@@ -1672,6 +1675,25 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             }
           });
       paintPanel.setVisible(controller.isTexturable());
+
+      if (this.modelMaterialsComponent != null) {
+        // Materials panel under color, texture and shininess panels
+        final JPanel modelMaterialsPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
+            HomeFurniturePanel.class, "modelMaterialsPanel.title"));
+        modelMaterialsPanel.add(this.modelMaterialsComponent, new GridBagConstraints(
+            0, 0, 1, 1, 1, 1, GridBagConstraints.CENTER,
+            GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+        colorAndTexturePanel.add(modelMaterialsPanel, new GridBagConstraints(
+            0, 1, 2, 1, 1, 1, labelAlignment,
+            GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
+        controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE,
+            new PropertyChangeListener() {
+              public void propertyChange(PropertyChangeEvent ev) {
+                modelMaterialsPanel.setVisible(controller.isTexturable());
+              }
+            });
+        modelMaterialsPanel.setVisible(controller.isTexturable());
+      }
     }
     if (this.defaultShininessRadioButton != null) {
       // Shininess panel
@@ -1686,7 +1708,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       shininessPanel.add(this.shinyRadioButton, new GridBagConstraints(
           0, 2, 1, 1, 0, 1, GridBagConstraints.LINE_START,
           GridBagConstraints.NONE, new Insets(standardGap, 0, 0, 0), 0, 0));
-      if (paintPanel.getComponentCount() == 7) {
+      if (this.modelMaterialsRadioButton != null) {
         shininessPanel.add(new JLabel(), new GridBagConstraints(
             0, 3, 1, 1, 0, 1, GridBagConstraints.LINE_START,
             GridBagConstraints.NONE, new Insets(standardGap, 0, 0, 0), 0, 0));
