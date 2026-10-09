@@ -97,7 +97,7 @@ Source: "build\lib\batik-svgpathparser-*.jar"; DestDir: "{app}\lib"; Flags: igno
 Source: "build\lib\jeksparser-calculator*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\sunflow-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\freehep-vectorgraphics-svg-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
-Source: "build\lib\iText-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
+Source: "build\lib\openpdf-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\jmf.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\jnlp.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 ; Install Java 3D Jars

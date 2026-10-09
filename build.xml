@@ -289,13 +289,13 @@
       </manifest>
       <zipfileset src="lib/sunflow-0.07.3i.jar"/>
     </jar>
-    <jar destfile="deploy/lib/iText-2.1.7.jar" filesetmanifest="merge">
+    <jar destfile="deploy/lib/openpdf-3.0.5.jar" filesetmanifest="merge">
       <manifest>
         <attribute name="Permissions"               value="all-permissions"/>
         <attribute name="Codebase"                  value="*"/>
         <attribute name="Caller-Allowable-Codebase" value="*"/>
       </manifest>
-      <zipfileset src="lib/iText-2.1.7.jar"/>
+      <zipfileset src="lib/openpdf-3.0.5.jar"/>
     </jar>
     <jar destfile="deploy/lib/jmf.jar">
       <manifest>
@@ -405,7 +405,7 @@
         <include name="THIRDPARTY-LICENSE-JOGL.TXT"/>
         <include name="THIRDPARTY-LICENSE-BATIK.TXT"/>
         <include name="THIRDPARTY-LICENSE-JEKSPARSER.TXT"/>
-        <include name="THIRDPARTY-LICENSE-ITEXT.TXT"/>
+        <include name="THIRDPARTY-LICENSE-OPENPDF.TXT"/>
         <include name="THIRDPARTY-LICENSE-VECTORGRAPHICS.TXT"/>
         <include name="THIRDPARTY-LICENSE-SUNFLOW.TXT"/>
         <include name="THIRDPARTY-LICENSE-YAFARAY.TXT"/>
@@ -479,7 +479,7 @@
     <copy file="THIRDPARTY-LICENSE-JOGL.TXT"      todir="install/windows/build" />
     <copy file="THIRDPARTY-LICENSE-BATIK.TXT"     todir="install/windows/build"/>
     <copy file="THIRDPARTY-LICENSE-JEKSPARSER.TXT"     todir="install/windows/build"/>
-    <copy file="THIRDPARTY-LICENSE-ITEXT.TXT"          todir="install/windows/build" />
+    <copy file="THIRDPARTY-LICENSE-OPENPDF.TXT"          todir="install/windows/build" />
     <copy file="THIRDPARTY-LICENSE-VECTORGRAPHICS.TXT" todir="install/windows/build" />
     <copy file="THIRDPARTY-LICENSE-SUNFLOW.TXT"   todir="install/windows/build" />
     <copy file="THIRDPARTY-LICENSE-YAFARAY.TXT"   todir="install/windows/build" />
@@ -686,7 +686,7 @@
       <fileset dir="lib">
         <include name="*.jar"/>
         <!-- Print to PDF menu item isn't available under Mac OS X as it's already in standard print dialog -->
-        <exclude name="iText-2.1.7.jar"/>
+        <exclude name="openpdf-3.0.5.jar"/>
       </fileset>
     </copy>
     <!-- Copy jnlp.jar, JARs for Java 3D, Mac OS X Java 3D 1.6 and YafaRay DLLs and
@@ -931,7 +931,7 @@
     <copy file="THIRDPARTY-LICENSE-JOGL.TXT"      todir="install/linux/x86/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-BATIK.TXT"     todir="install/linux/x86/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-JEKSPARSER.TXT"     todir="install/linux/x86/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-ITEXT.TXT"          todir="install/linux/x86/SweetHome3D-${version}" />
+    <copy file="THIRDPARTY-LICENSE-OPENPDF.TXT"          todir="install/linux/x86/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-VECTORGRAPHICS.TXT" todir="install/linux/x86/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-SUNFLOW.TXT"   todir="install/linux/x86/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-YAFARAY.TXT"   todir="install/linux/x86/SweetHome3D-${version}" />
@@ -1048,7 +1048,7 @@
     <copy file="THIRDPARTY-LICENSE-JOGL.TXT"      todir="install/linux/x64/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-BATIK.TXT"     todir="install/linux/x64/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-JEKSPARSER.TXT"     todir="install/linux/x64/SweetHome3D-${version}" />
-    <copy file="THIRDPARTY-LICENSE-ITEXT.TXT"          todir="install/linux/x64/SweetHome3D-${version}" />
+    <copy file="THIRDPARTY-LICENSE-OPENPDF.TXT"          todir="install/linux/x64/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-VECTORGRAPHICS.TXT" todir="install/linux/x64/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-SUNFLOW.TXT"   todir="install/linux/x64/SweetHome3D-${version}" />
     <copy file="THIRDPARTY-LICENSE-YAFARAY.TXT"   todir="install/linux/x64/SweetHome3D-${version}" />
@@ -1202,7 +1202,7 @@
     <copy file="THIRDPARTY-LICENSE-JOGL.TXT"      todir="install/portable/SweetHome3D-${version}-portable" />
     <copy file="THIRDPARTY-LICENSE-BATIK.TXT"      todir="install/portable/SweetHome3D-${version}-portable" />
     <copy file="THIRDPARTY-LICENSE-JEKSPARSER.TXT"     todir="install/portable/SweetHome3D-${version}-portable" />
-    <copy file="THIRDPARTY-LICENSE-ITEXT.TXT"          todir="install/portable/SweetHome3D-${version}-portable" />
+    <copy file="THIRDPARTY-LICENSE-OPENPDF.TXT"          todir="install/portable/SweetHome3D-${version}-portable" />
     <copy file="THIRDPARTY-LICENSE-VECTORGRAPHICS.TXT" todir="install/portable/SweetHome3D-${version}-portable" />
     <copy file="THIRDPARTY-LICENSE-SUNFLOW.TXT"   todir="install/portable/SweetHome3D-${version}-portable" />
     <copy file="THIRDPARTY-LICENSE-YAFARAY.TXT"  todir="install/portable/SweetHome3D-${version}-portable" />
