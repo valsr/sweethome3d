@@ -44,6 +44,11 @@ build and run on current Java.
   program ignores.
 - **Blender Cycles (GPU) renderer.** A third renderer in the *Create photo* and
   *Create video* dialogs, see [below](#blender-gpu-renderer).
+- **Material opacity.** Each material of a model can be given an opacity in the
+  *Materials* panel, to let light pass through it. It's saved in the `opacity` attribute
+  of materials, which the original program ignores. Renderers handle such a material as
+  the transparent materials of models, i.e. as clear tinted glass, so the light passing
+  through it depends more on its color than on its opacity.
 - **Linear light power in photos.** Photo renderers use a brightness proportional to the
   power of a light instead of its square, so homes created with the original program
   render differently unless their lights are at the default 50%: lights above 50% are

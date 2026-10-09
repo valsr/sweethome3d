@@ -34,6 +34,7 @@ public class HomeMaterial implements Serializable {
   private final Integer     color;
   private final HomeTexture texture;
   private final Float       shininess;
+  private final Float       opacity;
 
   /**
    * Creates a material instance from parameters.
@@ -48,11 +49,21 @@ public class HomeMaterial implements Serializable {
    * @since 5.3
    */
   public HomeMaterial(String name, String key, Integer color, HomeTexture texture, Float shininess) {
+    this(name, key, color, texture, shininess, null);
+  }
+
+  /**
+   * Creates a material instance from parameters.
+   * @param opacity a value between 0 (transparent) and 1 (opaque)
+   *                or <code>null</code> if material opacity is unchanged
+   */
+  public HomeMaterial(String name, String key, Integer color, HomeTexture texture, Float shininess, Float opacity) {
     this.name = name;
     this.key = key;
     this.color = color;
     this.texture = texture;
     this.shininess = shininess;
+    this.opacity = opacity;
   }
 
   /**
@@ -103,6 +114,14 @@ public class HomeMaterial implements Serializable {
   }
 
   /**
+   * Returns the opacity of this material.
+   * @return a value between 0 (transparent) and 1 (opaque) or <code>null</code> if material opacity is unchanged.
+   */
+  public Float getOpacity() {
+    return this.opacity;
+  }
+
+  /**
    * Returns <code>true</code> if this material is equal to <code>object</code>.
    * @since 6.0
    */
@@ -119,7 +138,9 @@ public class HomeMaterial implements Serializable {
           && (material.texture == this.texture
               || (material.texture != null && material.texture.equals(this.texture)))
           && (material.shininess == this.shininess
-              || (material.shininess != null && material.shininess.equals(this.shininess)));
+              || (material.shininess != null && material.shininess.equals(this.shininess)))
+          && (material.opacity == this.opacity
+              || (material.opacity != null && material.opacity.equals(this.opacity)));
     }
     return false;
   }
@@ -145,6 +166,9 @@ public class HomeMaterial implements Serializable {
     }
     if (this.shininess != null) {
       hashCode += this.shininess.hashCode();
+    }
+    if (this.opacity != null) {
+      hashCode += this.opacity.hashCode();
     }
     return hashCode;
   }

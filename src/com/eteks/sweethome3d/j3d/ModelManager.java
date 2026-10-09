@@ -1588,7 +1588,14 @@ public class ModelManager {
         }
       }
       try {
-        materials.add(new HomeMaterial(appearance.getName(), color, texture, shininess));
+        // Opacity is set only for the materials which aren't opaque
+        TransparencyAttributes transparencyAttributes = appearance.getTransparencyAttributes();
+        Float opacity = transparencyAttributes != null
+              && transparencyAttributes.getTransparencyMode() != TransparencyAttributes.NONE
+              && transparencyAttributes.getTransparency() > 0
+            ? 1 - transparencyAttributes.getTransparency()
+            : null;
+        materials.add(new HomeMaterial(appearance.getName(), null, color, texture, shininess, opacity));
       } catch (NoSuchMethodError ex) {
         // Don't support HomeMaterial with Java 3D < 1.4 where getName was added
         return new HomeMaterial [0];

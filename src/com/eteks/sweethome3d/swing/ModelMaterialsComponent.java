@@ -134,6 +134,8 @@ public class ModelMaterialsComponent extends JButton implements View {
     private JComponent             textureComponent;
     private JLabel                 shininessLabel;
     private JSlider                shininessSlider;
+    private JLabel                 opacityLabel;
+    private JSlider                opacitySlider;
     private PropertyChangeListener textureChangeListener;
 
     public ModelMaterialsPanel(UserPreferences preferences,
@@ -228,6 +230,7 @@ public class ModelMaterialsComponent extends JButton implements View {
       this.materialsList.setEnabled(enabled);
       this.colorAndTextureLabel.setEnabled(enabled);
       this.shininessLabel.setEnabled(enabled);
+      this.opacityLabel.setEnabled(enabled);
       enableComponents();
       updateSelectedMaterialBlinker();
     }
@@ -312,7 +315,7 @@ public class ModelMaterialsComponent extends JButton implements View {
               for (int index : materialsList.getSelectedIndices()) {
                 HomeMaterial material = (HomeMaterial)materialsList.getModel().getElementAt(index);
                 ((MaterialsListModel)materialsList.getModel()).setMaterialAt(
-                    new HomeMaterial(material.getName(), null, null, material.getShininess()),
+                    new HomeMaterial(material.getName(), material.getKey(), null, null, material.getShininess(), material.getOpacity()),
                     index);
               }
             }
@@ -328,7 +331,7 @@ public class ModelMaterialsComponent extends JButton implements View {
               for (int index : materialsList.getSelectedIndices()) {
                 HomeMaterial material = (HomeMaterial)materialsList.getModel().getElementAt(index);
                 ((MaterialsListModel)materialsList.getModel()).setMaterialAt(
-                    new HomeMaterial(material.getName(), 0, null, material.getShininess()),
+                    new HomeMaterial(material.getName(), material.getKey(), 0, null, material.getShininess(), material.getOpacity()),
                     index);
               }
             }
@@ -348,7 +351,7 @@ public class ModelMaterialsComponent extends JButton implements View {
                     ? colorButton.getColor()
                     : null;
                 ((MaterialsListModel)materialsList.getModel()).setMaterialAt(
-                    new HomeMaterial(material.getName(), color, null, material.getShininess()),
+                    new HomeMaterial(material.getName(), material.getKey(), color, null, material.getShininess(), material.getOpacity()),
                     index);
               }
             }
@@ -382,7 +385,7 @@ public class ModelMaterialsComponent extends JButton implements View {
                     ? textureController.getTexture()
                     : null;
                 ((MaterialsListModel)materialsList.getModel()).setMaterialAt(
-                    new HomeMaterial(material.getName(), null, texture, material.getShininess()),
+                    new HomeMaterial(material.getName(), material.getKey(), null, texture, material.getShininess(), material.getOpacity()),
                     index);
               }
             }
@@ -427,12 +430,45 @@ public class ModelMaterialsComponent extends JButton implements View {
               HomeMaterial material = (HomeMaterial)materialsList.getModel().getElementAt(index);
               int shininess = shininessSlider.getValue();
               ((MaterialsListModel)materialsList.getModel()).setMaterialAt(
-                  new HomeMaterial(material.getName(), material.getColor(), material.getTexture(), shininess / 128f),
+                  new HomeMaterial(material.getName(), material.getKey(), material.getColor(), material.getTexture(),
+                      shininess / 128f, material.getOpacity()),
                   index);
             }
           }
         };
       this.shininessSlider.addChangeListener(shininessChangeListener);
+
+      this.opacityLabel = new JLabel(SwingTools.getLocalizedLabelText(preferences,
+          ModelMaterialsComponent.class, "opacityLabel.text"));
+      this.opacitySlider = new JSlider(0, 100);
+      JLabel transparentLabel = new JLabel(preferences.getLocalizedString(
+          ModelMaterialsComponent.class, "transparentLabel.text"));
+      JLabel opaqueLabel = new JLabel(preferences.getLocalizedString(
+          ModelMaterialsComponent.class, "opaqueLabel.text"));
+      Dictionary<Integer,JComponent> opacitySliderLabelTable = new Hashtable<Integer,JComponent>();
+      opacitySliderLabelTable.put(0, transparentLabel);
+      opacitySliderLabelTable.put(100, opaqueLabel);
+      this.opacitySlider.setLabelTable(opacitySliderLabelTable);
+      this.opacitySlider.setPaintLabels(true);
+      this.opacitySlider.setPaintTicks(true);
+      this.opacitySlider.setMajorTickSpacing(10);
+      final ChangeListener opacityChangeListener = new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            for (int index : materialsList.getSelectedIndices()) {
+              MaterialsListModel materialsListModel = (MaterialsListModel)materialsList.getModel();
+              HomeMaterial material = (HomeMaterial)materialsListModel.getElementAt(index);
+              // Keep the opacity of the material unchanged if its default one is chosen
+              Float opacity = opacitySlider.getValue() != getOpacitySliderValue(materialsListModel.getDefaultMaterialAt(index))
+                  ? opacitySlider.getValue() / 100f
+                  : null;
+              materialsListModel.setMaterialAt(
+                  new HomeMaterial(material.getName(), material.getKey(), material.getColor(), material.getTexture(),
+                      material.getShininess(), opacity),
+                  index);
+            }
+          }
+        };
+      this.opacitySlider.addChangeListener(opacityChangeListener);
 
       this.materialsList.getSelectionModel().addListSelectionListener(
           new ListSelectionListener() {
@@ -448,6 +484,7 @@ public class ModelMaterialsComponent extends JButton implements View {
                   textureController.removePropertyChangeListener(TextureChoiceController.Property.TEXTURE, textureChangeListener);
                 }
                 shininessSlider.removeChangeListener(shininessChangeListener);
+                opacitySlider.removeChangeListener(opacityChangeListener);
 
                 HomeMaterial material = (HomeMaterial)materialsList.getSelectedValue();
                 HomeTexture texture = material.getTexture();
@@ -497,6 +534,7 @@ public class ModelMaterialsComponent extends JButton implements View {
                 } else {
                   shininessSlider.setValue((int)((defaultMaterial.getShininess() != null) ? defaultMaterial.getShininess() * 128 : 0));
                 }
+                opacitySlider.setValue(getOpacitySliderValue(material.getOpacity() != null  ? material  : defaultMaterial));
 
                 defaultColorAndTextureRadioButton.addChangeListener(defaultChoiceChangeListener);
                 invisibleRadioButton.addChangeListener(invisibleChoiceChangeListener);
@@ -507,6 +545,7 @@ public class ModelMaterialsComponent extends JButton implements View {
                   textureController.addPropertyChangeListener(TextureChoiceController.Property.TEXTURE, textureChangeListener);
                 }
                 shininessSlider.addChangeListener(shininessChangeListener);
+                opacitySlider.addChangeListener(opacityChangeListener);
               }
               enableComponents();
             }
@@ -640,6 +679,16 @@ public class ModelMaterialsComponent extends JButton implements View {
     }
 
     /**
+     * Returns the value of opacity slider matching the opacity of <code>material</code>,
+     * a material without opacity being opaque.
+     */
+    private int getOpacitySliderValue(HomeMaterial material) {
+      return material.getOpacity() != null
+          ? Math.round(material.getOpacity() * 100)
+          : 100;
+    }
+
+    /**
      * Enables editing components according to current selection in materials list.
      */
     private void enableComponents() {
@@ -651,6 +700,7 @@ public class ModelMaterialsComponent extends JButton implements View {
       colorRadioButton.setEnabled(materialEditable);
       colorButton.setEnabled(materialEditable);
       shininessSlider.setEnabled(materialEditable);
+      opacitySlider.setEnabled(materialEditable);
     }
 
     /**
@@ -672,6 +722,9 @@ public class ModelMaterialsComponent extends JButton implements View {
         this.shininessLabel.setDisplayedMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
             ModelMaterialsComponent.class, "shininessLabel.mnemonic")).getKeyCode());
         this.shininessLabel.setLabelFor(this.shininessSlider);
+        this.opacityLabel.setDisplayedMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
+            ModelMaterialsComponent.class, "opacityLabel.mnemonic")).getKeyCode());
+        this.opacityLabel.setLabelFor(this.opacitySlider);
       }
     }
 
@@ -689,7 +742,7 @@ public class ModelMaterialsComponent extends JButton implements View {
       int previewSize = (int)((this.embedded  ? 200  : 250) * resolutionScale);
       this.previewComponent.setPreferredSize(new Dimension(previewSize, previewSize));
       add(this.previewComponent, new GridBagConstraints(
-          0, 1, 1, 7, 0.5, 1, GridBagConstraints.NORTH,
+          0, 1, 1, 9, 0.5, 1, GridBagConstraints.NORTH,
           GridBagConstraints.BOTH, new Insets(2, 0, 0, 15), 0, 0));
 
       // Materials list
@@ -700,7 +753,7 @@ public class ModelMaterialsComponent extends JButton implements View {
       Dimension preferredSize = scrollPane.getPreferredSize();
       scrollPane.setPreferredSize(new Dimension(Math.min(200, preferredSize.width), preferredSize.height));
       add(scrollPane, new GridBagConstraints(
-          1, 1, 1, 7, 0.5, 1, GridBagConstraints.CENTER,
+          1, 1, 1, 9, 0.5, 1, GridBagConstraints.CENTER,
           GridBagConstraints.BOTH, new Insets(0, 0, 0, 15), 0, 0));
       SwingTools.installFocusBorder(this.materialsList);
 
@@ -734,6 +787,14 @@ public class ModelMaterialsComponent extends JButton implements View {
           GridBagConstraints.NONE, new Insets(15, 0, standardGap, 0), 0, 0));
       add(this.shininessSlider, new GridBagConstraints(
           2, 6, 2, 1, 0, 0, GridBagConstraints.NORTH,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, standardGap, 0), -20, 0));
+
+      // Opacity
+      add(this.opacityLabel, new GridBagConstraints(
+          2, 7, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(10, 0, standardGap, 0), 0, 0));
+      add(this.opacitySlider, new GridBagConstraints(
+          2, 8, 2, 1, 0, 0, GridBagConstraints.NORTH,
           GridBagConstraints.HORIZONTAL, new Insets(0, 0, standardGap, 0), -20, 0));
     }
 
@@ -862,7 +923,8 @@ public class ModelMaterialsComponent extends JButton implements View {
       public void setMaterialAt(HomeMaterial material, int index) {
         if (material.getColor() == null
             && material.getTexture() == null
-            && material.getShininess() == null) {
+            && material.getShininess() == null
+            && material.getOpacity() == null) {
           if (this.materials != null) {
             this.materials [index] = null;
             boolean containsOnlyNull = true;

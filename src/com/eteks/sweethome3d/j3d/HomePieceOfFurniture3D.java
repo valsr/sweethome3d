@@ -855,9 +855,13 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
                   }
                   appearance.setMaterial(getMaterial(DEFAULT_COLOR, DEFAULT_AMBIENT_COLOR, materialShininess));
                   TextureManager.getInstance().loadTexture(materialTexture.getImage(),
-                      waitTextureLoadingEnd, getTextureObserver(appearance, mirrored, modelFlags));
+                      waitTextureLoadingEnd, getTextureObserver(appearance, mirrored, modelFlags, material.getOpacity()));
                 } else {
                   restoreDefaultMaterialAndTexture(appearance, material.getShininess());
+                }
+                if (material.getOpacity() != null) {
+                  // Replace the default transparency of the material by the one chosen by the user
+                  appearance.setTransparencyAttributes(getTransparencyAttributes(material.getOpacity()));
                 }
                 materialFound = true;
                 break;
@@ -883,6 +887,26 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
    * Returns a texture observer that will update the given <code>appearance</code>.
    */
   private TextureObserver getTextureObserver(final Appearance appearance, final boolean mirrored, final int modelFlags) {
+    return getTextureObserver(appearance, mirrored, modelFlags, null);
+  }
+
+  /**
+   * Returns the transparency attributes of a material with the given <code>opacity</code>.
+   */
+  private TransparencyAttributes getTransparencyAttributes(float opacity) {
+    if (opacity >= 1) {
+      return new TransparencyAttributes(TransparencyAttributes.NONE, 0);
+    } else {
+      return new TransparencyAttributes(TransparencyAttributes.NICEST, 1 - Math.max(0, opacity));
+    }
+  }
+
+  /**
+   * Returns a texture observer that will update the given <code>appearance</code>,
+   * and set its transparency from <code>opacity</code> if it's not <code>null</code>.
+   */
+  private TextureObserver getTextureObserver(final Appearance appearance, final boolean mirrored, final int modelFlags,
+                                             final Float opacity) {
     return new TextureManager.TextureObserver() {
         public void textureUpdated(Texture texture) {
           if (TextureManager.getInstance().isTextureTransparent(texture)) {
@@ -901,6 +925,9 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
               appearance.setTransparencyAttributes(defaultMaterialAndTexture.getTransparencyAttributes());
               appearance.setPolygonAttributes(defaultMaterialAndTexture.getPolygonAttributes());
             }
+          }
+          if (opacity != null) {
+            appearance.setTransparencyAttributes(getTransparencyAttributes(opacity));
           }
           Texture homeTexture = getContextTexture(texture, getContext());
           if (appearance.getTexture() != homeTexture) {

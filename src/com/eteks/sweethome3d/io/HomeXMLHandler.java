@@ -359,7 +359,8 @@ import com.eteks.sweethome3d.tools.URLContent;
  *       name CDATA #REQUIRED
  *       key CDATA #IMPLIED
  *       color CDATA #IMPLIED
- *       shininess CDATA #IMPLIED>
+ *       shininess CDATA #IMPLIED
+ *       opacity CDATA #IMPLIED>
  *
  * &lt;!ELEMENT transformation EMPTY>
  * &lt;!ATTLIST transformation
@@ -1842,7 +1843,8 @@ public class HomeXMLHandler extends DefaultHandler {
         attributes.get("key"),
         parseOptionalColor(attributes, "color"),
         this.materialTexture,
-        parseOptionalFloat(attributes, "shininess"));
+        parseOptionalFloat(attributes, "shininess"),
+        parseOptionalFloat(attributes, "opacity"));
     return (HomeMaterial)resolveObject(material, elementName, attributes);
   }
 
