@@ -463,7 +463,12 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         writer.writeBooleanAttribute("widthDepthDeformable", doorOrWindow.isWidthDepthDeformable(), true);
         writer.writeBooleanAttribute("boundToWall", doorOrWindow.isBoundToWall(), true);
       } else if (piece instanceof HomeLight) {
-        writer.writeFloatAttribute("power", ((HomeLight)piece).getPower());
+        HomeLight light = (HomeLight)piece;
+        writer.writeFloatAttribute("power", light.getPower());
+        writer.writeColorAttribute("lightColor", light.getLightColor());
+        if (light.getLightColorTemperature() != null) {
+          writer.writeIntegerAttribute("lightColorTemperature", light.getLightColorTemperature());
+        }
       }
     }
 

@@ -233,7 +233,7 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
               if (piece instanceof HomeLight) {
                 HomeLight light = (HomeLight)piece;
                 lights.add(light);
-                this.homeItemsNames.put(piece, exportNode(node, false, silk, light.getPower(), light.getLightSourceMaterialNames()));
+                this.homeItemsNames.put(piece, exportNode(node, false, silk, light.getPower(), light.getEmittedLightColor(), light.getLightSourceMaterialNames()));
               } else {
                 this.homeItemsNames.put(piece, exportNode(node, false, silk));
               }
@@ -247,7 +247,7 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
           if (item instanceof HomeLight) {
             HomeLight light = (HomeLight)item;
             lights.add(light);
-            itemNames = exportNode(node, false, silk, light.getPower(), light.getLightSourceMaterialNames());
+            itemNames = exportNode(node, false, silk, light.getPower(), light.getEmittedLightColor(), light.getLightSourceMaterialNames());
           } else {
             itemNames = exportNode(node, item instanceof Wall || item instanceof Room, silk);
           }
@@ -500,7 +500,7 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
         Node node = (Node)this.object3dFactory.createObject3D(getHome(), item, true);
         if (node != null) {
           if (item instanceof HomeLight) {
-            itemNames = exportNode(node, false, silk, ((HomeLight)item).getPower(), ((HomeLight)item).getLightSourceMaterialNames());
+            itemNames = exportNode(node, false, silk, ((HomeLight)item).getPower(), ((HomeLight)item).getEmittedLightColor(), ((HomeLight)item).getLightSourceMaterialNames());
           } else {
             itemNames = exportNode(node, item instanceof Wall || item instanceof Room, silk);
           }
@@ -688,7 +688,7 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
   }
 
   private String [] exportNode(Node node, boolean ignoreTransparency, boolean silk) throws IOException {
-    return exportNode(node, ignoreTransparency, silk, 0, null);
+    return exportNode(node, ignoreTransparency, silk, 0, null, null);
   }
 
   /**
@@ -696,9 +696,9 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
    * then returns the SunFlow names that match this node.
    */
   private String [] exportNode(Node node, boolean ignoreTransparency, boolean silk,
-                                float lightPower, String [] lightSourceMaterialNames) throws IOException {
+                                float lightPower, Integer emittedLightColor, String [] lightSourceMaterialNames) throws IOException {
     List<String> nodeNames = new ArrayList<String>();
-    exportNode(node, ignoreTransparency, silk, lightPower, lightSourceMaterialNames, nodeNames, new Transform3D());
+    exportNode(node, ignoreTransparency, silk, lightPower, emittedLightColor, lightSourceMaterialNames, nodeNames, new Transform3D());
     return nodeNames.toArray(new String [nodeNames.size()]);
   }
 
@@ -709,6 +709,7 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
                           boolean ignoreTransparency,
                           boolean silk,
                           float lightPower,
+                          Integer emittedLightColor,
                           String [] lightSourceMaterialNames,
                           List<String> nodeNames,
                           Transform3D parentTransformations) throws IOException {
@@ -722,11 +723,11 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
       // Export all children
       Enumeration<?> enumeration = ((Group)node).getAllChildren();
       while (enumeration.hasMoreElements()) {
-        exportNode((Node)enumeration.nextElement(), ignoreTransparency, silk, lightPower, lightSourceMaterialNames,
+        exportNode((Node)enumeration.nextElement(), ignoreTransparency, silk, lightPower, emittedLightColor, lightSourceMaterialNames,
             nodeNames, parentTransformations);
       }
     } else if (node instanceof Link) {
-      exportNode(((Link)node).getSharedGroup(), ignoreTransparency, silk, lightPower, lightSourceMaterialNames,
+      exportNode(((Link)node).getSharedGroup(), ignoreTransparency, silk, lightPower, emittedLightColor, lightSourceMaterialNames,
           nodeNames, parentTransformations);
     } else if (node instanceof Shape3D) {
       Shape3D shape = (Shape3D)node;
@@ -784,6 +785,9 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
               if (coloringAttributes != null) {
                 coloringAttributes.getColor(lightSourceRadiance);
               }
+            }
+            if (emittedLightColor != null) {
+              lightSourceRadiance.set(new java.awt.Color(emittedLightColor));
             }
             lightSourceRadiance.set(32 * lightPower * lightPower * lightSourceRadiance.getX() * (this.homeLightColor >> 16),
                 32 * lightPower * lightPower * lightSourceRadiance.getY() * ((this.homeLightColor >> 8) & 0xFF),
@@ -1421,7 +1425,7 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
     float lightPower = light.getPower();
     float lightRadius = getLightSourceRadius(light, lightSource);
     float power = 5 * lightPower * lightPower / (lightRadius * lightRadius);
-    int lightColor = lightSource.getColor();
+    int lightColor = light.getLightSourceColor(lightSource);
     this.sunflow.parameter("radiance", null,
         power * (lightColor >> 16) * (this.homeLightColor >> 16),
         power * ((lightColor >> 8) & 0xFF) * ((this.homeLightColor >> 8) & 0xFF),

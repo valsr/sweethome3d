@@ -159,7 +159,15 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
   private NullableCheckBox        visibleCheckBox;
   private JLabel                  lightPowerLabel;
   private JSpinner                lightPowerSpinner;
+  private JRadioButton            defaultLightColorRadioButton;
+  private JRadioButton            lightColorRadioButton;
+  private ColorButton             lightColorButton;
+  private JRadioButton            lightColorTemperatureRadioButton;
+  private JSpinner                lightColorTemperatureSpinner;
   private JTabbedPane             tabbedPane;
+
+  private static final int MINIMUM_LIGHT_COLOR_TEMPERATURE = 1500;
+  private static final int MAXIMUM_LIGHT_COLOR_TEMPERATURE = 10000;
   private String                  dialogTitle;
 
   /**
@@ -976,6 +984,103 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         });
     }
 
+    if (controller.isPropertyEditable(HomeFurnitureController.Property.LIGHT_COLOR_MODE)) {
+      // Create radio buttons bound to LIGHT_COLOR_MODE controller property
+      ButtonGroup buttonGroup = new ButtonGroup();
+      this.defaultLightColorRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences,
+          HomeFurniturePanel.class, "defaultLightColorRadioButton.text"));
+      buttonGroup.add(this.defaultLightColorRadioButton);
+      this.defaultLightColorRadioButton.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            if (defaultLightColorRadioButton.isSelected()) {
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.DEFAULT);
+            }
+          }
+        });
+
+      this.lightColorRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences,
+          HomeFurniturePanel.class, "lightColorRadioButton.text"));
+      buttonGroup.add(this.lightColorRadioButton);
+      this.lightColorRadioButton.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            if (lightColorRadioButton.isSelected()) {
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.COLOR);
+            }
+          }
+        });
+
+      // Create color button bound to LIGHT_COLOR controller property
+      this.lightColorButton = new ColorButton(preferences);
+      if (OperatingSystem.isMacOSX()) {
+        this.lightColorButton.putClientProperty("JButton.buttonType", "segmented");
+        this.lightColorButton.putClientProperty("JButton.segmentPosition", "only");
+      }
+      this.lightColorButton.setColorDialogTitle(preferences
+          .getLocalizedString(HomeFurniturePanel.class, "lightColorDialog.title"));
+      this.lightColorButton.setColor(controller.getLightColor());
+      this.lightColorButton.addPropertyChangeListener(ColorButton.COLOR_PROPERTY, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            controller.setLightColor(lightColorButton.getColor());
+            controller.setLightColorMode(HomeFurnitureController.LightColorMode.COLOR);
+          }
+        });
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            lightColorButton.setColor(controller.getLightColor());
+          }
+        });
+
+      this.lightColorTemperatureRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences,
+          HomeFurniturePanel.class, "lightColorTemperatureRadioButton.text"));
+      buttonGroup.add(this.lightColorTemperatureRadioButton);
+      this.lightColorTemperatureRadioButton.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            if (lightColorTemperatureRadioButton.isSelected()) {
+              if (controller.getLightColorTemperature() == null) {
+                controller.setLightColorTemperature(HomeFurnitureController.DEFAULT_LIGHT_COLOR_TEMPERATURE);
+              }
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.TEMPERATURE);
+            }
+          }
+        });
+
+      // Create temperature spinner bound to LIGHT_COLOR_TEMPERATURE controller property
+      final NullableSpinner.NullableSpinnerNumberModel lightColorTemperatureSpinnerModel =
+          new NullableSpinner.NullableSpinnerNumberModel(HomeFurnitureController.DEFAULT_LIGHT_COLOR_TEMPERATURE,
+              MINIMUM_LIGHT_COLOR_TEMPERATURE, MAXIMUM_LIGHT_COLOR_TEMPERATURE, 100);
+      this.lightColorTemperatureSpinner = new NullableSpinner(lightColorTemperatureSpinnerModel);
+      lightColorTemperatureSpinnerModel.setNullable(controller.getLightColorTemperature() == null);
+      lightColorTemperatureSpinnerModel.setValue(controller.getLightColorTemperature());
+      final PropertyChangeListener lightColorTemperatureChangeListener = new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            lightColorTemperatureSpinnerModel.setNullable(ev.getNewValue() == null);
+            lightColorTemperatureSpinnerModel.setValue((Integer)ev.getNewValue());
+          }
+        };
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_TEMPERATURE,
+          lightColorTemperatureChangeListener);
+      lightColorTemperatureSpinnerModel.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            Number temperature = (Number)lightColorTemperatureSpinnerModel.getValue();
+            if (temperature != null) {
+              controller.removePropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_TEMPERATURE,
+                  lightColorTemperatureChangeListener);
+              controller.setLightColorTemperature(temperature.intValue());
+              controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_TEMPERATURE,
+                  lightColorTemperatureChangeListener);
+              controller.setLightColorMode(HomeFurnitureController.LightColorMode.TEMPERATURE);
+            }
+          }
+        });
+
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_COLOR_MODE, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            updateLightColorRadioButtons(controller);
+          }
+        });
+      updateLightColorRadioButtons(controller);
+    }
+
     updateSizeComponents(controller);
     // Add a listener that enables / disables size fields depending on furniture resizable and deformable
     PropertyChangeListener sizeListener = new PropertyChangeListener() {
@@ -1032,6 +1137,22 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           break;
       }
       updateShininessRadioButtons(controller);
+    }
+  }
+
+  /**
+   * Updates light color radio buttons.
+   */
+  private void updateLightColorRadioButtons(HomeFurnitureController controller) {
+    if (controller.getLightColorMode() == HomeFurnitureController.LightColorMode.DEFAULT) {
+      this.defaultLightColorRadioButton.setSelected(true);
+    } else if (controller.getLightColorMode() == HomeFurnitureController.LightColorMode.COLOR) {
+      this.lightColorRadioButton.setSelected(true);
+    } else if (controller.getLightColorMode() == HomeFurnitureController.LightColorMode.TEMPERATURE) {
+      this.lightColorTemperatureRadioButton.setSelected(true);
+    } else { // null
+      SwingTools.deselectAllRadioButtons(this.defaultLightColorRadioButton,
+          this.lightColorRadioButton, this.lightColorTemperatureRadioButton);
     }
   }
 
@@ -1193,6 +1314,14 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       if (this.visibleCheckBox != null) {
         this.visibleCheckBox.setMnemonic(KeyStroke.getKeyStroke(
             preferences.getLocalizedString(HomeFurniturePanel.class, "visibleCheckBox.mnemonic")).getKeyCode());
+      }
+      if (this.defaultLightColorRadioButton != null) {
+        this.defaultLightColorRadioButton.setMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
+            HomeFurniturePanel.class, "defaultLightColorRadioButton.mnemonic")).getKeyCode());
+        this.lightColorRadioButton.setMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
+            HomeFurniturePanel.class, "lightColorRadioButton.mnemonic")).getKeyCode());
+        this.lightColorTemperatureRadioButton.setMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
+            HomeFurniturePanel.class, "lightColorTemperatureRadioButton.mnemonic")).getKeyCode());
       }
       if (this.lightPowerLabel != null) {
         this.lightPowerLabel.setDisplayedMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
@@ -1531,14 +1660,50 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           1, 2, orientationPanelDisplayed ? 3 : 2, 1, 0, 0, GridBagConstraints.LINE_END,
           GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     }
+    if (this.defaultLightColorRadioButton != null) {
+      // Light color panel
+      JPanel lightColorPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "lightColorPanel.title"));
+      lightColorPanel.add(this.defaultLightColorRadioButton, new GridBagConstraints(
+          0, 0, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, labelInsets, 0, 0));
+      lightColorPanel.add(this.lightColorRadioButton, new GridBagConstraints(
+          0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, labelInsets, 0, 0));
+      lightColorPanel.add(this.lightColorButton, new GridBagConstraints(
+          1, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, standardGap, 0), 0, 0));
+      lightColorPanel.add(this.lightColorTemperatureRadioButton, new GridBagConstraints(
+          0, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+      lightColorPanel.add(this.lightColorTemperatureSpinner, new GridBagConstraints(
+          1, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+      // Keep components at the left of the panel
+      lightColorPanel.add(new JLabel(), new GridBagConstraints(
+          2, 0, 1, 3, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+      lightPanel.add(lightColorPanel, new GridBagConstraints(
+          0, 0, 1, 1, 1, 0, labelAlignment,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
+    }
     if (this.lightPowerLabel != null) {
-      // Light panel
-      lightPanel.add(this.lightPowerLabel, new GridBagConstraints(
+      // Light power panel
+      JPanel lightPowerPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "lightPowerPanel.title"));
+      lightPowerPanel.add(this.lightPowerLabel, new GridBagConstraints(
           0, 0, 1, 1, 0, 0, labelAlignment,
           GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
-      lightPanel.add(this.lightPowerSpinner, new GridBagConstraints(
-          1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-          GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
+      lightPowerPanel.add(this.lightPowerSpinner, new GridBagConstraints(
+          1, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+      // Keep components at the left of the panel
+      lightPowerPanel.add(new JLabel(), new GridBagConstraints(
+          3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+      lightPanel.add(lightPowerPanel, new GridBagConstraints(
+          0, 1, 1, 1, 1, 0, labelAlignment,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
     }
 
     // Display the panels which contain some components in tabs

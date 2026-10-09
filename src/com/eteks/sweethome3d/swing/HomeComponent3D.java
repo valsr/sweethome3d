@@ -3236,7 +3236,9 @@ public class HomeComponent3D extends JComponent implements View3D, Printable {
               || HomePieceOfFurniture.Property.TEXTURE.name().equals(propertyName)
               || HomePieceOfFurniture.Property.MODEL_MATERIALS.name().equals(propertyName)
               || HomePieceOfFurniture.Property.SHININESS.name().equals(propertyName)
-              || (HomeLight.Property.POWER.name().equals(propertyName)
+              || ((HomeLight.Property.POWER.name().equals(propertyName)
+                    || HomeLight.Property.LIGHT_COLOR.name().equals(propertyName)
+                    || HomeLight.Property.LIGHT_COLOR_TEMPERATURE.name().equals(propertyName))
                   && home.getEnvironment().getSubpartSizeUnderLight() > 0)) {
             updateObjects(Arrays.asList(new HomePieceOfFurniture [] {updatedPiece}));
           }
