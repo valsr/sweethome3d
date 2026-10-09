@@ -3041,18 +3041,18 @@ public class HomePane extends JRootPane implements HomeView {
    */
   private JComponent createMainPane(Home home, UserPreferences preferences,
                                     HomeController controller) {
-    final JComponent catalogFurniturePane = createCatalogFurniturePane(home, preferences, controller);
+    final JComponent primarySideBar = createPrimarySideBar(home, preferences, controller);
     final JComponent planView3DPane = createPlanView3DPane(home, preferences, controller);
 
-    if (catalogFurniturePane == null) {
+    if (primarySideBar == null) {
       return planView3DPane;
     } else if (planView3DPane == null) {
-      return catalogFurniturePane;
+      return primarySideBar;
     } else {
       boolean leftToRightOrientation = ComponentOrientation.getOrientation(Locale.getDefault()).isLeftToRight();
       final JSplitPane mainPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-          leftToRightOrientation ? catalogFurniturePane  : planView3DPane,
-          leftToRightOrientation ? planView3DPane  : catalogFurniturePane);
+          leftToRightOrientation ? primarySideBar  : planView3DPane,
+          leftToRightOrientation ? planView3DPane  : primarySideBar);
       // Set default divider location
       mainPane.setDividerLocation((int)((leftToRightOrientation ? 360 : 670) * SwingTools.getResolutionScale()));
       configureSplitPane(mainPane, home, MAIN_PANE_DIVIDER_LOCATION_VISUAL_PROPERTY,
@@ -3062,12 +3062,12 @@ public class HomePane extends JRootPane implements HomeView {
           public void propertyChange(PropertyChangeEvent ev) {
             if (mainPane.getComponentOrientation().isLeftToRight()) {
               mainPane.setRightComponent(null); // Needed to avoid twice the same child component
-              mainPane.setLeftComponent(catalogFurniturePane);
+              mainPane.setLeftComponent(primarySideBar);
               mainPane.setRightComponent(planView3DPane);
             } else {
               mainPane.setRightComponent(null);
               mainPane.setLeftComponent(planView3DPane);
-              mainPane.setRightComponent(catalogFurniturePane);
+              mainPane.setRightComponent(primarySideBar);
             }
             if (mainPane.isShowing()) {
               mainPane.setDividerLocation(mainPane.getWidth() - mainPane.getDividerLocation());
@@ -3154,9 +3154,9 @@ public class HomePane extends JRootPane implements HomeView {
   }
 
   /**
-   * Returns the catalog tree and furniture table pane.
+   * Returns the primary side bar which displays the catalog tree and the furniture table.
    */
-  private JComponent createCatalogFurniturePane(Home home,
+  private JComponent createPrimarySideBar(Home home,
                                                 UserPreferences preferences,
                                                 final HomeController controller) {
     JComponent catalogView = (JComponent)controller.getFurnitureCatalogController().getView();
@@ -3261,13 +3261,13 @@ public class HomePane extends JRootPane implements HomeView {
       return catalogView;
     } else {
       // Create a split pane that displays both components
-      JSplitPane catalogFurniturePane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
+      JSplitPane primarySideBar = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
           catalogView, furnitureView);
-      catalogFurniturePane.setBorder(null);
-      catalogFurniturePane.setMinimumSize(new Dimension());
-      configureSplitPane(catalogFurniturePane, home,
+      primarySideBar.setBorder(null);
+      primarySideBar.setMinimumSize(new Dimension());
+      configureSplitPane(primarySideBar, home,
           CATALOG_PANE_DIVIDER_LOCATION_VISUAL_PROPERTY, 0.5, false, controller);
-      return catalogFurniturePane;
+      return primarySideBar;
     }
   }
 
