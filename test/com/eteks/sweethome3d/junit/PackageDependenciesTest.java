@@ -105,7 +105,7 @@ public class PackageDependenciesTest extends TestCase {
     JavaPackage openPdf = constraint.addPackage("org.openpdf.text");
     JavaPackage openPdfPdf = constraint.addPackage("org.openpdf.text.pdf");
     // FreeHEP Vector Graphics for SVG
-    JavaPackage vectorGraphicsUtil = constraint.addPackage("org.freehep.util");
+    JavaPackage vectorGraphicsUtil = constraint.addPackage("org.freehep.graphicsbase.util");
     JavaPackage vectorGraphics = constraint.addPackage("org.freehep.graphicsio");
     JavaPackage vectorGraphicsSvg = constraint.addPackage("org.freehep.graphicsio.svg");
     // Batik for SVG path parsing

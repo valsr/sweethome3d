@@ -163,9 +163,9 @@ import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
 import javax.vecmath.Vector3f;
 
+import org.freehep.graphicsbase.util.UserProperties;
 import org.freehep.graphicsio.ImageConstants;
 import org.freehep.graphicsio.svg.SVGGraphics2D;
-import org.freehep.util.UserProperties;
 
 import com.eteks.sweethome3d.j3d.Component3DManager;
 import com.eteks.sweethome3d.j3d.ModelManager;
