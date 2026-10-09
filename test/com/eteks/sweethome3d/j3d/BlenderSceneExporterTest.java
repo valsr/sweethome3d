@@ -33,6 +33,8 @@ import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.model.HomeLight;
+import com.eteks.sweethome3d.model.HomeMaterial;
+import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 
 import junit.framework.TestCase;
 
@@ -248,6 +250,36 @@ public class BlenderSceneExporterTest extends TestCase {
     light = ((List<Map<String, Object>>)scene.get("lights")).get(0);
     BlenderTestCheck.isTrue(Math.abs((Float)light.get("power") - (float)Math.sqrt(500 * 400) / 1000) < 1E-5f,
         "ceiling light power " + light.get("power"));
+  }
+
+  /**
+   * Tests the materials which opacity was chosen by the user are listed apart from the ones of glass.
+   */
+  @SuppressWarnings("unchecked")
+  public void testChosenOpacity() throws Exception {
+    File folder = Files.createTempDirectory("sh3d-exporter-test").toFile();
+    Home home = BlenderTestHomes.createRoomHome(null);
+    HomePieceOfFurniture piece = home.getFurniture().get(0);
+    Map<String, Object> scene = BlenderSceneExporter.export(home, new Object3DBranchFactory(), folder);
+    BlenderTestCheck.equal(0, ((List<?>)scene.get("translucentMaterials")).size(), "no chosen opacity by default");
+
+    String materialName = BlenderTestHomes.getFirstAppearanceName(
+        (javax.media.j3d.Node)new Object3DBranchFactory().createObject3D(home, piece, true));
+    // A color without opacity changes nothing
+    piece.setModelMaterials(new HomeMaterial [] {new HomeMaterial(materialName, null, 0xFF2040C0, null, null)});
+    scene = BlenderSceneExporter.export(home, new Object3DBranchFactory(), folder);
+    BlenderTestCheck.equal(0, ((List<?>)scene.get("translucentMaterials")).size(), "no chosen opacity with a color");
+
+    piece.setModelMaterials(new HomeMaterial [] {new HomeMaterial(materialName, null, 0xFF2040C0, null, null, 0.25f)});
+    scene = BlenderSceneExporter.export(home, new Object3DBranchFactory(), folder);
+    List<String> translucentMaterials = (List<String>)scene.get("translucentMaterials");
+    BlenderTestCheck.equal(1, translucentMaterials.size(), "material with a chosen opacity listed");
+    String mtl = new String(Files.readAllBytes(new File(folder, "scene.mtl").toPath()), StandardCharsets.ISO_8859_1);
+    int definition = mtl.indexOf("newmtl " + translucentMaterials.get(0) + "\n");
+    BlenderTestCheck.isTrue(definition >= 0, "translucent material " + translucentMaterials.get(0) + " is in MTL file");
+    int end = mtl.indexOf("newmtl ", definition + 1);
+    BlenderTestCheck.isTrue(mtl.substring(definition, end < 0 ? mtl.length() : end).contains("\nd 0.25"),
+        "translucent material written with its opacity");
   }
 
   /**

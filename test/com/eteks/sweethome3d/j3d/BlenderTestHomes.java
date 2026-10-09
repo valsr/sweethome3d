@@ -71,7 +71,7 @@ final class BlenderTestHomes {
     return null;
   }
 
-  private static String getFirstAppearanceName(Node node) {
+  static String getFirstAppearanceName(Node node) {
     if (node instanceof Group) {
       Enumeration<?> enumeration = ((Group)node).getAllChildren();
       while (enumeration.hasMoreElements()) {

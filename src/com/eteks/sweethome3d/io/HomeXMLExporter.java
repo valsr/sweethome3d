@@ -569,6 +569,9 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
             if (material.getShininess() != null) {
               writer.writeFloatAttribute("shininess", material.getShininess());
             }
+            if (material.getOpacity() != null) {
+              writer.writeFloatAttribute("opacity", material.getOpacity());
+            }
           }
 
           @Override

@@ -53,6 +53,13 @@ public class HomeFurnitureMaterialsPanelTest extends TestCase {
   private JComponent              materialsPanel;
   private JList                   materialsList;
 
+  @Override
+  protected void setUp() throws Exception {
+    // Initialize Java 3D first as the application does with its 3D view, to avoid a deadlock between
+    // the event dispatch thread and the thread loading models if both initialize it at the same time
+    new javax.media.j3d.BranchGroup();
+  }
+
   public void testMaterialsPanel() throws Exception {
     final UserPreferences preferences = new DefaultUserPreferences();
     HomePieceOfFurniture catalogPiece = null;

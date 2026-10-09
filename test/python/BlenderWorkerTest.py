@@ -60,7 +60,7 @@ NIGHT = [0.3, -0.8, 0.5]
 NOON = [0.3, 0.8, 0.5]
 
 
-def write_scene(name, lights, emissive=(), opaque=()):
+def write_scene(name, lights, emissive=(), opaque=(), translucent=()):
     folder = os.path.join(TMP, name)
     os.makedirs(folder)
     with open(os.path.join(folder, "scene.obj"), "w") as f:
@@ -69,7 +69,8 @@ def write_scene(name, lights, emissive=(), opaque=()):
         f.write(MTL)
     scene = {"obj": "scene.obj", "lightColor": [1, 1, 1], "skyColor": [0.8, 0.9, 1], "skyTexture": None,
              "groundColor": [0.5, 0.5, 0.5], "northDirection": 0,
-             "lights": lights, "emissiveMaterials": list(emissive), "opaqueMaterials": list(opaque)}
+             "lights": lights, "emissiveMaterials": list(emissive), "opaqueMaterials": list(opaque),
+             "translucentMaterials": list(translucent)}
     path = os.path.join(folder, "scene.json")
     with open(path, "w") as f:
         json.dump(scene, f)
@@ -210,6 +211,21 @@ check(abs(bulb.inputs["Alpha"].default_value - 0.4) < 0.01, "transparent materia
 worker.load({"scene": write_scene("opaque", [], opaque=["bulb"])})
 bulb = bpy.data.materials["bulb"].node_tree.nodes["Principled BSDF"]
 check(bulb.inputs["Alpha"].default_value == 1, "listed material made opaque")
+
+# A transparent material becomes glass, unless its opacity was chosen by the user
+def surface_node(material_name):
+    tree = bpy.data.materials[material_name].node_tree
+    output = next(node for node in tree.nodes if node.type == "OUTPUT_MATERIAL")
+    return output.inputs["Surface"].links[0].from_node
+
+worker.load({"scene": write_scene("glass_material", [])})
+check(surface_node("bulb").type == "MIX_SHADER", "transparent material rendered as glass")
+worker.load({"scene": write_scene("translucent_material", [], translucent=["bulb"])})
+check(surface_node("bulb").type == "BSDF_PRINCIPLED", "material with a chosen opacity keeps its surface")
+bulb = bpy.data.materials["bulb"].node_tree.nodes["Principled BSDF"]
+check(abs(bulb.inputs["Alpha"].default_value - 0.4) < 0.01, "material with a chosen opacity keeps its opacity")
+check(bulb.inputs["Roughness"].default_value != worker.TRANSPARENT_ROUGHNESS,
+      "material with a chosen opacity isn't made glossy")
 
 # Glass lets most of the light through, as with the glass shader of the default renderer
 def glass_scene(name, glass):

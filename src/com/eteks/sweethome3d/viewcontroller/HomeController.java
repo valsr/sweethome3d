@@ -2360,8 +2360,8 @@ public class HomeController implements Controller {
         HomeMaterial material = materials [i];
         if (material != null
             && referencesInvalidContent(material.getTexture(), invalidContent)) {
-          materials [i] = new HomeMaterial(material.getName(), material.getColor(),
-              getErrorTexture(material.getTexture()), material.getShininess());
+          materials [i] = new HomeMaterial(material.getName(), material.getKey(), material.getColor(),
+              getErrorTexture(material.getTexture()), material.getShininess(), material.getOpacity());
         }
         piece.setModelMaterials(materials);
       }

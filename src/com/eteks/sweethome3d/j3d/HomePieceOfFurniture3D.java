@@ -84,6 +84,7 @@ import com.sun.j3d.utils.geometry.Box;
  * Root of piece of furniture branch.
  */
 public class HomePieceOfFurniture3D extends Object3DBranch {
+  private static final String CHOSEN_OPACITY_USER_DATA = "chosenOpacity";
   private static final TransparencyAttributes DEFAULT_TEXTURED_SHAPE_TRANSPARENCY_ATTRIBUTES =
       new TransparencyAttributes(TransparencyAttributes.NICEST, 0);
   private static final PolygonAttributes      DEFAULT_TEXTURED_SHAPE_POLYGON_ATTRIBUTES =
@@ -855,9 +856,13 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
                   }
                   appearance.setMaterial(getMaterial(DEFAULT_COLOR, DEFAULT_AMBIENT_COLOR, materialShininess));
                   TextureManager.getInstance().loadTexture(materialTexture.getImage(),
-                      waitTextureLoadingEnd, getTextureObserver(appearance, mirrored, modelFlags));
+                      waitTextureLoadingEnd, getTextureObserver(appearance, mirrored, modelFlags, material.getOpacity()));
                 } else {
                   restoreDefaultMaterialAndTexture(appearance, material.getShininess());
+                }
+                if (material.getOpacity() != null) {
+                  // Replace the default transparency of the material by the one chosen by the user
+                  appearance.setTransparencyAttributes(getTransparencyAttributes(material.getOpacity()));
                 }
                 materialFound = true;
                 break;
@@ -883,6 +888,40 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
    * Returns a texture observer that will update the given <code>appearance</code>.
    */
   private TextureObserver getTextureObserver(final Appearance appearance, final boolean mirrored, final int modelFlags) {
+    return getTextureObserver(appearance, mirrored, modelFlags, null);
+  }
+
+  /**
+   * Returns the transparency attributes of a material with the given <code>opacity</code>.
+   */
+  private TransparencyAttributes getTransparencyAttributes(float opacity) {
+    TransparencyAttributes transparencyAttributes = opacity >= 1
+        ? new TransparencyAttributes(TransparencyAttributes.NONE, 0)
+        : new TransparencyAttributes(TransparencyAttributes.NICEST, 1 - Math.max(0, opacity));
+    // Let renderers distinguish an opacity chosen by the user from the transparency of a model
+    transparencyAttributes.setUserData(CHOSEN_OPACITY_USER_DATA);
+    return transparencyAttributes;
+  }
+
+  /**
+   * Returns <code>true</code> if the transparency of the given <code>appearance</code> comes from
+   * the opacity chosen by the user for a material. Renderers should then show the surface of the material
+   * and let light pass through it in proportion to its transparency, rather than handle it as glass.
+   */
+  static boolean isOpacityChosen(Appearance appearance) {
+    TransparencyAttributes transparencyAttributes = appearance != null
+        ? appearance.getTransparencyAttributes()
+        : null;
+    return transparencyAttributes != null
+        && CHOSEN_OPACITY_USER_DATA.equals(transparencyAttributes.getUserData());
+  }
+
+  /**
+   * Returns a texture observer that will update the given <code>appearance</code>,
+   * and set its transparency from <code>opacity</code> if it's not <code>null</code>.
+   */
+  private TextureObserver getTextureObserver(final Appearance appearance, final boolean mirrored, final int modelFlags,
+                                             final Float opacity) {
     return new TextureManager.TextureObserver() {
         public void textureUpdated(Texture texture) {
           if (TextureManager.getInstance().isTextureTransparent(texture)) {
@@ -901,6 +940,9 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
               appearance.setTransparencyAttributes(defaultMaterialAndTexture.getTransparencyAttributes());
               appearance.setPolygonAttributes(defaultMaterialAndTexture.getPolygonAttributes());
             }
+          }
+          if (opacity != null) {
+            appearance.setTransparencyAttributes(getTransparencyAttributes(opacity));
           }
           Texture homeTexture = getContextTexture(texture, getContext());
           if (appearance.getTexture() != homeTexture) {
