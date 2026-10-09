@@ -81,6 +81,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -313,6 +314,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
   private Rectangle2D                       invalidPlanBounds;
   private BufferedImage                     backgroundImageCache;
   private float []                          observerCameraPaintedLocation;
+  private SoftReference<BufferedImage>      paintImageCache;
   private Map<TextureImage, BufferedImage>  patternImagesCache;
   private Set<HomePieceOfFurniture>         invalidFurnitureTopViewIcons;
   private List<Wall>                        otherLevelsWallsCache;
@@ -2240,6 +2242,76 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
   @Override
   protected void paintComponent(Graphics g) {
     Graphics2D g2D = (Graphics2D)g.create();
+    Rectangle clipBounds = g2D.getClipBounds();
+    if (clipBounds != null) {
+      clipBounds = clipBounds.intersection(new Rectangle(getWidth(), getHeight()));
+    }
+    AffineTransform transform = g2D.getTransform();
+    if (clipBounds != null
+        && !clipBounds.isEmpty()
+        && isOpaque()
+        && this.backgroundPainted
+        && !isPaintingForPrint()
+        && (transform.getType() & ~(AffineTransform.TYPE_TRANSLATION | AffineTransform.TYPE_MASK_SCALE)) == 0
+        && transform.getScaleX() > 0
+        && transform.getScaleY() > 0
+        && isPlanPaintedInImage()) {
+      // Paint the clipped area in an image at screen resolution then draw this image,
+      // to perform only one drawing operation in the graphics of the component
+      double xScale = transform.getScaleX();
+      double yScale = transform.getScaleY();
+      int imageWidth = (int)Math.ceil(clipBounds.width * xScale);
+      int imageHeight = (int)Math.ceil(clipBounds.height * yScale);
+      BufferedImage image = getPaintImage(imageWidth, imageHeight);
+      Graphics2D imageGraphics = image.createGraphics();
+      imageGraphics.clipRect(0, 0, imageWidth, imageHeight);
+      imageGraphics.scale(xScale, yScale);
+      imageGraphics.translate(-clipBounds.x, -clipBounds.y);
+      imageGraphics.setFont(g2D.getFont());
+      imageGraphics.setColor(g2D.getColor());
+      paintPlan(imageGraphics);
+      g2D.drawImage(image, clipBounds.x, clipBounds.y, clipBounds.x + clipBounds.width, clipBounds.y + clipBounds.height,
+          0, 0, imageWidth, imageHeight, null);
+      g2D.dispose();
+    } else {
+      paintPlan(g2D);
+    }
+  }
+
+  /**
+   * Returns <code>true</code> if the plan should be painted in an image before being drawn in this component.
+   * By default, this is done only under Linux, where each drawing operation in the graphics of a component
+   * has to wait that Java 3D renderer releases AWT lock when it's rendering the 3D view. This default behavior
+   * may be changed with the <code>com.eteks.sweethome3d.swing.planPaintedInImage</code> System property.
+   */
+  private boolean isPlanPaintedInImage() {
+    String planPaintedInImage = System.getProperty("com.eteks.sweethome3d.swing.planPaintedInImage");
+    return planPaintedInImage != null
+        ? Boolean.parseBoolean(planPaintedInImage)
+        : OperatingSystem.isLinux();
+  }
+
+  /**
+   * Returns an opaque image at least as large as the given size, reused from a paint to the next one.
+   */
+  private BufferedImage getPaintImage(int width, int height) {
+    BufferedImage image = this.paintImageCache != null
+        ? this.paintImageCache.get()
+        : null;
+    if (image == null
+        || image.getWidth() < width
+        || image.getHeight() < height) {
+      image = new BufferedImage(image != null  ? Math.max(image.getWidth(), width)  : width,
+          image != null  ? Math.max(image.getHeight(), height)  : height, BufferedImage.TYPE_INT_RGB);
+      this.paintImageCache = new SoftReference<BufferedImage>(image);
+    }
+    return image;
+  }
+
+  /**
+   * Paints the background and the content of the plan with the given graphics, then disposes it.
+   */
+  private void paintPlan(Graphics2D g2D) {
     if (this.backgroundPainted) {
       paintBackground(g2D, getBackgroundColor(PaintMode.PAINT));
     }

@@ -155,7 +155,7 @@ public class PlanComponentCameraRepaintTest extends TestCase {
       paintPlan(expectedImage, null);
       for (int y = 0; y < image.getHeight(); y++) {
         for (int x = 0; x < image.getWidth(); x++) {
-          if (image.getRGB(x, y) != expectedImage.getRGB(x, y)) {
+          if (!isSameColor(image.getRGB(x, y), expectedImage.getRGB(x, y))) {
             fail("Pixel at " + x + "," + y + " not updated by repainted area " + repaintedArea);
           }
         }
@@ -268,5 +268,18 @@ public class PlanComponentCameraRepaintTest extends TestCase {
           }
         });
     }
+  }
+
+  /**
+   * Returns <code>true</code> if the two given colors are the same, ignoring the rounding differences
+   * of antialiasing that may appear when a shape isn't drawn at the same location in two images.
+   */
+  private static boolean isSameColor(int rgb1, int rgb2) {
+    for (int shift = 0; shift <= 16; shift += 8) {
+      if (Math.abs(((rgb1 >> shift) & 0xFF) - ((rgb2 >> shift) & 0xFF)) > 2) {
+        return false;
+      }
+    }
+    return true;
   }
 }
