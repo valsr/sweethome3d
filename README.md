@@ -51,6 +51,9 @@ build and run on current Java.
   the three renderers, whereas the transparent materials of models are still rendered
   as glass. Light crossing a model meets each of its faces, so a closed shape stops
   more light than its opacity alone.
+- **Furniture icons without screen capture under Linux.** The icon of an imported model
+  is rendered off screen from the displayed view instead of being captured on screen,
+  which Wayland doesn't allow without asking the user.
 - **Linear light power in photos.** Photo renderers use a brightness proportional to the
   power of a light instead of its square, so homes created with the original program
   render differently unless their lights are at the default 50%: lights above 50% are

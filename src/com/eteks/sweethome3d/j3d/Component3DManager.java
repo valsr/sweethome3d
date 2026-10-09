@@ -49,6 +49,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import com.eteks.sweethome3d.tools.OperatingSystem;
+import com.jogamp.opengl.GLContext;
 import com.sun.j3d.utils.universe.SimpleUniverse;
 import com.sun.j3d.utils.universe.Viewer;
 import com.sun.j3d.utils.universe.ViewingPlatform;
@@ -257,7 +258,8 @@ public class Component3DManager {
 
       // Create a Java 3D canvas
       final Canvas3D canvas3D;
-      if (renderingObserver != null) {
+      if (renderingObserver != null || !offscreen) {
+        // Use also an observed canvas for on screen canvases to reserve texture names
         canvas3D = new ObservedCanvas3D(configuration, offscreen, renderingObserver);
       } else {
         canvas3D = new Canvas3D(configuration, offscreen);
@@ -473,9 +475,13 @@ public class Component3DManager {
    * A canvas 3D observed during its rendering.
    */
   private static class ObservedCanvas3D extends Canvas3D {
+    // Count of texture names left unused in the OpenGL context of an on screen canvas
+    private static final int RESERVED_TEXTURE_NAMES_COUNT = 16;
+
     private final RenderingObserver renderingObserver;
     private final boolean           paintDelayed;
     private Timer timer;
+    private Object contextWithReservedTextureNames;
 
     private ObservedCanvas3D(GraphicsConfiguration graphicsConfiguration,
                              boolean offScreen,
@@ -490,17 +496,50 @@ public class Component3DManager {
 
     @Override
     public void preRender() {
-      this.renderingObserver.canvas3DPreRendered(this);
+      if (!isOffScreen()) {
+        reserveTextureNames();
+      }
+      if (this.renderingObserver != null) {
+        this.renderingObserver.canvas3DPreRendered(this);
+      }
+    }
+
+    /**
+     * Reserves the first texture names of the current OpenGL context if it wasn't done yet.
+     * Java 3D reuses in the context of an off screen canvas the names of the textures it generated
+     * in the context of an on screen canvas, whereas these contexts don't share their textures.
+     * As JOGL already uses the first names of an off screen context for the textures of its frame buffer,
+     * a texture named like one of them would replace it, and the image of the off screen canvas
+     * would be limited to the size of this texture, with the other pixels left black.
+     */
+    private void reserveTextureNames() {
+      try {
+        GLContext context = GLContext.getCurrent();
+        if (context != null
+            && context != this.contextWithReservedTextureNames) {
+          this.contextWithReservedTextureNames = context;
+          context.getGL().glGenTextures(RESERVED_TEXTURE_NAMES_COUNT, new int [RESERVED_TEXTURE_NAMES_COUNT], 0);
+        }
+      } catch (RuntimeException ex) {
+        // Keep on rendering
+      } catch (LinkageError ex) {
+        // Java 3D doesn't run with JOGL
+        this.contextWithReservedTextureNames = this;
+      }
     }
 
     @Override
     public void postRender() {
-      this.renderingObserver.canvas3DPostRendered(this);
+      if (this.renderingObserver != null) {
+        this.renderingObserver.canvas3DPostRendered(this);
+      }
     }
 
     @Override
     public void postSwap() {
-      this.renderingObserver.canvas3DSwapped(this);
+      if (this.renderingObserver != null) {
+        this.renderingObserver.canvas3DSwapped(this);
+      }
     }
 
     @Override

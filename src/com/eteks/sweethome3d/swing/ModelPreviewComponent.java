@@ -1360,11 +1360,12 @@ public class ModelPreviewComponent extends JComponent {
           }
         }
       }
-      // Under Linux and Windows, create canvas 3D images from captures shot with Robot
-      // because handling off screen 3D images may cause some crash problems under Linux
-      // and doesn't refresh images correctly in some cases under Windows
+      // Under Windows, create canvas 3D images from captures shot with Robot
+      // because handling off screen 3D images doesn't refresh images correctly in some cases.
+      // Under Linux, render the displayed view in off screen images because the screen
+      // can't be captured under Wayland without asking the user each time
       Component3DManager manager3D = Component3DManager.getInstance();
-      boolean useScreenShot = (OperatingSystem.isLinux() || OperatingSystem.isWindows()) && !Boolean.getBoolean("com.eteks.sweethome3d.j3d.useOffScreen3DView")
+      boolean useScreenShot = OperatingSystem.isWindows() && !Boolean.getBoolean("com.eteks.sweethome3d.j3d.useOffScreen3DView")
           || !manager3D.isOffScreenImageSupported();
       imageWithWhiteBackgound = useScreenShot
           ? new Robot().createScreenCapture(new Rectangle(component3DOrigin, this.component3D.getSize()))
