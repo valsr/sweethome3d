@@ -104,6 +104,10 @@ public class Component3DManager {
     if (System.getProperty("j3d.implicitAntialiasing") == null) {
       System.setProperty("j3d.implicitAntialiasing", "true");
     }
+    if (System.getProperty("jogl.disable.opengles") == null) {
+      // Java 3D uses only desktop OpenGL and the OpenGL ES DLLs of JOGL aren't provided
+      System.setProperty("jogl.disable.opengles", "true");
+    }
 
     GraphicsConfigTemplate3D template = new GraphicsConfigTemplate3D();
     int defaultDepthSize = template.getDepthSize();

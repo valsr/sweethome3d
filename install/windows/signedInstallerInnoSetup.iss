@@ -6,8 +6,7 @@
 ; This UTF-8 BOM encoded script requires Inno Setup Unicode available at http://www.jrsoftware.org/isinfo.php
 ; and a build directory stored in current directory containing :
 ;   a SweetHome3D.exe file built with launch4j
-; + a jre... subdirectory containing a dump of Windows JRE without the files mentioned 
-;   in the JRE README.TXT file (JRE bin/javaw.exe command excepted)     
+; + a runtime subdirectory containing a dump of Windows 64 bit JRE
 ; + a lib subdirectory containing SweetHome3D.jar and Windows Java 3D DLLs and JARs for Java 3D
 ; + file COPYING.TXT
 
@@ -36,8 +35,9 @@ VersionInfoTextVersion=7.5
 VersionInfoDescription=Sweet Home 3D Setup
 VersionInfoCopyright=Copyright (c) 2024 Space Mushrooms
 VersionInfoCompany=Space Mushrooms
-; Install in 64 bit mode if possible
-ArchitecturesInstallIn64BitMode=x64
+; Install only on 64 bit systems, in 64 bit mode
+ArchitecturesAllowed=x64 arm64
+ArchitecturesInstallIn64BitMode=x64 arm64
 ; Signing
 ;
 ; Requires signature thumbprint and timestamp authority URL
@@ -81,12 +81,10 @@ Type: filesandordirs; Name: "{app}\jre8"
 Type: filesandordirs; Name: "{app}\jre1.8.0_51"
 Type: filesandordirs; Name: "{app}\jre1.8.0_60"
 Type: filesandordirs; Name: "{app}\jre1.8.0_66"
-; Remove Java3D 1.5.2 if not used
-Type: files; Name: "{app}\lib\vecmath.jar"; Check: not IsJava3D152Installed
-Type: files; Name: "{app}\lib\j3d*.jar"; Check: not IsJava3D152Installed
-Type: files; Name: "{app}\lib\j3d*.dll"; Check: not IsJava3D152Installed
-; Remove other Java3D if Java3D 1.5.2 used
-Type: filesandordirs; Name: "{app}\lib\java3d-1.6"; Check: IsJava3D152Installed
+; Remove Java3D 1.5.2 of previous versions
+Type: files; Name: "{app}\lib\vecmath.jar"
+Type: files; Name: "{app}\lib\j3d*.jar"
+Type: files; Name: "{app}\lib\j3d*.dll"
 
 [Files]
 Source: "build\*.TXT"; DestDir: "{app}"; Flags: ignoreversion 
@@ -99,38 +97,20 @@ Source: "build\lib\batik-svgpathparser-*.jar"; DestDir: "{app}\lib"; Flags: igno
 Source: "build\lib\jeksparser-calculator*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\sunflow-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\freehep-vectorgraphics-svg-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
-Source: "build\lib\iText-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
+Source: "build\lib\openpdf-*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\jmf.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
 Source: "build\lib\jnlp.jar"; DestDir: "{app}\lib"; Flags: ignoreversion
-; Install Java 3D 1.5.2 Jars
-Source: "build\lib\j3d*.jar"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: IsJava3D152Installed
-Source: "build\lib\vecmath.jar"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: IsJava3D152Installed
-; Install Java 3D not 1.5.2 Jars
-Source: "build\lib\java3d-1.6\j3d*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\vecmath.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\i586\*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not Is64BitInstalled and not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\gluegen*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
-Source: "build\lib\java3d-1.6\jogl*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
-; Install JRE, Java 3D and Yafaray for not 64 bit
-Source: "build\runtime\x86\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not Is64BitInstalled
-Source: "build\lib\x86\*.dll"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: not Is64BitInstalled and IsJava3D152Installed
-Source: "build\lib\java3d-1.6\x86\*.dll"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: not Is64BitInstalled and not IsJava3D152Installed
-Source: "build\lib\yafaray\i386\*.dll"; DestDir: "{app}\lib\yafaray"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not Is64BitInstalled
-; Install JRE, Java 3D and Yafaray for 64 bit
-Source: "build\runtime\x64\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: Is64BitInstalled
-Source: "build\lib\x64\*.dll"; DestDir: "{app}\lib"; Flags: ignoreversion; Check: Is64BitInstalled and IsJava3D152Installed
-Source: "build\lib\java3d-1.6\x64\*.dll"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
-Source: "build\lib\yafaray\x64\*.dll"; DestDir: "{app}\lib\yafaray"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: Is64BitInstalled
-; Install program for not 64 bit and Java 3D 1.5.2
-Source: "build\SweetHome3D-java3d-1.5.2-x86.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: not Is64BitInstalled and IsJava3D152Installed and not IsARM64
-; Install program for not 64 bit and not Java 3D 1.5.2
-Source: "build\SweetHome3D-x86.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: not Is64BitInstalled and not IsJava3D152Installed
-; Install program for 64 bit and Java 3D 1.5.2
-Source: "build\SweetHome3D-java3d-1.5.2-x64.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: Is64BitInstalled and IsJava3D152Installed
-; Install program for 64 bit and not Java 3D 1.5.2
-Source: "build\SweetHome3D-x64.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: Is64BitInstalled and not IsJava3D152Installed
-; Install program for ARM 64 bit 
-Source: "build\SweetHome3D-java3d-1.5.2-x86-d3d.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion; Check: not Is64BitInstalled and IsJava3D152Installed and IsARM64
+; Install Java 3D Jars
+Source: "build\lib\java3d-1.6\j3d*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion
+Source: "build\lib\java3d-1.6\vecmath.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion
+Source: "build\lib\java3d-1.6\gluegen*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion
+Source: "build\lib\java3d-1.6\jogl*.jar"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion
+; Install JRE, Java 3D and Yafaray
+Source: "build\runtime\x64\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\lib\java3d-1.6\x64\*.dll"; DestDir: "{app}\lib\java3d-1.6"; Flags: ignoreversion
+Source: "build\lib\yafaray\x64\*.dll"; DestDir: "{app}\lib\yafaray"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Install program
+Source: "build\SweetHome3D-x64.exe"; DestDir: "{app}"; DestName: "SweetHome3D.exe"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Sweet Home 3D"; Filename: "{app}\SweetHome3D.exe"; Comment: "{cm:SweetHome3DComment}"
@@ -139,7 +119,6 @@ Name: "{userdesktop}\Sweet Home 3D"; Filename: "{app}\SweetHome3D.exe"; Tasks: d
 
 [Run]
 ; Unpack rt.jar
-Filename: "{app}\runtime\bin\unpack200.exe"; Parameters:"-r -q ""{app}\runtime\lib\rt.pack.gz"" ""{app}\runtime\lib\rt.jar"""; Flags: runhidden; StatusMsg: "{cm:UnpackingMessage,rt.jar}"; Check: not Is64BitInstalled
 ; Propose user to launch Sweet Home 3D at installation end
 Filename: "{app}\SweetHome3D.exe"; Description: "{cm:LaunchProgram,Sweet Home 3D}"; Flags: nowait postinstall skipifsilent
 
@@ -147,7 +126,6 @@ Filename: "{app}\SweetHome3D.exe"; Description: "{cm:LaunchProgram,Sweet Home 3D
 ; Delete files created by Launch4j
 Type: filesandordirs; Name: "{app}\runtime\launch4j-tmp"
 ; Delete unpacked jars
-Type: files; Name: "{app}\runtime\lib\rt.jar"; Check: not Is64BitInstalled
 Type: dirifempty; Name: "{app}\runtime\lib" 
 Type: dirifempty; Name: "{app}\runtime" 
 Type: files; Name: "{app}\lib\SweetHome3D.jar"
@@ -231,75 +209,7 @@ Root: HKCR; Subkey: "Sweet Home 3D Plugin\DefaultIcon"; ValueType: string; Value
 Root: HKCR; Subkey: "Sweet Home 3D Plugin\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\SweetHome3D.exe"" -open ""%1"""; Flags: uninsdeletevalue
 
 [Code]
-var architecture64Bit : boolean;
 var uninstallExistingVersionCheckBox : TCheckBox;
-
-function IsJava3D152Installed : Boolean;
-var
-  windowsVersion : TWindowsVersion;
-  requiredJava3DVersion : String;
-  i : Integer;
-begin
-  (* Uses by default Java 3D 1.5.2 under Windows 7 included or under 64 bit systems when 32 bit is selected *)
-  GetWindowsVersionEx(windowsVersion);
-  Result := (windowsVersion.major < 6) 
-        or ((windowsVersion.major = 6) and (windowsVersion.major < 2))
-        or (Is64BitInstallMode and (not architecture64Bit))
-        or IsARM64;
-  (* Search required Java 3D version in j3d.version custom param *)
-  for i := 1 to ParamCount do
-    if Pos('/j3d.version=', ParamStr(i)) = 1 then
-      begin
-        requiredJava3DVersion := Copy(ParamStr(i), Length('/j3d.version=') + 1, Length(ParamStr(i)));        
-        Result := requiredJava3DVersion = '1.5.2';
-        break;
-      end;
-end; 
-
-function Is64BitInstalled : Boolean;
-begin
-  Result := architecture64Bit;
-end; 
-
-(* Updates installation dir according to selected architecture *)
-procedure UpdateInstallationDir();
-var 
-  subDir : String;
-begin
-  subDir := '';
-  if (Pos(ExpandConstant('{pf32}'), WizardForm.DirEdit.Text + '\') = 1) then
-    begin 
-      subDir := Copy(WizardForm.DirEdit.Text, Length(ExpandConstant('{pf32}')) + 1, 
-          Length(WizardForm.DirEdit.Text) - Length(ExpandConstant('{pf32}')));
-    end
-  else if (Pos(ExpandConstant('{pf64}'), WizardForm.DirEdit.Text + '\') = 1) then
-    subDir := Copy(WizardForm.DirEdit.Text, Length(ExpandConstant('{pf64}')) + 1, 
-        Length(WizardForm.DirEdit.Text) - Length(ExpandConstant('{pf64}')));
-  
-  if (Length(subDir) <> 0) then
-    begin
-      if architecture64Bit then
-        begin
-          WizardForm.DirEdit.Text := ExpandConstant('{pf64}') + subDir;
-        end
-      else 
-        begin
-          WizardForm.DirEdit.Text := ExpandConstant('{pf32}') + subDir;
-        end
-    end;
-end;
-
-procedure UpdateArchitecture32Bit(sender: TObject);
-begin
-  architecture64Bit := not TRadioButton(sender).Checked;
-  UpdateInstallationDir();
-end;
-
-procedure UpdateArchitecture64Bit(sender: TObject);
-begin
-  architecture64Bit := TRadioButton(sender).Checked;
-  UpdateInstallationDir();
-end;
 
 function GetExistingVersionUninstallPath : String;
 var
@@ -316,70 +226,17 @@ end;
 (* Run at wizard launch *)
 procedure InitializeWizard;
 var
-  windowsVersion : TWindowsVersion;
-  requiredArchitecture : String;
-  i : Integer;
   page: TNewNotebookPage;
-  architecturePanel : TPanel;
-  architectureLabel : TLabel;
-  x86RadioButton : TRadioButton;
-  x64RadioButton : TRadioButton;
 begin
-  architecture64Bit := Is64BitInstallMode;
-  if architecture64Bit then 
-    begin 
-      (* Install in 32 bit under Windows 10 by default *)
-      GetWindowsVersionEx(windowsVersion);
-      architecture64Bit := (windowsVersion.major < 10) and not IsARM64;
-      (* Search if required architecture in /os.arch custom param isn't 64 *)
-      for i := 1 to ParamCount do
-        if Pos('/os.arch=', ParamStr(i)) = 1 then
-          begin
-            requiredArchitecture := Copy(ParamStr(i), Length('/os.arch=') + 1, Length(ParamStr(i)));
-            architecture64Bit := Pos('64', requiredArchitecture) > 0;      
-            break;
-          end; 
-      UpdateInstallationDir();
-    end;
-  
-  (* Update installation dir selection page with architecture 32/64 bit radio buttons *)
+  (* Update installation dir selection page with a check box to uninstall existing version *)
   page := WizardForm.SelectDirPage;
 
-  architecturePanel := TPanel.create(page);  
-  architecturePanel.Top := WizardForm.DirEdit.Top + WizardForm.DirEdit.Height + 30;
-  architecturePanel.BevelOuter := bvNone;
-  architecturePanel.Width := 400;
-  architecturePanel.Height := WizardForm.YesRadio.Height;
-  architecturePanel.Visible := Is64BitInstallMode and not IsARM64;
-  architecturePanel.Parent := page;
-
-  architectureLabel := TLabel.Create(page);
-  architectureLabel.Caption := CustomMessage('ArchitectureLabel');
-  architectureLabel.AutoSize := True;
-  architectureLabel.Parent := architecturePanel;
-
-  x86RadioButton := TRadioButton.Create(page);
-  x86RadioButton.Caption := '32 bit';
-  x86RadioButton.Left := architectureLabel.Width + 10;
-  x86RadioButton.Height := architecturePanel.Height;
-  x86RadioButton.Checked := not architecture64Bit;
-  x86RadioButton.OnClick := @UpdateArchitecture32Bit; 
-  x86RadioButton.Parent := architecturePanel;
-
-  x64RadioButton := TRadioButton.Create(page);
-  x64RadioButton.Caption := '64 bit';
-  x64RadioButton.Left := x86RadioButton.Left + 100;
-  x64RadioButton.Height := architecturePanel.Height;
-  x64RadioButton.Checked := architecture64Bit;
-  x64RadioButton.OnClick := @UpdateArchitecture64Bit; 
-  x64RadioButton.Parent := architecturePanel;
-
   uninstallExistingVersionCheckBox := TCheckBox.Create(page);
-  uninstallExistingVersionCheckBox.Top := architecturePanel.Top + architecturePanel.Height + 10;
+  uninstallExistingVersionCheckBox.Top := WizardForm.DirEdit.Top + WizardForm.DirEdit.Height + 30;
   uninstallExistingVersionCheckBox.Caption := CustomMessage('UninstallExistingVersionCheckBox');
-  uninstallExistingVersionCheckBox.Height := architecturePanel.Height;
+  uninstallExistingVersionCheckBox.Height := WizardForm.YesRadio.Height;
   uninstallExistingVersionCheckBox.Width := 600;
-  uninstallExistingVersionCheckBox.Checked := Is64BitInstallMode;
+  uninstallExistingVersionCheckBox.Checked := True;
   uninstallExistingVersionCheckBox.Visible := GetExistingVersionUninstallPath <> '';
   uninstallExistingVersionCheckBox.Parent := page;
 end;

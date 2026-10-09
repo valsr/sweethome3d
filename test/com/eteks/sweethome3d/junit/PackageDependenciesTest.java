@@ -55,7 +55,6 @@ public class PackageDependenciesTest extends TestCase {
     JavaPackage sweetHome3DJava3D = constraint.addPackage("com.eteks.sweethome3d.j3d");
     JavaPackage sweetHome3DIO = constraint.addPackage("com.eteks.sweethome3d.io");
     JavaPackage sweetHome3DApplication = constraint.addPackage("com.eteks.sweethome3d");
-    JavaPackage sweetHome3DApplet = constraint.addPackage("com.eteks.sweethome3d.applet");
     // Swing components packages
     JavaPackage swing = constraint.addPackage("javax.swing");
     JavaPackage swingEvent = constraint.addPackage("javax.swing.event");
@@ -102,11 +101,11 @@ public class PackageDependenciesTest extends TestCase {
     JavaPackage sunflowMath = constraint.addPackage("org.sunflow.math");
     JavaPackage sunflowSystem = constraint.addPackage("org.sunflow.system");
     JavaPackage sunflowSystemUI = constraint.addPackage("org.sunflow.system.ui");
-    // iText for PDF
-    JavaPackage iText = constraint.addPackage("com.lowagie.text");
-    JavaPackage iTextPdf = constraint.addPackage("com.lowagie.text.pdf");
+    // OpenPDF for PDF
+    JavaPackage openPdf = constraint.addPackage("org.openpdf.text");
+    JavaPackage openPdfPdf = constraint.addPackage("org.openpdf.text.pdf");
     // FreeHEP Vector Graphics for SVG
-    JavaPackage vectorGraphicsUtil = constraint.addPackage("org.freehep.util");
+    JavaPackage vectorGraphicsUtil = constraint.addPackage("org.freehep.graphicsbase.util");
     JavaPackage vectorGraphics = constraint.addPackage("org.freehep.graphicsio");
     JavaPackage vectorGraphicsSvg = constraint.addPackage("org.freehep.graphicsio.svg");
     // Batik for SVG path parsing
@@ -195,8 +194,8 @@ public class PackageDependenciesTest extends TestCase {
     sweetHome3DSwing.dependsUpon(jmfDataSink);
     sweetHome3DSwing.dependsUpon(jmfFormat);
     sweetHome3DSwing.dependsUpon(jmfProtocol);
-    sweetHome3DSwing.dependsUpon(iText);
-    sweetHome3DSwing.dependsUpon(iTextPdf);
+    sweetHome3DSwing.dependsUpon(openPdf);
+    sweetHome3DSwing.dependsUpon(openPdfPdf);
     sweetHome3DSwing.dependsUpon(vectorGraphicsUtil);
     sweetHome3DSwing.dependsUpon(vectorGraphics);
     sweetHome3DSwing.dependsUpon(vectorGraphicsSvg);
@@ -208,7 +207,7 @@ public class PackageDependenciesTest extends TestCase {
     sweetHome3DIO.dependsUpon(xmlSax);
     sweetHome3DIO.dependsUpon(xmlSaxHelpers);
 
-    // Describe application and applet assembly packages
+    // Describe application assembly packages
     sweetHome3DApplication.dependsUpon(sweetHome3DModel);
     sweetHome3DApplication.dependsUpon(sweetHome3DTools);
     sweetHome3DApplication.dependsUpon(sweetHome3DPlugin);
@@ -227,19 +226,6 @@ public class PackageDependenciesTest extends TestCase {
     sweetHome3DApplication.dependsUpon(xmlSax);
     sweetHome3DApplication.dependsUpon(xmlSaxHelpers);
     sweetHome3DApplication.dependsUpon(jnlp);
-
-    sweetHome3DApplet.dependsUpon(sweetHome3DModel);
-    sweetHome3DApplet.dependsUpon(sweetHome3DTools);
-    sweetHome3DApplet.dependsUpon(sweetHome3DPlugin);
-    sweetHome3DApplet.dependsUpon(sweetHome3DViewController);
-    sweetHome3DApplet.dependsUpon(sweetHome3DJava3D);
-    sweetHome3DApplet.dependsUpon(sweetHome3DSwing);
-    sweetHome3DApplet.dependsUpon(sweetHome3DIO);
-    sweetHome3DApplet.dependsUpon(swing);
-    sweetHome3DApplet.dependsUpon(swingEvent);
-    sweetHome3DApplet.dependsUpon(swingTable);
-    sweetHome3DApplet.dependsUpon(java3d);
-    sweetHome3DApplet.dependsUpon(jnlp);
 
     jdepend.analyze();
 

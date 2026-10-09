@@ -2,13 +2,11 @@ SWEET HOME 3D v 7.5
 -------------------
 
 The current folder contains the required applications and data to run Sweet Home 3D
-under Windows 32 bits, Windows 64 bits, Linux 32 bits and Linux 64 bits.
+under Windows 64 bits and Linux 64 bits.
 
 To use Sweet Home 3D, simply copy the current folder on a fixed or a removable drive, 
 and run the application matching your operating system:
-- SweetHome3D-windows-x86 for Windows 32 bits
 - SweetHome3D-windows-x64 for Windows 64 bits
-- SweetHome3D-linux-x86   for Linux 32 bits
 - SweetHome3D-linux-x64   for Linux 64 bits
 
 This version comes with the 1610 pieces of furniture and 423 textures available at:

@@ -133,7 +133,6 @@ import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.InputMap;
-import javax.swing.JApplet;
 import javax.swing.JComponent;
 import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
@@ -164,9 +163,9 @@ import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
 import javax.vecmath.Vector3f;
 
+import org.freehep.graphicsbase.util.UserProperties;
 import org.freehep.graphicsio.ImageConstants;
 import org.freehep.graphicsio.svg.SVGGraphics2D;
-import org.freehep.util.UserProperties;
 
 import com.eteks.sweethome3d.j3d.Component3DManager;
 import com.eteks.sweethome3d.j3d.ModelManager;
@@ -6001,10 +6000,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
     this.toolTipWindow.setLocation(point);
     this.toolTipWindow.pack();
     // Make the tooltip visible
-    // (except in Applets run with Java 7 under Mac OS X where the tooltips are buggy)
-    this.toolTipWindow.setVisible(!OperatingSystem.isMacOSX()
-        || !OperatingSystem.isJavaVersionGreaterOrEqual("1.7")
-        || SwingUtilities.getAncestorOfClass(JApplet.class, this) == null);
+    this.toolTipWindow.setVisible(true);
     toolTipComponent.paintImmediately(toolTipComponent.getBounds());
   }
 
