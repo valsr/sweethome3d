@@ -26,6 +26,7 @@ import java.awt.ComponentOrientation;
 import java.awt.Composite;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.DisplayMode;
 import java.awt.EventQueue;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -399,6 +400,15 @@ public class HomeComponent3D extends JComponent implements View3D, Printable {
             }
             if (onscreenUniverse == null) {
               onscreenUniverse = createUniverse(displayShadowOnFloor, true, false);
+              if (OperatingSystem.isLinux()
+                  && component3D instanceof Canvas3D) {
+                // Under X11, Java 3D renderer keeps AWT lock while it renders a frame and waits its display.
+                // As rendering frames faster than the screen is able to display them keeps this lock
+                // almost all the time, which blocks the 2D drawings of the Event Dispatch Thread and
+                // delays camera updates during navigation, don't render more frames than the screen displays
+                onscreenUniverse.getViewer().getView().setMinimumFrameCycleTime(
+                    getScreenRefreshPeriod(getGraphicsConfiguration()));
+              }
               // Bind universe to canvas3D
               onscreenUniverse.getViewer().getView().addCanvas3D(getCanvas3D());
               component3D.setFocusable(false);
@@ -452,6 +462,21 @@ public class HomeComponent3D extends JComponent implements View3D, Printable {
           }
         }
       });
+  }
+
+  /**
+   * Returns the time in milliseconds between two frames displayed by the screen of
+   * the given <code>configuration</code>, rounded up to the next millisecond.
+   */
+  private static long getScreenRefreshPeriod(GraphicsConfiguration configuration) {
+    int refreshRate = DisplayMode.REFRESH_RATE_UNKNOWN;
+    if (configuration != null) {
+      refreshRate = configuration.getDevice().getDisplayMode().getRefreshRate();
+    }
+    if (refreshRate == DisplayMode.REFRESH_RATE_UNKNOWN) {
+      refreshRate = 60;
+    }
+    return (long)Math.ceil(1000. / refreshRate);
   }
 
   /**
@@ -1193,10 +1218,13 @@ public class HomeComponent3D extends JComponent implements View3D, Printable {
     if (fieldOfView == 0) {
       fieldOfView = (float)(Math.PI * 63 / 180);
     }
-    view.setFieldOfView(fieldOfView);
+    // Change view attributes only if needed, because each change waits for Java 3D renderer
+    // and this method is called at each camera change
+    if (view.getFieldOfView() != fieldOfView) {
+      view.setFieldOfView(fieldOfView);
+    }
     if (this.projection != Projection.PERSPECTIVE) {
-      view.setFrontClipDistance(0.001f);
-      view.setBackClipDistance(5000);
+      updateViewClipDistances(view, 0.001f, 5000);
     } else {
       double frontClipDistance = 2.5f;
       float frontBackDistanceRatio = 500000; // More than 10 km for a 2.5 cm front distance
@@ -1232,10 +1260,21 @@ public class HomeComponent3D extends JComponent implements View3D, Printable {
         }
       }
       // Update front and back clip distance
-      view.setFrontClipDistance(frontClipDistance);
-      view.setBackClipDistance(frontClipDistance * frontBackDistanceRatio);
+      updateViewClipDistances(view, frontClipDistance, frontClipDistance * frontBackDistanceRatio);
     }
     clearPrintedImageCache();
+  }
+
+  /**
+   * Updates the front and back clip distances of the given <code>view</code> if they changed.
+   */
+  private void updateViewClipDistances(View view, double frontClipDistance, double backClipDistance) {
+    if (view.getFrontClipDistance() != frontClipDistance) {
+      view.setFrontClipDistance(frontClipDistance);
+    }
+    if (view.getBackClipDistance() != backClipDistance) {
+      view.setBackClipDistance(backClipDistance);
+    }
   }
 
   /**
