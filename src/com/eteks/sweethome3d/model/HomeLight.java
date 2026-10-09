@@ -234,6 +234,14 @@ public class HomeLight extends HomePieceOfFurniture implements Light {
   }
 
   /**
+   * Returns the factor by which the light emitted by this light should be multiplied when it's rendered.
+   * This factor is proportional to the power of this light and equal to 0.25 at its default power of 50%.
+   */
+  public float getRenderedPower() {
+    return this.power / 2;
+  }
+
+  /**
    * Returns the RGB color of the light emitted by all the sources of this light,
    * or <code>null</code> if the sources use their own color.
    * This color is ignored when a {@linkplain #getLightColorTemperature() color temperature} is set.

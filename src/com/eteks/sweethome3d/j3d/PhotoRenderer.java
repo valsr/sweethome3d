@@ -789,9 +789,10 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
             if (emittedLightColor != null) {
               lightSourceRadiance.set(new java.awt.Color(emittedLightColor));
             }
-            lightSourceRadiance.set(32 * lightPower * lightPower * lightSourceRadiance.getX() * (this.homeLightColor >> 16),
-                32 * lightPower * lightPower * lightSourceRadiance.getY() * ((this.homeLightColor >> 8) & 0xFF),
-                32 * lightPower * lightPower * lightSourceRadiance.getZ() * (this.homeLightColor & 0xFF));
+            // Use a radiance proportional to light power, equal to the previous quadratic one at 50%
+            lightSourceRadiance.set(16 * lightPower * lightSourceRadiance.getX() * (this.homeLightColor >> 16),
+                16 * lightPower * lightSourceRadiance.getY() * ((this.homeLightColor >> 8) & 0xFF),
+                16 * lightPower * lightSourceRadiance.getZ() * (this.homeLightColor & 0xFF));
           } else if (!transparent) {
             texCoordGeneration = appearance.getTexCoordGeneration();
             TextureAttributes textureAttributes = appearance.getTextureAttributes();
@@ -1422,9 +1423,8 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
    * with <code>lightTransform</code>.
    */
   private void exportLightSource(HomeLight light, LightSource lightSource, Transform3D lightTransform) {
-    float lightPower = light.getPower();
     float lightRadius = getLightSourceRadius(light, lightSource);
-    float power = 5 * lightPower * lightPower / (lightRadius * lightRadius);
+    float power = 5 * light.getRenderedPower() / (lightRadius * lightRadius);
     int lightColor = light.getLightSourceColor(lightSource);
     this.sunflow.parameter("radiance", null,
         power * (lightColor >> 16) * (this.homeLightColor >> 16),

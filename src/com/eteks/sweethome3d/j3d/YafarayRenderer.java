@@ -1354,7 +1354,8 @@ public class YafarayRenderer extends AbstractPhotoRenderer {
             params.put("object", id);
             params.put("color", new float [] {
                 lightSourceRadiance.getX(), lightSourceRadiance.getY(), lightSourceRadiance.getZ(), 1});
-            params.put("power", 10 * lightPower * lightPower);
+            // Use a power proportional to light power, equal to the previous quadratic one at 50%
+            params.put("power", 5 * lightPower);
             params.put("samples", 64);
             createLight(objectNameBase, params);
             return new String [] {objectNameBase};
@@ -1672,9 +1673,8 @@ public class YafarayRenderer extends AbstractPhotoRenderer {
    * with <code>lightTransform</code>.
    */
   private void exportLightSource(HomeLight light, LightSource lightSource, Transform3D lightTransform) {
-    float lightPower = light.getPower();
     float lightRadius = getLightSourceRadius(light, lightSource);
-    float power = 5 * lightPower * lightPower / (lightRadius * lightRadius);
+    float power = 5 * light.getRenderedPower() / (lightRadius * lightRadius);
     int lightColor = light.getLightSourceColor(lightSource);
     HashMap<String, Object> params = new HashMap<String, Object>();
     params.put("type", "spherelight");

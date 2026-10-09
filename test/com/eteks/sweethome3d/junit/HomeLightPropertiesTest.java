@@ -304,4 +304,17 @@ public class HomeLightPropertiesTest extends TestCase {
         }
       });
   }
+
+  public void testRenderedPower() {
+    HomeLight light = createLight();
+    // A light at its default power is rendered as it was with a quadratic scale
+    assertEquals("Wrong rendered power", 0.5f * 0.5f, light.getRenderedPower());
+    // Rendered power is proportional to power
+    light.setPower(1f);
+    assertEquals("Wrong rendered power", 0.5f, light.getRenderedPower());
+    light.setPower(2f);
+    assertEquals("Wrong rendered power", 1f, light.getRenderedPower());
+    light.setPower(0f);
+    assertEquals("Wrong rendered power", 0f, light.getRenderedPower());
+  }
 }
