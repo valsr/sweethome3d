@@ -42,10 +42,48 @@ build and run on current Java.
   lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,
   `lightColorTemperature` and `powerUnit` attributes of lights, which the original
   program ignores.
+- **Blender Cycles (GPU) renderer.** A third renderer in the *Create photo* and
+  *Create video* dialogs, see [below](#blender-gpu-renderer).
 - **Linear light power in photos.** Photo renderers use a brightness proportional to the
   power of a light instead of its square, so homes created with the original program
   render differently unless their lights are at the default 50%: lights above 50% are
   dimmer and lights below 50% are brighter.
+
+## Blender GPU renderer
+
+"Blender Cycles (GPU)" is proposed beside SunFlow and YafaRay in the *Create photo* and
+*Create video* dialogs, at the two highest quality levels, when Blender 4.0 or later can
+be run. The home is exported once and rendered by a headless Blender process running
+Cycles on the GPU (or on the CPU if Cycles finds no usable GPU). Without Blender, the
+renderer simply isn't listed.
+
+Optional System properties:
+
+| Property | Default | Meaning |
+|---|---|---|
+| `com.eteks.sweethome3d.j3d.blenderExecutable` | `blender` | Blender executable |
+| `com.eteks.sweethome3d.j3d.BlenderRenderer.lowQuality.samples` | 64 | Samples per pixel at the third quality level |
+| `com.eteks.sweethome3d.j3d.BlenderRenderer.highQuality.samples` | 256 | Samples per pixel at the fourth quality level |
+| `com.eteks.sweethome3d.j3d.BlenderRenderer.lowQuality.hiddenItemsBlockLight`, `...highQuality.hiddenItemsBlockLight` | `false` | What ceilings and levels hidden in the 3D view block without being seen, to view a floor from above lit as if the home was more complete: `sun` for the direct light of the sun only, `all` for all light (rooms without window nor lamp are then dark) |
+| `com.eteks.sweethome3d.j3d.BlenderRenderer.lowQuality.exposure`, `...highQuality.exposure` | 0 | Exposure of the image in stops, each one doubling its brightness and a negative value darkening it. A view from inside a room lit by its windows is closer to a photo around 2 |
+
+Light and sky intensities are constants at the top of
+`src/com/eteks/sweethome3d/j3d/BlenderWorker.py`.
+
+Limits:
+
+- No preview while an image is computed; it appears when finished.
+- Stopping a render ends Blender, so the next one reloads the scene.
+- A video with animated furniture re-exports the whole home at each frame where something moved.
+- Light sources of lamps rotated around a horizontal axis may be slightly misplaced.
+
+The renderer comes from [sh3d-gpu-renderer](https://github.com/valsr/sh3d-gpu-renderer),
+where it was a Java agent with classes in the `sh3d.gpurenderer` package and System
+properties prefixed by that name.
+
+Its worker script is tested inside Blender with:
+
+    blender -b --factory-startup --python-exit-code 1 --python test/python/BlenderWorkerTest.py
 
 ## Building
 
