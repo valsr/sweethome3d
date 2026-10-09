@@ -128,6 +128,8 @@ final class BlenderSceneExporter {
     // Lamps with light source materials, with a flag for each of their exported shapes telling if it emits light
     Map<String, HomeLight> materialLamps = new LinkedHashMap<String, HomeLight>();
     Map<String, List<Boolean>> lightSourceShapes = new LinkedHashMap<String, List<Boolean>>();
+    // Flags telling for each exported shape of an item if the user chose the opacity of its material
+    Map<String, List<Boolean>> chosenOpacityShapes = new LinkedHashMap<String, List<Boolean>>();
     Set<String> wallAndRoomNames = new HashSet<String>();
 
     float subpartSize = environment.getSubpartSizeUnderLight();
@@ -144,6 +146,14 @@ final class BlenderSceneExporter {
           writer.writeNode(node, itemName);
           if (item instanceof Wall || item instanceof Room) {
             wallAndRoomNames.add(itemName);
+          }
+          if (item instanceof HomePieceOfFurniture
+              && ((HomePieceOfFurniture)item).getModelMaterials() != null) {
+            List<Boolean> shapes = new ArrayList<Boolean>();
+            listChosenOpacityShapes(node, shapes);
+            if (shapes.contains(Boolean.TRUE)) {
+              chosenOpacityShapes.put(itemName, shapes);
+            }
           }
           if (item instanceof HomeLight) {
             HomeLight lamp = (HomeLight)item;
@@ -193,6 +203,7 @@ final class BlenderSceneExporter {
     scene.put("lights", lights);
     Map<String, List<String>> itemsMaterials = readItemsMaterials(objFile);
     scene.put("emissiveMaterials", getEmissiveMaterials(itemsMaterials, materialLamps, lightSourceShapes));
+    scene.put("translucentMaterials", getTranslucentMaterials(itemsMaterials, chosenOpacityShapes));
     if (occludersExported) {
       scene.put("occluders", OCCLUDERS_OBJ_FILE);
       scene.put("occludersBlock", occludersBlock);
@@ -434,6 +445,51 @@ final class BlenderSceneExporter {
         shapes.add(lightSource);
       }
     }
+  }
+
+  /**
+   * Adds to <code>shapes</code> a flag for each shape of <code>node</code> written by <code>OBJWriter</code>,
+   * in the same order, equal to <code>true</code> for shapes with a material which opacity was chosen by the user.
+   */
+  private static void listChosenOpacityShapes(Node node, List<Boolean> shapes) {
+    if (node instanceof Group) {
+      Enumeration<?> enumeration = ((Group)node).getAllChildren();
+      while (enumeration.hasMoreElements()) {
+        listChosenOpacityShapes((Node)enumeration.nextElement(), shapes);
+      }
+    } else if (node instanceof Link) {
+      listChosenOpacityShapes(((Link)node).getSharedGroup(), shapes);
+    } else if (node instanceof Shape3D) {
+      Shape3D shape = (Shape3D)node;
+      Appearance appearance = shape.getAppearance();
+      RenderingAttributes renderingAttributes = appearance != null ? appearance.getRenderingAttributes() : null;
+      if (shape.numGeometries() >= 1
+          && (renderingAttributes == null || renderingAttributes.getVisible())) {
+        shapes.add(HomePieceOfFurniture3D.isOpacityChosen(appearance));
+      }
+    }
+  }
+
+  /**
+   * Returns the names of the materials which opacity was chosen by the user. These materials show
+   * their surface and let light pass in proportion to their opacity, instead of being rendered as glass.
+   */
+  private static List<String> getTranslucentMaterials(Map<String, List<String>> itemsMaterials,
+                                                      Map<String, List<Boolean>> chosenOpacityShapes) {
+    Set<String> translucentMaterials = new LinkedHashSet<String>();
+    for (Map.Entry<String, List<Boolean>> itemShapes : chosenOpacityShapes.entrySet()) {
+      List<String> materials = itemsMaterials.get(itemShapes.getKey());
+      List<Boolean> shapes = itemShapes.getValue();
+      // Ignore items which shapes weren't written as expected
+      if (materials != null && materials.size() == shapes.size()) {
+        for (int i = 0; i < shapes.size(); i++) {
+          if (shapes.get(i) && materials.get(i) != null) {
+            translucentMaterials.add(materials.get(i));
+          }
+        }
+      }
+    }
+    return new ArrayList<String>(translucentMaterials);
   }
 
   /**

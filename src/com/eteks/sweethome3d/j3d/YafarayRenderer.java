@@ -1595,6 +1595,14 @@ public class YafarayRenderer extends AbstractPhotoRenderer {
         TransparencyAttributes transparencyAttributes = appearance.getTransparencyAttributes();
         if (transparencyAttributes != null
             && transparencyAttributes.getTransparency() > 0
+            && !ignoreTransparency
+            && HomePieceOfFurniture3D.isOpacityChosen(appearance)) {
+          // Show the material and let light pass in proportion to the opacity chosen by user
+          params.put("color", new float [] {color.x, color.y, color.z, 1});
+          params.put("transparency", transparencyAttributes.getTransparency());
+          params.put("type", "shinydiffusemat");
+        } else if (transparencyAttributes != null
+            && transparencyAttributes.getTransparency() > 0
             && !ignoreTransparency) {
           if (material instanceof OBJMaterial
               && ((OBJMaterial)material).isOpticalDensitySet()) {

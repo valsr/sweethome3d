@@ -84,6 +84,7 @@ import com.sun.j3d.utils.geometry.Box;
  * Root of piece of furniture branch.
  */
 public class HomePieceOfFurniture3D extends Object3DBranch {
+  private static final String CHOSEN_OPACITY_USER_DATA = "chosenOpacity";
   private static final TransparencyAttributes DEFAULT_TEXTURED_SHAPE_TRANSPARENCY_ATTRIBUTES =
       new TransparencyAttributes(TransparencyAttributes.NICEST, 0);
   private static final PolygonAttributes      DEFAULT_TEXTURED_SHAPE_POLYGON_ATTRIBUTES =
@@ -894,11 +895,25 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
    * Returns the transparency attributes of a material with the given <code>opacity</code>.
    */
   private TransparencyAttributes getTransparencyAttributes(float opacity) {
-    if (opacity >= 1) {
-      return new TransparencyAttributes(TransparencyAttributes.NONE, 0);
-    } else {
-      return new TransparencyAttributes(TransparencyAttributes.NICEST, 1 - Math.max(0, opacity));
-    }
+    TransparencyAttributes transparencyAttributes = opacity >= 1
+        ? new TransparencyAttributes(TransparencyAttributes.NONE, 0)
+        : new TransparencyAttributes(TransparencyAttributes.NICEST, 1 - Math.max(0, opacity));
+    // Let renderers distinguish an opacity chosen by the user from the transparency of a model
+    transparencyAttributes.setUserData(CHOSEN_OPACITY_USER_DATA);
+    return transparencyAttributes;
+  }
+
+  /**
+   * Returns <code>true</code> if the transparency of the given <code>appearance</code> comes from
+   * the opacity chosen by the user for a material. Renderers should then show the surface of the material
+   * and let light pass through it in proportion to its transparency, rather than handle it as glass.
+   */
+  static boolean isOpacityChosen(Appearance appearance) {
+    TransparencyAttributes transparencyAttributes = appearance != null
+        ? appearance.getTransparencyAttributes()
+        : null;
+    return transparencyAttributes != null
+        && CHOSEN_OPACITY_USER_DATA.equals(transparencyAttributes.getUserData());
   }
 
   /**

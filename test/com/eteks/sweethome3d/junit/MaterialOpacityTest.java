@@ -20,6 +20,7 @@
 package com.eteks.sweethome3d.junit;
 
 import java.awt.EventQueue;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,14 +44,19 @@ import junit.framework.TestCase;
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
 import com.eteks.sweethome3d.io.HomeFileRecorder;
 import com.eteks.sweethome3d.j3d.Object3DBranchFactory;
+import com.eteks.sweethome3d.j3d.PhotoRenderer;
+import com.eteks.sweethome3d.model.Camera;
 import com.eteks.sweethome3d.model.CatalogLight;
 import com.eteks.sweethome3d.model.CatalogPieceOfFurniture;
 import com.eteks.sweethome3d.model.FurnitureCategory;
 import com.eteks.sweethome3d.model.Home;
+import com.eteks.sweethome3d.model.HomeLight;
 import com.eteks.sweethome3d.model.HomeMaterial;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
+import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.UserPreferences;
+import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.swing.HomeFurniturePanel;
 import com.eteks.sweethome3d.swing.SwingViewFactory;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
@@ -68,6 +74,9 @@ public class MaterialOpacityTest extends TestCase {
 
   @Override
   protected void setUp() throws Exception {
+    // Initialize Java 3D first as the application does with its 3D view, to avoid a deadlock between
+    // the event dispatch thread and the thread loading models if both initialize it at the same time
+    new javax.media.j3d.BranchGroup();
     this.preferences = new DefaultUserPreferences();
   }
 
@@ -181,6 +190,101 @@ public class MaterialOpacityTest extends TestCase {
         homeFile.delete();
       }
     }
+  }
+
+  /**
+   * Returns the brightness of the floor of a closed room lit by a lamp placed above a slab
+   * covering the whole room, which materials have the given <code>opacity</code>.
+   */
+  private double getBrightnessUnderSlab(float opacity) throws Exception {
+    Home home = new Home();
+    home.getEnvironment().setLightColor(0xFFFFFF);
+    home.getEnvironment().setCeillingLightColor(0);
+    float [][] points = {{0, 0}, {400, 0}, {400, 400}, {0, 400}};
+    Room room = new Room(points);
+    room.setFloorColor(0xFFFFFF);
+    room.setCeilingColor(0xFFFFFF);
+    home.addRoom(room);
+    for (int i = 0; i < points.length; i++) {
+      Wall wall = new Wall(points [i][0], points [i][1],
+          points [(i + 1) % points.length][0], points [(i + 1) % points.length][1], 10, 250);
+      wall.setLeftSideColor(0xFFFFFF);
+      wall.setRightSideColor(0xFFFFFF);
+      home.addWall(wall);
+    }
+    HomeLight light = null;
+    for (FurnitureCategory category : this.preferences.getFurnitureCatalog().getCategories()) {
+      for (CatalogPieceOfFurniture piece : category.getFurniture()) {
+        if (light == null
+            && piece instanceof CatalogLight
+            && ((CatalogLight)piece).getLightSources().length > 0) {
+          light = new HomeLight((CatalogLight)piece);
+        }
+      }
+    }
+    light.setX(200);
+    light.setY(200);
+    light.setElevation(210);
+    light.setLightColor(0xFFFFFF);
+    light.setPower(0.08f);
+    home.addPieceOfFurniture(light);
+    HomePieceOfFurniture slab = createPiece();
+    slab.setX(200);
+    slab.setY(200);
+    slab.setElevation(150);
+    slab.setWidth(420);
+    slab.setDepth(420);
+    slab.setHeight(10);
+    home.addPieceOfFurniture(slab);
+    List<HomeMaterial> materials = new ArrayList<HomeMaterial>();
+    for (Appearance appearance : getAppearances(home, slab)) {
+      materials.add(new HomeMaterial(appearance.getName(), null, null, null, null, opacity));
+    }
+    slab.setModelMaterials(materials.toArray(new HomeMaterial [materials.size()]));
+
+    // View the floor from under the slab
+    Camera camera = home.getObserverCamera();
+    camera.setX(200);
+    camera.setY(380);
+    camera.setZ(100);
+    camera.setYaw((float)Math.PI);
+    camera.setPitch(0.5f);
+    camera.setFieldOfView((float)Math.toRadians(80));
+    PhotoRenderer renderer = new PhotoRenderer(home, PhotoRenderer.Quality.LOW);
+    BufferedImage image = new BufferedImage(80, 60, BufferedImage.TYPE_INT_RGB);
+    try {
+      renderer.render(image, camera, null);
+    } finally {
+      renderer.dispose();
+    }
+    long sum = 0;
+    for (int y = image.getHeight() / 2; y < image.getHeight(); y++) {
+      for (int x = 0; x < image.getWidth(); x++) {
+        int rgb = image.getRGB(x, y);
+        sum += ((rgb >> 16) & 0xFF) + ((rgb >> 8) & 0xFF) + (rgb & 0xFF);
+      }
+    }
+    return sum / (3. * image.getWidth() * image.getHeight() / 2);
+  }
+
+  /**
+   * Tests the light passing through a material depends on its opacity in photos,
+   * instead of passing as through glass as soon as the material isn't opaque.
+   */
+  public void testLightThroughMaterialInPhoto() throws Exception {
+    double opaqueBrightness = getBrightnessUnderSlab(1f);
+    double almostOpaqueBrightness = getBrightnessUnderSlab(0.9f);
+    double halfOpaqueBrightness = getBrightnessUnderSlab(0.5f);
+    double almostTransparentBrightness = getBrightnessUnderSlab(0.05f);
+    String brightnesses = opaqueBrightness + " " + almostOpaqueBrightness + " "
+        + halfOpaqueBrightness + " " + almostTransparentBrightness;
+    assertTrue("Light should increase when opacity decreases: " + brightnesses,
+        opaqueBrightness < almostOpaqueBrightness
+        && almostOpaqueBrightness + 5 < halfOpaqueBrightness
+        && halfOpaqueBrightness + 5 < almostTransparentBrightness);
+    assertTrue("An almost opaque material should stop most of the light: " + brightnesses,
+        almostOpaqueBrightness < almostTransparentBrightness / 2);
+    System.out.println("Brightness under a slab at opacity 1, 0.9, 0.5 and 0.05: " + brightnesses);
   }
 
   public void testOpacitySlider() throws Exception {

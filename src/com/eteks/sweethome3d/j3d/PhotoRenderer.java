@@ -90,6 +90,9 @@ import org.sunflow.core.Display;
 import org.sunflow.core.Instance;
 import org.sunflow.core.ParameterList;
 import org.sunflow.core.ParameterList.InterpolationType;
+import org.sunflow.core.Ray;
+import org.sunflow.core.Shader;
+import org.sunflow.core.ShadingState;
 import org.sunflow.core.light.SphereLight;
 import org.sunflow.core.light.SunSkyLight;
 import org.sunflow.core.light.TriangleMeshLight;
@@ -147,6 +150,7 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
     UI.set(new SilentInterface());
     // Use small triangles for better rendering
     TriangleMesh.setSmallTriangles(true);
+    PluginRegistry.shaderPlugins.registerPlugin("translucent", TranslucentShader.class);
     PluginRegistry.lightSourcePlugins.registerPlugin("sphere", SphereLightWithNoRepresentation.class);
     PluginRegistry.lightSourcePlugins.registerPlugin("invisible_triangle_mesh_light", TriangleMeshLightWithNoRepresentation.class); // addition PVR-1.5 (EnkoNyito)
   }
@@ -802,7 +806,18 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
             appearanceName = "shader" + uuid;
             boolean mirror = shapeName != null
                 && shapeName.startsWith(ModelManager.MIRROR_SHAPE_PREFIX);
-            exportAppearance(appearance, appearanceName, mirror, ignoreTransparency, silk);
+            if (!ignoreTransparency
+                && HomePieceOfFurniture3D.isOpacityChosen(appearance)
+                && transparencyAttributes.getTransparency() > 0) {
+              // Show the opaque material mixed with what's behind it, in proportion to the opacity chosen by user
+              String opaqueAppearanceName = appearanceName + "-opaque";
+              exportAppearance(appearance, opaqueAppearanceName, mirror, true, silk);
+              this.sunflow.parameter("shader", opaqueAppearanceName);
+              this.sunflow.parameter("opacity", 1 - transparencyAttributes.getTransparency());
+              this.sunflow.shader(appearanceName, "translucent");
+            } else {
+              exportAppearance(appearance, appearanceName, mirror, ignoreTransparency, silk);
+            }
             nodeNames.add(appearanceName);
           }
         }
@@ -1530,6 +1545,48 @@ public class PhotoRenderer extends AbstractPhotoRenderer {
             }
           });
       }
+    }
+  }
+
+  /**
+   * A SunFlow shader which mixes an other shader with what's behind the shaded surface
+   * in proportion to its opacity, and lets pass light in the same proportion.
+   */
+  public static class TranslucentShader implements Shader {
+    private Shader shader;
+    private float  opacity = 1;
+
+    public boolean update(ParameterList parameterList, SunflowAPI api) {
+      String shaderName = parameterList.getString("shader", null);
+      if (shaderName != null) {
+        this.shader = api.lookupShader(shaderName);
+      }
+      this.opacity = Math.max(0, Math.min(parameterList.getFloat("opacity", this.opacity), 1));
+      return this.shader != null;
+    }
+
+    public org.sunflow.image.Color getRadiance(ShadingState state) {
+      org.sunflow.image.Color radiance = this.shader.getRadiance(state);
+      if (isOpaque()) {
+        return radiance;
+      } else {
+        // Continue in the same direction through the surface
+        org.sunflow.image.Color backgroundRadiance = state.traceRefraction(
+            new Ray(state.getPoint(), state.getRay().getDirection()), 0);
+        return radiance.copy().mul(this.opacity).madd(1 - this.opacity, backgroundRadiance);
+      }
+    }
+
+    public void scatterPhoton(ShadingState state, org.sunflow.image.Color power) {
+      this.shader.scatterPhoton(state, power);
+    }
+
+    public boolean isOpaque() {
+      return this.opacity >= 1;
+    }
+
+    public org.sunflow.image.Color getOpacity(ShadingState state) {
+      return new org.sunflow.image.Color(this.opacity);
     }
   }
 

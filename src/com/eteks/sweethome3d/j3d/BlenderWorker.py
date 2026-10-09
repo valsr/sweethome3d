@@ -109,6 +109,9 @@ def adapt_materials(scene_description):
     # Color chosen for a lamp, which replaces the color of its light source materials
     emissive_colors = {m["name"]: m["color"] for m in scene_description["emissiveMaterials"] if m.get("color")}
     opaque = set(scene_description["opaqueMaterials"])
+    # Materials which opacity was chosen by the user: they keep their surface and let light pass
+    # in proportion to their opacity, instead of becoming glass
+    translucent = set(scene_description.get("translucentMaterials", ()))
     for material in bpy.data.materials:
         principled = find_principled(material)
         if principled is None:
@@ -116,20 +119,29 @@ def adapt_materials(scene_description):
         tree = material.node_tree
         base_color = principled.inputs["Base Color"]
         alpha = principled.inputs["Alpha"]
+        chosen_opacity = material.name in translucent
         # Use the transparency of texture images
         if base_color.is_linked and not alpha.is_linked:
             texture = base_color.links[0].from_node
             if texture.type == "TEX_IMAGE" and texture.image is not None and texture.image.channels == 4:
-                tree.links.new(texture.outputs["Alpha"], alpha)
+                if chosen_opacity and alpha.default_value < 1:
+                    # Keep the opacity chosen by the user too
+                    multiply = tree.nodes.new("ShaderNodeMath")
+                    multiply.operation = "MULTIPLY"
+                    multiply.inputs[1].default_value = alpha.default_value
+                    tree.links.new(texture.outputs["Alpha"], multiply.inputs[0])
+                    tree.links.new(multiply.outputs["Value"], alpha)
+                else:
+                    tree.links.new(texture.outputs["Alpha"], alpha)
         # A material of occluders named like one of the scene got a numeric suffix when imported
         if material.name in opaque or re.sub(r"\.\d{3}$", "", material.name) in opaque:
             for link in list(alpha.links):
                 tree.links.remove(link)
             alpha.default_value = 1
-        if not alpha.is_linked and alpha.default_value < 0.5:
+        if not alpha.is_linked and alpha.default_value < 0.5 and not chosen_opacity:
             principled.inputs["Roughness"].default_value = TRANSPARENT_ROUGHNESS
         if (not alpha.is_linked and alpha.default_value < 1 and not base_color.is_linked
-                and material.name not in emissive):
+                and material.name not in emissive and not chosen_opacity):
             make_glass(material, base_color.default_value, alpha.default_value)
         if material.name in emissive:
             set_emission(principled, emissive_colors.get(material.name, base_color.default_value),
