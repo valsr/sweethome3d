@@ -37,6 +37,12 @@ build and run on current Java.
   in-memory image, and the 3D view is capped at the screen refresh rate.
 - **Tabbed furniture modification panel**, with *General*, *Color and texture* and
   *Light* tabs.
+- **Primary side bar.** The catalog, the properties of the selected furniture and the
+  furniture list are displayed in stacked sections: a click on the header of a section
+  collapses or expands it, and dragging a header resizes the sections around it.
+  The properties of furniture are edited there with *Apply* and *Reset* buttons instead
+  of a dialog box, and edits which weren't applied are discarded when the selection
+  changes. The button on the edge of the window hides or shows the whole side bar.
 - **Light color and power.** A light can be given a color or a color temperature that
   replaces the color of its sources, and its power can be entered in percentage or in
   lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,
