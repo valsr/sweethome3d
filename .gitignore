@@ -1,0 +1,8 @@
+# Ant and Eclipse build output
+/build/
+/classes/
+/deploy/lib/
+/install/javadoc/
+/install/source/
+/install/windows/build/
+/install/SweetHome3D-*.jar
