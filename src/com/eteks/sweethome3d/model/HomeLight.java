@@ -35,13 +35,24 @@ public class HomeLight extends HomePieceOfFurniture implements Light {
    * The properties of a light that may change. <code>PropertyChangeListener</code>s added
    * to a light will be notified under a property name equal to the string value of one these properties.
    */
-  public enum Property {POWER, LIGHT_SOURCES, LIGHT_SOURCE_MATERIAL_NAMES, LIGHT_COLOR, LIGHT_COLOR_TEMPERATURE};
+  public enum Property {POWER, LIGHT_SOURCES, LIGHT_SOURCE_MATERIAL_NAMES, LIGHT_COLOR, LIGHT_COLOR_TEMPERATURE, POWER_UNIT};
+
+  /**
+   * The units in which the power of a light may be displayed.
+   */
+  public enum PowerUnit {PERCENTAGE, LUMEN};
+
+  /**
+   * The luminous flux in lumens emitted by a light at a power equal to 1, i.e. 100%.
+   */
+  public static final float FULL_POWER_LUMINOUS_FLUX = 800f;
 
   private LightSource [] lightSources;
   private String []      lightSourceMaterialNames;
   private float power;
   private Integer lightColor;
   private Integer lightColorTemperature;
+  private PowerUnit powerUnit;
 
   /**
    * Creates a home light from an existing one.
@@ -186,6 +197,35 @@ public class HomeLight extends HomePieceOfFurniture implements Light {
       this.power = power;
       firePropertyChange(Property.POWER.name(), oldPower, power);
     }
+  }
+
+  /**
+   * Returns the unit in which the power of this light is displayed.
+   */
+  public PowerUnit getPowerUnit() {
+    return this.powerUnit != null
+        ? this.powerUnit
+        : PowerUnit.PERCENTAGE;
+  }
+
+  /**
+   * Sets the unit in which the power of this light is displayed. Once this light is updated,
+   * listeners added to this light will receive a change notification.
+   * @param powerUnit the unit of the power of the light
+   */
+  public void setPowerUnit(PowerUnit powerUnit) {
+    PowerUnit oldPowerUnit = getPowerUnit();
+    if (powerUnit != oldPowerUnit) {
+      this.powerUnit = powerUnit;
+      firePropertyChange(Property.POWER_UNIT.name(), oldPowerUnit, powerUnit);
+    }
+  }
+
+  /**
+   * Returns the luminous flux in lumens emitted by this light.
+   */
+  public float getLuminousFlux() {
+    return this.power * FULL_POWER_LUMINOUS_FLUX;
   }
 
   /**

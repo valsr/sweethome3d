@@ -95,6 +95,7 @@ import javax.swing.table.TableColumnModel;
 
 import com.eteks.sweethome3d.j3d.ModelManager;
 import com.eteks.sweethome3d.model.Content;
+import com.eteks.sweethome3d.model.HomeLight;
 import com.eteks.sweethome3d.model.ObjectProperty;
 import com.eteks.sweethome3d.model.Transformation;
 import com.eteks.sweethome3d.model.UserPreferences;
@@ -159,6 +160,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
   private NullableCheckBox        visibleCheckBox;
   private JLabel                  lightPowerLabel;
   private JSpinner                lightPowerSpinner;
+  private JComboBox               lightPowerUnitComboBox;
+  private boolean                 lightPowerSpinnerUpdated;
   private JRadioButton            defaultLightColorRadioButton;
   private JRadioButton            lightColorRadioButton;
   private ColorButton             lightColorButton;
@@ -166,6 +169,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
   private JSpinner                lightColorTemperatureSpinner;
   private JTabbedPane             tabbedPane;
 
+  private static final float MAXIMUM_LIGHT_POWER = 1f;
   private static final int MINIMUM_LIGHT_COLOR_TEMPERATURE = 1500;
   private static final int MAXIMUM_LIGHT_COLOR_TEMPERATURE = 10000;
   private String                  dialogTitle;
@@ -949,9 +953,9 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     }
 
     if (controller.isPropertyEditable(HomeFurnitureController.Property.LIGHT_POWER)) {
-      // Create power label and its spinner bound to POWER controller property
+      // Create power label and its spinner bound to LIGHT_POWER controller property
       this.lightPowerLabel = new JLabel(SwingTools.getLocalizedLabelText(preferences, HomeFurniturePanel.class,
-          "lightPowerLabel.text", "%"));
+          "lightPowerValueLabel.text"));
       final NullableSpinner.NullableSpinnerNumberModel lightPowerSpinnerModel =
           new NullableSpinner.NullableSpinnerNumberModel(0f, 0f, 100f, 5f) {
             @Override
@@ -960,26 +964,47 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             }
           };
       this.lightPowerSpinner = new NullableSpinner(lightPowerSpinnerModel);
-      lightPowerSpinnerModel.setNullable(controller.getLightPower() == null);
-      lightPowerSpinnerModel.setValue(controller.getLightPower() != null
-          ? controller.getLightPower() * 100
-          : null);
+      // Create power unit combo box bound to LIGHT_POWER_UNIT controller property
+      this.lightPowerUnitComboBox = new JComboBox(HomeLight.PowerUnit.values());
+      this.lightPowerUnitComboBox.setRenderer(new DefaultListCellRenderer() {
+          @Override
+          public Component getListCellRendererComponent(JList list, Object value, int index,
+                                                        boolean isSelected, boolean cellHasFocus) {
+            return super.getListCellRendererComponent(list,
+                value == HomeLight.PowerUnit.LUMEN  ? "lm"  : (value == HomeLight.PowerUnit.PERCENTAGE  ? "%"  : " "),
+                index, isSelected, cellHasFocus);
+          }
+        });
+      this.lightPowerUnitComboBox.setSelectedItem(controller.getLightPowerUnit());
+      updateLightPowerSpinner(controller);
       final PropertyChangeListener lightPowerChangeListener = new PropertyChangeListener() {
           public void propertyChange(PropertyChangeEvent ev) {
-            Float lightPower = (Float)ev.getNewValue();
-            lightPowerSpinnerModel.setNullable(lightPower == null);
-            lightPowerSpinnerModel.setValue(lightPower != null
-                ? lightPower * 100
-                : null);
+            updateLightPowerSpinner(controller);
           }
         };
       controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER, lightPowerChangeListener);
       lightPowerSpinnerModel.addChangeListener(new ChangeListener() {
           public void stateChanged(ChangeEvent ev) {
-            controller.removePropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER,
-                lightPowerChangeListener);
-            controller.setLightPower(((Number)lightPowerSpinnerModel.getValue()).floatValue() / 100f);
-            controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER, lightPowerChangeListener);
+            // Ignore changes due to a different unit
+            if (!lightPowerSpinnerUpdated
+                && lightPowerSpinnerModel.getValue() != null) {
+              controller.removePropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER,
+                  lightPowerChangeListener);
+              controller.setLightPower(((Number)lightPowerSpinnerModel.getValue()).floatValue()
+                  / getLightPowerUnitFactor(controller.getLightPowerUnit()));
+              controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER, lightPowerChangeListener);
+            }
+          }
+        });
+      this.lightPowerUnitComboBox.addItemListener(new ItemListener() {
+          public void itemStateChanged(ItemEvent ev) {
+            controller.setLightPowerUnit((HomeLight.PowerUnit)lightPowerUnitComboBox.getSelectedItem());
+          }
+        });
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.LIGHT_POWER_UNIT, new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            lightPowerUnitComboBox.setSelectedItem(controller.getLightPowerUnit());
+            updateLightPowerSpinner(controller);
           }
         });
     }
@@ -1137,6 +1162,36 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           break;
       }
       updateShininessRadioButtons(controller);
+    }
+  }
+
+  /**
+   * Returns the number by which the power of a light is multiplied to be displayed in the given unit.
+   */
+  private static float getLightPowerUnitFactor(HomeLight.PowerUnit powerUnit) {
+    return powerUnit == HomeLight.PowerUnit.LUMEN
+        ? HomeLight.FULL_POWER_LUMINOUS_FLUX
+        : 100f;
+  }
+
+  /**
+   * Updates the bounds and the value of light power spinner according to the unit in which power is displayed.
+   */
+  private void updateLightPowerSpinner(HomeFurnitureController controller) {
+    NullableSpinner.NullableSpinnerNumberModel lightPowerSpinnerModel =
+        (NullableSpinner.NullableSpinnerNumberModel)this.lightPowerSpinner.getModel();
+    float unitFactor = getLightPowerUnitFactor(controller.getLightPowerUnit());
+    Float lightPower = controller.getLightPower();
+    this.lightPowerSpinnerUpdated = true;
+    try {
+      lightPowerSpinnerModel.setNullable(lightPower == null);
+      lightPowerSpinnerModel.setMaximum(MAXIMUM_LIGHT_POWER * unitFactor);
+      lightPowerSpinnerModel.setStepSize(unitFactor / 20);
+      lightPowerSpinnerModel.setValue(lightPower != null
+          ? lightPower * unitFactor
+          : null);
+    } finally {
+      this.lightPowerSpinnerUpdated = false;
     }
   }
 
@@ -1325,7 +1380,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       }
       if (this.lightPowerLabel != null) {
         this.lightPowerLabel.setDisplayedMnemonic(KeyStroke.getKeyStroke(preferences.getLocalizedString(
-            HomeFurniturePanel.class, "lightPowerLabel.mnemonic")).getKeyCode());
+            HomeFurniturePanel.class, "lightPowerValueLabel.mnemonic")).getKeyCode());
         this.lightPowerLabel.setLabelFor(this.lightPowerSpinner);
       }
     }
@@ -1696,7 +1751,10 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
       lightPowerPanel.add(this.lightPowerSpinner, new GridBagConstraints(
           1, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-          GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+          GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 30, 0));
+      lightPowerPanel.add(this.lightPowerUnitComboBox, new GridBagConstraints(
+          2, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
       // Keep components at the left of the panel
       lightPowerPanel.add(new JLabel(), new GridBagConstraints(
           3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,

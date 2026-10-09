@@ -297,6 +297,7 @@ import com.eteks.sweethome3d.tools.URLContent;
  *       %pieceOfFurnitureCommonAttributes;
  *       %pieceOfFurnitureHorizontalRotationAttributes;
  *       power CDATA "0.5"
+ *       powerUnit (PERCENTAGE | LUMEN) "PERCENTAGE"
  *       lightColor CDATA #IMPLIED
  *       lightColorTemperature CDATA #IMPLIED>
  *
@@ -1433,6 +1434,13 @@ public class HomeXMLHandler extends DefaultHandler {
         HomeLight light = (HomeLight)piece;
         if (attributes.get("power") != null) {
           light.setPower(parseFloat(attributes, "power"));
+        }
+        if (attributes.get("powerUnit") != null) {
+          try {
+            light.setPowerUnit(HomeLight.PowerUnit.valueOf(attributes.get("powerUnit")));
+          } catch (IllegalArgumentException ex) {
+            // Keep default unit
+          }
         }
         light.setLightColor(parseOptionalColor(attributes, "lightColor"));
         light.setLightColorTemperature(parseOptionalInteger(attributes, "lightColorTemperature"));

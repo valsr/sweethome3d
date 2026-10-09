@@ -465,6 +465,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
       } else if (piece instanceof HomeLight) {
         HomeLight light = (HomeLight)piece;
         writer.writeFloatAttribute("power", light.getPower());
+        writer.writeAttribute("powerUnit", light.getPowerUnit().name(), HomeLight.PowerUnit.PERCENTAGE.name());
         writer.writeColorAttribute("lightColor", light.getLightColor());
         if (light.getLightColorTemperature() != null) {
           writer.writeIntegerAttribute("lightColorTemperature", light.getLightColorTemperature());

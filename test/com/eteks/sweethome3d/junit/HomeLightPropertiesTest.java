@@ -19,9 +19,12 @@
  */
 package com.eteks.sweethome3d.junit;
 
+import java.awt.EventQueue;
 import java.io.File;
 import java.util.Arrays;
 
+import javax.swing.JComboBox;
+import javax.swing.JSpinner;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
@@ -37,6 +40,8 @@ import com.eteks.sweethome3d.model.HomeLight;
 import com.eteks.sweethome3d.model.LightSource;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.UserPreferences;
+import com.eteks.sweethome3d.swing.HomeFurniturePanel;
+import com.eteks.sweethome3d.swing.SwingViewFactory;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
 
 /**
@@ -112,6 +117,8 @@ public class HomeLightPropertiesTest extends TestCase {
     colorLight.setLightColor(0x102030);
     HomeLight temperatureLight = createLight();
     temperatureLight.setLightColorTemperature(4000);
+    temperatureLight.setPowerUnit(HomeLight.PowerUnit.LUMEN);
+    temperatureLight.setPower(0.75f);
     HomeLight defaultLight = createLight();
     Home home = new Home();
     home.addPieceOfFurniture(colorLight);
@@ -131,9 +138,12 @@ public class HomeLightPropertiesTest extends TestCase {
         HomeLight readTemperatureLight = (HomeLight)readHome.getFurniture().get(1);
         assertNull(readTemperatureLight.getLightColor());
         assertEquals("Wrong temperature", Integer.valueOf(4000), readTemperatureLight.getLightColorTemperature());
+        assertEquals("Wrong unit", HomeLight.PowerUnit.LUMEN, readTemperatureLight.getPowerUnit());
+        assertEquals("Wrong power", 0.75f, readTemperatureLight.getPower());
         HomeLight readDefaultLight = (HomeLight)readHome.getFurniture().get(2);
         assertNull(readDefaultLight.getLightColor());
         assertNull(readDefaultLight.getLightColorTemperature());
+        assertEquals("Wrong unit", HomeLight.PowerUnit.PERCENTAGE, readDefaultLight.getPowerUnit());
       } finally {
         homeFile.delete();
       }
@@ -194,5 +204,91 @@ public class HomeLightPropertiesTest extends TestCase {
         new com.eteks.sweethome3d.model.HomePieceOfFurniture(light)}));
     controller = new HomeFurnitureController(home, this.preferences, null, undoSupport);
     assertFalse(controller.isPropertyEditable(HomeFurnitureController.Property.LIGHT_COLOR_MODE));
+  }
+
+  public void testLightPowerUnit() {
+    HomeLight light = createLight();
+    assertEquals("Wrong default unit", HomeLight.PowerUnit.PERCENTAGE, light.getPowerUnit());
+    assertEquals("Wrong default power", 0.5f, light.getPower());
+    assertEquals("Wrong luminous flux", 400f, light.getLuminousFlux());
+
+    Home home = new Home();
+    home.addPieceOfFurniture(light);
+    home.setSelectedItems(Arrays.asList(new Selectable [] {light}));
+    UndoableEditSupport undoSupport = new UndoableEditSupport();
+    UndoManager undoManager = new UndoManager();
+    undoSupport.addUndoableEditListener(undoManager);
+    HomeFurnitureController controller = new HomeFurnitureController(home, this.preferences, null, undoSupport);
+    assertEquals(HomeLight.PowerUnit.PERCENTAGE, controller.getLightPowerUnit());
+    controller.setLightPowerUnit(HomeLight.PowerUnit.LUMEN);
+    controller.setLightPower(600 / HomeLight.FULL_POWER_LUMINOUS_FLUX);
+    controller.modifyFurniture();
+    assertEquals(HomeLight.PowerUnit.LUMEN, light.getPowerUnit());
+    assertEquals(0.75f, light.getPower());
+    assertEquals(600f, light.getLuminousFlux());
+
+    undoManager.undo();
+    assertEquals(HomeLight.PowerUnit.PERCENTAGE, light.getPowerUnit());
+    assertEquals(0.5f, light.getPower());
+    undoManager.redo();
+    assertEquals(HomeLight.PowerUnit.LUMEN, light.getPowerUnit());
+    assertEquals(0.75f, light.getPower());
+
+    // Lights with different units have no common unit
+    HomeLight otherLight = createLight();
+    home.addPieceOfFurniture(otherLight);
+    home.setSelectedItems(Arrays.asList(new Selectable [] {light, otherLight}));
+    controller = new HomeFurnitureController(home, this.preferences, null, undoSupport);
+    assertNull(controller.getLightPowerUnit());
+    assertNull(controller.getLightPower());
+    // Changing only the color shouldn't change power or unit
+    controller.setLightColorTemperature(5000);
+    controller.setLightColorMode(HomeFurnitureController.LightColorMode.TEMPERATURE);
+    controller.modifyFurniture();
+    assertEquals(HomeLight.PowerUnit.LUMEN, light.getPowerUnit());
+    assertEquals(0.75f, light.getPower());
+    assertEquals(HomeLight.PowerUnit.PERCENTAGE, otherLight.getPowerUnit());
+    assertEquals(0.5f, otherLight.getPower());
+    assertEquals(Integer.valueOf(5000), light.getLightColorTemperature());
+    assertEquals(Integer.valueOf(5000), otherLight.getLightColorTemperature());
+  }
+
+  public void testLightPowerUnitInPanel() throws Exception {
+    final HomeLight light = createLight();
+    final Home home = new Home();
+    home.addPieceOfFurniture(light);
+    home.setSelectedItems(Arrays.asList(new Selectable [] {light}));
+    EventQueue.invokeAndWait(new Runnable() {
+        public void run() {
+          try {
+            HomeFurnitureController controller = new HomeFurnitureController(home, preferences,
+                new SwingViewFactory(), new UndoableEditSupport());
+            HomeFurniturePanel panel = (HomeFurniturePanel)controller.getView();
+            JSpinner powerSpinner = (JSpinner)TestUtilities.getField(panel, "lightPowerSpinner");
+            JComboBox unitComboBox = (JComboBox)TestUtilities.getField(panel, "lightPowerUnitComboBox");
+            assertEquals(50f, ((Number)powerSpinner.getValue()).floatValue());
+            assertEquals(HomeLight.PowerUnit.PERCENTAGE, unitComboBox.getSelectedItem());
+
+            // Changing unit converts the displayed value without changing power
+            unitComboBox.setSelectedItem(HomeLight.PowerUnit.LUMEN);
+            assertEquals(400f, ((Number)powerSpinner.getValue()).floatValue());
+            assertEquals(0.5f, controller.getLightPower());
+            assertEquals(HomeLight.PowerUnit.LUMEN, controller.getLightPowerUnit());
+
+            powerSpinner.setValue(600f);
+            assertEquals(0.75f, controller.getLightPower());
+
+            unitComboBox.setSelectedItem(HomeLight.PowerUnit.PERCENTAGE);
+            assertEquals(75f, ((Number)powerSpinner.getValue()).floatValue());
+            assertEquals(0.75f, controller.getLightPower());
+
+            controller.modifyFurniture();
+            assertEquals(0.75f, light.getPower());
+            assertEquals(HomeLight.PowerUnit.PERCENTAGE, light.getPowerUnit());
+          } catch (Exception ex) {
+            throw new RuntimeException(ex);
+          }
+        }
+      });
   }
 }
