@@ -3041,13 +3041,13 @@ public class HomePane extends JRootPane implements HomeView {
    */
   private JComponent createMainPane(Home home, UserPreferences preferences,
                                     HomeController controller) {
-    final JComponent primarySideBar = createPrimarySideBar(home, preferences, controller);
+    final PrimarySideBar primarySideBar = createPrimarySideBar(home, preferences, controller);
     final JComponent planView3DPane = createPlanView3DPane(home, preferences, controller);
 
     if (primarySideBar == null) {
       return planView3DPane;
     } else if (planView3DPane == null) {
-      return primarySideBar;
+      return addPrimarySideBarEdgeStrip(primarySideBar, primarySideBar);
     } else {
       boolean leftToRightOrientation = ComponentOrientation.getOrientation(Locale.getDefault()).isLeftToRight();
       final JSplitPane mainPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
@@ -3074,8 +3074,28 @@ public class HomePane extends JRootPane implements HomeView {
             }
           }
         });
-      return mainPane;
+      // Hide the divider of main pane while the side bar is collapsed
+      final int dividerSize = mainPane.getDividerSize();
+      PropertyChangeListener sideBarCollapseListener = new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            mainPane.setDividerSize(primarySideBar.isCollapsed() ? 0 : dividerSize);
+          }
+        };
+      primarySideBar.addPropertyChangeListener(PrimarySideBar.COLLAPSED_PROPERTY, sideBarCollapseListener);
+      sideBarCollapseListener.propertyChange(null);
+      return addPrimarySideBarEdgeStrip(mainPane, primarySideBar);
     }
+  }
+
+  /**
+   * Returns a pane displaying the given main pane beside the edge strip of the side bar,
+   * which lets the user collapse or expand the side bar at any time.
+   */
+  private JComponent addPrimarySideBarEdgeStrip(JComponent mainPane, PrimarySideBar primarySideBar) {
+    JPanel pane = new JPanel(new BorderLayout());
+    pane.add(primarySideBar.getEdgeStrip(), BorderLayout.LINE_START);
+    pane.add(mainPane, BorderLayout.CENTER);
+    return pane;
   }
 
   /**
@@ -3156,7 +3176,7 @@ public class HomePane extends JRootPane implements HomeView {
   /**
    * Returns the primary side bar which displays the catalog tree and the furniture table.
    */
-  private JComponent createPrimarySideBar(Home home,
+  private PrimarySideBar createPrimarySideBar(Home home,
                                                 UserPreferences preferences,
                                                 final HomeController controller) {
     JComponent catalogView = (JComponent)controller.getFurnitureCatalogController().getView();
@@ -3260,6 +3280,15 @@ public class HomePane extends JRootPane implements HomeView {
     } else {
       // Create a side bar that displays components in collapsible sections
       final PrimarySideBar primarySideBar = new PrimarySideBar(preferences);
+      primarySideBar.setCollapsed(Boolean.parseBoolean(
+          home.getProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + "collapsed")));
+      primarySideBar.addPropertyChangeListener(PrimarySideBar.COLLAPSED_PROPERTY,
+          new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              controller.setHomeProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + "collapsed",
+                  String.valueOf(primarySideBar.isCollapsed()));
+            }
+          });
       if (catalogView != null) {
         addPrimarySideBarSection(primarySideBar, "catalogSection", catalogView, home, controller);
       }

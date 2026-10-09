@@ -19,12 +19,15 @@
  */
 package com.eteks.sweethome3d.junit;
 
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.EventQueue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
 import javax.swing.JComponent;
+import javax.swing.JSplitPane;
 import javax.swing.SwingUtilities;
 
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
@@ -211,5 +214,62 @@ public class HomePaneSideBarTest extends TestCase {
     this.sideBar.setCollapsed(false);
     waitForUpdate();
     assertNotNull(getPropertiesPanel().getFurnitureController());
+  }
+
+  /**
+   * Lays out the given container and its children, as validation does for a displayed component.
+   */
+  private void layout(Container container) {
+    container.doLayout();
+    for (Component child : container.getComponents()) {
+      if (child instanceof Container) {
+        layout((Container)child);
+      }
+    }
+  }
+
+  public void testEdgeStripIsDisplayedOutOfSideBar() {
+    assertTrue(SwingUtilities.isDescendingFrom(this.sideBar.getEdgeStrip(), this.homePane));
+    assertFalse(SwingUtilities.isDescendingFrom(this.sideBar.getEdgeStrip(), this.sideBar.getParent()));
+  }
+
+  public void testCollapsedSideBarIsRestoredWithHome() {
+    this.sideBar.getToggleButton().doClick();
+    assertTrue(this.sideBar.isCollapsed());
+
+    createHomePane();
+    assertTrue(this.sideBar.isCollapsed());
+    assertFalse(this.sideBar.isVisible());
+
+    this.sideBar.getToggleButton().doClick();
+    createHomePane();
+    assertFalse(this.sideBar.isCollapsed());
+  }
+
+  public void testPlanAnd3DViewTakeTheWidthOfCollapsedSideBar() {
+    JSplitPane mainPane = (JSplitPane)this.sideBar.getParent();
+    // Don't rely on the side where the side bar is displayed, which depends on components orientation
+    Component planView3DPane = mainPane.getLeftComponent() == this.sideBar
+        ? mainPane.getRightComponent()
+        : mainPane.getLeftComponent();
+    this.homePane.setSize(1200, 800);
+    layout(this.homePane);
+    int sideBarWidth = this.sideBar.getWidth();
+    int planView3DPaneWidth = planView3DPane.getWidth();
+    int edgeStripWidth = this.sideBar.getEdgeStrip().getWidth();
+    assertTrue(sideBarWidth > 100);
+    assertTrue(edgeStripWidth > 0);
+
+    this.sideBar.setCollapsed(true);
+    layout(this.homePane);
+    assertTrue("Plan and 3D view not enlarged", planView3DPane.getWidth() >= planView3DPaneWidth + sideBarWidth);
+    assertEquals("Divider of a collapsed side bar shouldn't be displayed",
+        mainPane.getWidth() - mainPane.getInsets().left - mainPane.getInsets().right, planView3DPane.getWidth());
+    assertEquals("Edge strip should remain displayed", edgeStripWidth, this.sideBar.getEdgeStrip().getWidth());
+
+    this.sideBar.setCollapsed(false);
+    layout(this.homePane);
+    assertEquals(sideBarWidth, this.sideBar.getWidth());
+    assertEquals(planView3DPaneWidth, planView3DPane.getWidth());
   }
 }
