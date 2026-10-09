@@ -312,6 +312,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
   private boolean                           planBoundsCacheValid = false;
   private Rectangle2D                       invalidPlanBounds;
   private BufferedImage                     backgroundImageCache;
+  private float []                          observerCameraPaintedLocation;
   private Map<TextureImage, BufferedImage>  patternImagesCache;
   private Set<HomePieceOfFurniture>         invalidFurnitureTopViewIcons;
   private List<Wall>                        otherLevelsWallsCache;
@@ -1062,6 +1063,9 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
           revalidate();
         }
       });
+    ObserverCamera observerCamera = home.getObserverCamera();
+    this.observerCameraPaintedLocation = new float [] {
+        observerCamera.getX(), observerCamera.getY(), observerCamera.getWidth(), observerCamera.getDepth()};
     home.getObserverCamera().addPropertyChangeListener(new PropertyChangeListener() {
         public void propertyChange(PropertyChangeEvent ev) {
           String propertyName = ev.getPropertyName();
@@ -1072,7 +1076,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
               || ObserverCamera.Property.WIDTH.name().equals(propertyName)
               || ObserverCamera.Property.DEPTH.name().equals(propertyName)
               || ObserverCamera.Property.HEIGHT.name().equals(propertyName)) {
-            revalidate();
+            repaintObserverCamera();
           }
         }
       });
@@ -1211,6 +1215,57 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
       this.verticalRuler.revalidate();
       this.verticalRuler.repaint();
     }
+  }
+
+  /**
+   * Repaints the area where the observer camera was and is now painted.
+   * As the observer camera changes continuously during navigation in the 3D view,
+   * the whole plan is revalidated and repainted only if its bounds may have changed.
+   */
+  private void repaintObserverCamera() {
+    ObserverCamera camera = this.home.getObserverCamera();
+    // Don't use camera points which may not be updated yet when the camera notifies its listeners
+    float [] previousCameraLocation = this.observerCameraPaintedLocation;
+    float [] cameraLocation = {camera.getX(), camera.getY(), camera.getWidth(), camera.getDepth()};
+    this.observerCameraPaintedLocation = cameraLocation;
+    if (camera != this.home.getCamera()
+        || !isValid()
+        || !this.planBoundsCacheValid
+        || !isObserverCameraStrictlyInPlanBounds(previousCameraLocation)
+        || !isObserverCameraStrictlyInPlanBounds(cameraLocation)) {
+      // Plan bounds may depend on the previous or the new location of the camera
+      revalidate();
+    } else {
+      repaint(getObserverCameraPaintedArea(previousCameraLocation));
+      repaint(getObserverCameraPaintedArea(cameraLocation));
+    }
+  }
+
+  /**
+   * Returns <code>true</code> if a camera with the given abscissa, ordinate, width and depth
+   * is strictly inside the cached plan bounds whatever its angle,
+   * which means that these bounds don't depend on that camera.
+   */
+  private boolean isObserverCameraStrictlyInPlanBounds(float [] cameraLocation) {
+    Rectangle2D planBounds = this.planBoundsCache;
+    double radius = Math.hypot(cameraLocation [2], cameraLocation [3]) / 2;
+    return cameraLocation [0] - radius > planBounds.getMinX()
+        && cameraLocation [0] + radius < planBounds.getMaxX()
+        && cameraLocation [1] - radius > planBounds.getMinY()
+        && cameraLocation [1] + radius < planBounds.getMaxY();
+  }
+
+  /**
+   * Returns the area in pixels of this component where is painted a camera with the given
+   * abscissa, ordinate, width and depth, including its field of view angle and its indicators.
+   */
+  private Rectangle getObserverCameraPaintedArea(float [] cameraLocation) {
+    // Field of view angle is painted up to 2.2 times the depth of the camera from its center
+    double cameraSize = Math.max(cameraLocation [2], cameraLocation [3]);
+    // Add a margin in pixels for strokes and indicators painted at a fixed size around the camera
+    int radius = convertLengthToPixel(2.3 * cameraSize) + 50;
+    return new Rectangle(convertXModelToPixel(cameraLocation [0]) - radius,
+        convertYModelToPixel(cameraLocation [1]) - radius, 2 * radius, 2 * radius);
   }
 
   /**

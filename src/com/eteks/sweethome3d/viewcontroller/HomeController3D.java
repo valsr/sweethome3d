@@ -1416,10 +1416,13 @@ public class HomeController3D implements Controller {
     private void selectCamera() {
       if (preferences.isObserverCameraSelectedAtChange()) {
         List<Selectable> selectedItems = home.getSelectedItems();
-        if (!preferences.isEditingIn3DViewEnabled()
-            || selectedItems.isEmpty()
-            || selectedItems.size() == 1
-                && selectedItems.get(0) == this.observerCamera) {
+        // Don't select again the camera when it's the only selected item, to avoid notifying
+        // selection listeners which repaint the whole plan at each camera change
+        boolean cameraSelected = selectedItems.size() == 1
+            && selectedItems.get(0) == this.observerCamera;
+        if (!cameraSelected
+            && (!preferences.isEditingIn3DViewEnabled()
+                || selectedItems.isEmpty())) {
           // Select observer camera for user feedback
           home.setSelectedItems(Arrays.asList(new Selectable [] {this.observerCamera}));
         }
