@@ -55,7 +55,6 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JSeparator;
 import javax.swing.JSpinner;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
@@ -975,7 +974,7 @@ public class WallPanel extends JPanel implements DialogView {
       rowInsets = new Insets(0, 0, standardGap, 0);
     }
     add(startPointPanel, new GridBagConstraints(
-        0, 0, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
     // Second row
     final JPanel endPointPanel = createTitledPanel(
@@ -991,50 +990,28 @@ public class WallPanel extends JPanel implements DialogView {
         GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), 0, 0));
 
     add(endPointPanel, new GridBagConstraints(
-        0, 1, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
-    // Third row
-    JPanel leftSidePanel = createTitledPanel(
+    // Third and fourth rows
+    JPanel leftSidePanel = createSidePanel(
         preferences.getLocalizedString(WallPanel.class, "leftSidePanel.title"),
-        new JComponent [] {this.leftSideColorRadioButton, this.leftSideColorButton,
-                           this.leftSideTextureRadioButton, this.leftSideTextureComponent}, false);
-    leftSidePanel.add(new JSeparator(), new GridBagConstraints(
-        0, 2, 2, 1, 1, 0, GridBagConstraints.CENTER,
-        GridBagConstraints.HORIZONTAL, new Insets(3, 0, 3, 0), 0, 0));
-    leftSidePanel.add(this.leftSideMattRadioButton, new GridBagConstraints(
-        0, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
-    leftSidePanel.add(this.leftSideShinyRadioButton, new GridBagConstraints(
-        1, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
-    leftSidePanel.add(this.leftSideBaseboardButton, new GridBagConstraints(
-        0, 4, 2, 1, 1, 0, GridBagConstraints.CENTER,
-        GridBagConstraints.NONE, new Insets(standardGap, 0, 0, 0), 0, 0));
+        this.leftSideColorRadioButton, this.leftSideColorButton,
+        this.leftSideTextureRadioButton, this.leftSideTextureComponent,
+        this.leftSideMattRadioButton, this.leftSideShinyRadioButton, this.leftSideBaseboardButton);
     add(leftSidePanel, new GridBagConstraints(
         0, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
-    JPanel rightSidePanel = createTitledPanel(
+    JPanel rightSidePanel = createSidePanel(
         preferences.getLocalizedString(WallPanel.class, "rightSidePanel.title"),
-        new JComponent [] {this.rightSideColorRadioButton, this.rightSideColorButton,
-                           this.rightSideTextureRadioButton, this.rightSideTextureComponent}, false);
-    rightSidePanel.add(new JSeparator(), new GridBagConstraints(
-        0, 2, 2, 1, 1, 0, GridBagConstraints.CENTER,
-        GridBagConstraints.HORIZONTAL, new Insets(3, 0, 3, 0), 0, 0));
-    rightSidePanel.add(this.rightSideMattRadioButton, new GridBagConstraints(
-        0, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
-    rightSidePanel.add(this.rightSideShinyRadioButton, new GridBagConstraints(
-        1, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
-    rightSidePanel.add(this.rightSideBaseboardButton, new GridBagConstraints(
-        0, 4, 2, 1, 1, 0, GridBagConstraints.CENTER,
-        GridBagConstraints.NONE, new Insets(standardGap, 0, 0, 0), 0, 0));
+        this.rightSideColorRadioButton, this.rightSideColorButton,
+        this.rightSideTextureRadioButton, this.rightSideTextureComponent,
+        this.rightSideMattRadioButton, this.rightSideShinyRadioButton, this.rightSideBaseboardButton);
     add(rightSidePanel, new GridBagConstraints(
-        1, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        0, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
-    // Forth row
+    // Fifth row
     JPanel topPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
         WallPanel.class, "topPanel.title"));
     int leftInset = new JRadioButton().getPreferredSize().width;
@@ -1057,53 +1034,46 @@ public class WallPanel extends JPanel implements DialogView {
         3, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     add(topPanel, new GridBagConstraints(
-        0, 3, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 4, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
     JPanel heightPanel = SwingTools.createTitledPanel(
         preferences.getLocalizedString(WallPanel.class, "heightPanel.title"));
     // First row of height panel
+    // Reduce the preferred width of spinners which fill the available width
+    int spinnerPadX = -Math.round(35 * SwingTools.getResolutionScale());
+    int smallGap = Math.round(2 * SwingTools.getResolutionScale());
     heightPanel.add(this.rectangularWallRadioButton, new GridBagConstraints(
-        0, 0, 3, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 2, 0), 0, 0));
-    // Second row of height panel
-    // Add a dummy label to align second and fourth row on radio buttons text
-    int spinnerPadX = OperatingSystem.isMacOSX()  ? -20  : -10;
-    heightPanel.add(new JLabel(), new GridBagConstraints(
-        0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 0, standardGap, 0), new JRadioButton().getPreferredSize().width, 0));
+        0, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, smallGap, standardGap), 0, 0));
     heightPanel.add(this.rectangularWallHeightLabel, new GridBagConstraints(
-        1, 1, 1, 1, 1, 0, labelAlignment,
-        GridBagConstraints.NONE, new Insets(0, 0, standardGap, standardGap), 0, 0));
+        1, 0, 1, 1, 0, 0, labelAlignment,
+        GridBagConstraints.NONE, new Insets(0, 0, smallGap, smallGap), 0, 0));
     heightPanel.add(this.rectangularWallHeightSpinner, new GridBagConstraints(
-        2, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, standardGap, standardGap), spinnerPadX, 0));
-    // Third column of height panel
-    heightPanel.add(this.slopingWallRadioButton, new GridBagConstraints(
-        3, 0, 3, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 10, 2, 0), 0, 0));
+        2, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, 0), spinnerPadX, 0));
     // Second row of height panel
-    heightPanel.add(new JLabel(), new GridBagConstraints(
-        3, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 0, standardGap, 0), new JRadioButton().getPreferredSize().width, 0));
+    heightPanel.add(this.slopingWallRadioButton, new GridBagConstraints(
+        0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, smallGap, standardGap), 0, 0));
     heightPanel.add(this.slopingWallHeightAtStartLabel, new GridBagConstraints(
-        4, 1, 1, 1, 1, 0, labelAlignment,
-        GridBagConstraints.NONE, new Insets(0, 0, standardGap, standardGap), 0, 0));
+        1, 1, 1, 1, 0, 0, labelAlignment,
+        GridBagConstraints.NONE, new Insets(0, 0, smallGap, smallGap), 0, 0));
     heightPanel.add(this.slopingWallHeightAtStartSpinner, new GridBagConstraints(
-        5, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, standardGap, 0), spinnerPadX, 0));
+        2, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, 0), spinnerPadX, 0));
     // Third row of height panel
     heightPanel.add(this.slopingWallHeightAtEndLabel, new GridBagConstraints(
-        4, 2, 1, 1, 1, 0, labelAlignment,
-        GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+        1, 2, 1, 1, 0, 0, labelAlignment,
+        GridBagConstraints.NONE, new Insets(0, 0, 0, smallGap), 0, 0));
     heightPanel.add(this.slopingWallHeightAtEndSpinner, new GridBagConstraints(
-        5, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        2, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
     add(heightPanel, new GridBagConstraints(
-        0, 4, 2, 1, 1, 0, GridBagConstraints.LINE_START,
+        0, 5, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
-    // Sixth row
+    // Seventh row
     JPanel ticknessAndArcExtentPanel = new JPanel(new GridBagLayout());
     ticknessAndArcExtentPanel.add(this.thicknessLabel, new GridBagConstraints(
         0, 0, 1, 1, 0, 0, labelAlignment,
@@ -1118,12 +1088,12 @@ public class WallPanel extends JPanel implements DialogView {
         3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     add(ticknessAndArcExtentPanel, new GridBagConstraints(
-        0, 5, 2, 1, 0, 0, GridBagConstraints.CENTER,
-        GridBagConstraints.NONE, new Insets(standardGap, 8, 10, 8), 0, 0));
+        0, 6, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 8, standardGap, 8), 0, 0));
 
     // Last row
     add(this.wallOrientationLabel, new GridBagConstraints(
-        0, 6, 2, 1, 0, 0, GridBagConstraints.CENTER,
+        0, 7, 1, 1, 1, 1, GridBagConstraints.NORTH,
         GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
 
     // Make startPointPanel and endPointPanel visible depending on editable points property
@@ -1142,6 +1112,46 @@ public class WallPanel extends JPanel implements DialogView {
     this.arcExtentSpinner.setVisible(controller.isEditablePoints());
   }
 
+  /**
+   * Returns a titled panel which displays the color and the texture of a wall side in a row,
+   * and its shininess and baseboard button in an other row.
+   */
+  private JPanel createSidePanel(String title,
+                                 JComponent colorRadioButton, JComponent colorButton,
+                                 JComponent textureRadioButton, JComponent textureComponent,
+                                 JComponent mattRadioButton, JComponent shinyRadioButton,
+                                 JComponent baseboardButton) {
+    JPanel sidePanel = SwingTools.createTitledPanel(title);
+    int smallGap = Math.round(2 * SwingTools.getResolutionScale());
+    int standardGap = Math.round(5 * SwingTools.getResolutionScale());
+    sidePanel.add(colorRadioButton, new GridBagConstraints(
+        0, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, smallGap, smallGap), 0, 0));
+    sidePanel.add(colorButton, new GridBagConstraints(
+        1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, standardGap), 0, 0));
+    sidePanel.add(textureRadioButton, new GridBagConstraints(
+        2, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, smallGap, smallGap), 0, 0));
+    sidePanel.add(textureComponent, new GridBagConstraints(
+        3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, 0), 0, 0));
+    JPanel shininessAndBaseboardPanel = new JPanel(new GridBagLayout());
+    shininessAndBaseboardPanel.add(mattRadioButton, new GridBagConstraints(
+        0, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, 0, 2 * standardGap), 0, 0));
+    shininessAndBaseboardPanel.add(shinyRadioButton, new GridBagConstraints(
+        1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, 0, 2 * standardGap), 0, 0));
+    shininessAndBaseboardPanel.add(baseboardButton, new GridBagConstraints(
+        2, 0, 1, 1, 0, 0, GridBagConstraints.LINE_END,
+        GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
+    sidePanel.add(shininessAndBaseboardPanel, new GridBagConstraints(
+        0, 1, 4, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+    return sidePanel;
+  }
+
   private JPanel createTitledPanel(String title, JComponent [] components, boolean horizontal) {
     JPanel titledPanel = SwingTools.createTitledPanel(title);
     int standardGap = Math.round(5 * SwingTools.getResolutionScale());
@@ -1151,18 +1161,20 @@ public class WallPanel extends JPanel implements DialogView {
           : GridBagConstraints.LINE_START;
       Insets labelInsets = new Insets(0, 0, 0, standardGap);
       Insets insets = new Insets(0, 0, 0, standardGap);
+      // Reduce the preferred width of spinners which fill the available width
+      int spinnerPadX = -Math.round(35 * SwingTools.getResolutionScale());
       for (int i = 0; i < components.length - 1; i += 2) {
         titledPanel.add(components [i], new GridBagConstraints(
-            i, 0, 1, 1, 1, 0, labelAlignment,
+            i, 0, 1, 1, 0, 0, labelAlignment,
             GridBagConstraints.NONE, labelInsets, 0, 0));
         titledPanel.add(components [i + 1], new GridBagConstraints(
             i + 1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-            GridBagConstraints.HORIZONTAL, insets, 0, 0));
+            GridBagConstraints.HORIZONTAL, insets, spinnerPadX, 0));
       }
 
       titledPanel.add(components [components.length - 1], new GridBagConstraints(
           components.length - 1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
     } else {
       for (int i = 0; i < components.length; i += 2) {
         int bottomInset = i < components.length - 2  ? Math.round(2 * SwingTools.getResolutionScale())  : 0;
