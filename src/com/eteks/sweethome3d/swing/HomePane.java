@@ -234,7 +234,7 @@ public class HomePane extends JRootPane implements HomeView {
       MODIFY_TEXT_STYLE, LEVELS_MENU, GO_TO_POINT_OF_VIEW, SELECT_OBJECT_MENU, TOGGLE_SELECTION_MENU}
 
   private static final String MAIN_PANE_DIVIDER_LOCATION_VISUAL_PROPERTY     = "com.eteks.sweethome3d.SweetHome3D.MainPaneDividerLocation";
-  private static final String CATALOG_PANE_DIVIDER_LOCATION_VISUAL_PROPERTY  = "com.eteks.sweethome3d.SweetHome3D.CatalogPaneDividerLocation";
+  private static final String PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX        = "com.eteks.sweethome3d.SweetHome3D.PrimarySideBar.";
   private static final String PLAN_PANE_DIVIDER_LOCATION_VISUAL_PROPERTY     = "com.eteks.sweethome3d.SweetHome3D.PlanPaneDividerLocation";
   private static final String PLAN_VIEWPORT_X_VISUAL_PROPERTY                = "com.eteks.sweethome3d.SweetHome3D.PlanViewportX";
   private static final String PLAN_VIEWPORT_Y_VISUAL_PROPERTY                = "com.eteks.sweethome3d.SweetHome3D.PlanViewportY";
@@ -3041,18 +3041,18 @@ public class HomePane extends JRootPane implements HomeView {
    */
   private JComponent createMainPane(Home home, UserPreferences preferences,
                                     HomeController controller) {
-    final JComponent catalogFurniturePane = createCatalogFurniturePane(home, preferences, controller);
+    final PrimarySideBar primarySideBar = createPrimarySideBar(home, preferences, controller);
     final JComponent planView3DPane = createPlanView3DPane(home, preferences, controller);
 
-    if (catalogFurniturePane == null) {
+    if (primarySideBar == null) {
       return planView3DPane;
     } else if (planView3DPane == null) {
-      return catalogFurniturePane;
+      return addPrimarySideBarEdgeStrip(primarySideBar, primarySideBar);
     } else {
       boolean leftToRightOrientation = ComponentOrientation.getOrientation(Locale.getDefault()).isLeftToRight();
       final JSplitPane mainPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-          leftToRightOrientation ? catalogFurniturePane  : planView3DPane,
-          leftToRightOrientation ? planView3DPane  : catalogFurniturePane);
+          leftToRightOrientation ? primarySideBar  : planView3DPane,
+          leftToRightOrientation ? planView3DPane  : primarySideBar);
       // Set default divider location
       mainPane.setDividerLocation((int)((leftToRightOrientation ? 360 : 670) * SwingTools.getResolutionScale()));
       configureSplitPane(mainPane, home, MAIN_PANE_DIVIDER_LOCATION_VISUAL_PROPERTY,
@@ -3062,20 +3062,40 @@ public class HomePane extends JRootPane implements HomeView {
           public void propertyChange(PropertyChangeEvent ev) {
             if (mainPane.getComponentOrientation().isLeftToRight()) {
               mainPane.setRightComponent(null); // Needed to avoid twice the same child component
-              mainPane.setLeftComponent(catalogFurniturePane);
+              mainPane.setLeftComponent(primarySideBar);
               mainPane.setRightComponent(planView3DPane);
             } else {
               mainPane.setRightComponent(null);
               mainPane.setLeftComponent(planView3DPane);
-              mainPane.setRightComponent(catalogFurniturePane);
+              mainPane.setRightComponent(primarySideBar);
             }
             if (mainPane.isShowing()) {
               mainPane.setDividerLocation(mainPane.getWidth() - mainPane.getDividerLocation());
             }
           }
         });
-      return mainPane;
+      // Hide the divider of main pane while the side bar is collapsed
+      final int dividerSize = mainPane.getDividerSize();
+      PropertyChangeListener sideBarCollapseListener = new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            mainPane.setDividerSize(primarySideBar.isCollapsed() ? 0 : dividerSize);
+          }
+        };
+      primarySideBar.addPropertyChangeListener(PrimarySideBar.COLLAPSED_PROPERTY, sideBarCollapseListener);
+      sideBarCollapseListener.propertyChange(null);
+      return addPrimarySideBarEdgeStrip(mainPane, primarySideBar);
     }
+  }
+
+  /**
+   * Returns a pane displaying the given main pane beside the edge strip of the side bar,
+   * which lets the user collapse or expand the side bar at any time.
+   */
+  private JComponent addPrimarySideBarEdgeStrip(JComponent mainPane, PrimarySideBar primarySideBar) {
+    JPanel pane = new JPanel(new BorderLayout());
+    pane.add(primarySideBar.getEdgeStrip(), BorderLayout.LINE_START);
+    pane.add(mainPane, BorderLayout.CENTER);
+    return pane;
   }
 
   /**
@@ -3154,9 +3174,9 @@ public class HomePane extends JRootPane implements HomeView {
   }
 
   /**
-   * Returns the catalog tree and furniture table pane.
+   * Returns the primary side bar which displays the catalog tree and the furniture table.
    */
-  private JComponent createCatalogFurniturePane(Home home,
+  private PrimarySideBar createPrimarySideBar(Home home,
                                                 UserPreferences preferences,
                                                 final HomeController controller) {
     JComponent catalogView = (JComponent)controller.getFurnitureCatalogController().getView();
@@ -3255,20 +3275,104 @@ public class HomePane extends JRootPane implements HomeView {
       }
     }
 
-    if (catalogView == null) {
-      return furnitureView;
-    } else if (furnitureView == null) {
-      return catalogView;
+    if (catalogView == null && furnitureView == null) {
+      return null;
     } else {
-      // Create a split pane that displays both components
-      JSplitPane catalogFurniturePane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-          catalogView, furnitureView);
-      catalogFurniturePane.setBorder(null);
-      catalogFurniturePane.setMinimumSize(new Dimension());
-      configureSplitPane(catalogFurniturePane, home,
-          CATALOG_PANE_DIVIDER_LOCATION_VISUAL_PROPERTY, 0.5, false, controller);
-      return catalogFurniturePane;
+      // Create a side bar that displays components in collapsible sections
+      final PrimarySideBar primarySideBar = new PrimarySideBar(preferences);
+      primarySideBar.setCollapsed(Boolean.parseBoolean(
+          home.getProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + "collapsed")));
+      primarySideBar.addPropertyChangeListener(PrimarySideBar.COLLAPSED_PROPERTY,
+          new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              controller.setHomeProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + "collapsed",
+                  String.valueOf(primarySideBar.isCollapsed()));
+            }
+          });
+      if (catalogView != null) {
+        addPrimarySideBarSection(primarySideBar, "catalogSection", catalogView, home, controller);
+      }
+      if (furnitureView != null) {
+        addFurniturePropertiesSection(primarySideBar, home, preferences, controller);
+        addPrimarySideBarSection(primarySideBar, "furnitureSection", furnitureView, home, controller);
+      }
+      primarySideBar.addPropertyChangeListener(PrimarySideBar.SECTION_WEIGHTS_PROPERTY,
+          new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              for (CollapsibleSection section : primarySideBar.getSections()) {
+                controller.setHomeProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + section.getName() + "Weight",
+                    String.valueOf(primarySideBar.getSectionWeight(section)));
+              }
+            }
+          });
+      return primarySideBar;
     }
+  }
+
+  /**
+   * Adds to the given side bar a section which edits the properties of the selected furniture,
+   * and displays this section when the user requests to modify furniture.
+   */
+  private void addFurniturePropertiesSection(final PrimarySideBar primarySideBar,
+                                             Home home,
+                                             UserPreferences preferences,
+                                             HomeController controller) {
+    final FurniturePropertiesPanel propertiesPanel =
+        new FurniturePropertiesPanel(home, preferences, controller.getFurnitureController());
+    final CollapsibleSection propertiesSection =
+        addPrimarySideBarSection(primarySideBar, "propertiesSection", propertiesPanel, home, controller);
+    // Update properties panel only when it's visible
+    PropertyChangeListener visibilityListener = new PropertyChangeListener() {
+        public void propertyChange(PropertyChangeEvent ev) {
+          propertiesPanel.setActive(!primarySideBar.isCollapsed() && !propertiesSection.isCollapsed());
+        }
+      };
+    propertiesSection.addPropertyChangeListener(CollapsibleSection.COLLAPSED_PROPERTY, visibilityListener);
+    primarySideBar.addPropertyChangeListener(PrimarySideBar.COLLAPSED_PROPERTY, visibilityListener);
+    visibilityListener.propertyChange(null);
+
+    Runnable selectedFurnitureModifier = new Runnable() {
+        public void run() {
+          primarySideBar.setCollapsed(false);
+          propertiesSection.setCollapsed(false);
+          // Request focus once properties panel is updated
+          EventQueue.invokeLater(new Runnable() {
+              public void run() {
+                propertiesPanel.requestFocusInEditedView();
+              }
+            });
+        }
+      };
+    controller.getFurnitureController().setSelectedFurnitureModifier(selectedFurnitureModifier);
+    if (controller.getPlanController() != null) {
+      controller.getPlanController().setSelectedFurnitureModifier(selectedFurnitureModifier);
+    }
+  }
+
+  /**
+   * Adds to the given side bar a section displaying <code>view</code>, with the state
+   * it had when <code>home</code> was saved.
+   */
+  private CollapsibleSection addPrimarySideBarSection(PrimarySideBar primarySideBar,
+                                                      final String sectionName,
+                                                      JComponent view,
+                                                      Home home,
+                                                      final HomeController controller) {
+    final CollapsibleSection section = new CollapsibleSection(
+        this.preferences.getLocalizedString(PrimarySideBar.class, sectionName + ".title"), view);
+    section.setName(sectionName);
+    section.setCollapsed(Boolean.parseBoolean(
+        home.getProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + sectionName + "Collapsed")));
+    Number weight = home.getNumericProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + sectionName + "Weight");
+    primarySideBar.addSection(section, weight != null && weight.floatValue() >= 0 ? weight.floatValue() : 1);
+    section.addPropertyChangeListener(CollapsibleSection.COLLAPSED_PROPERTY,
+        new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            controller.setHomeProperty(PRIMARY_SIDE_BAR_VISUAL_PROPERTY_PREFIX + sectionName + "Collapsed",
+                String.valueOf(section.isCollapsed()));
+          }
+        });
+    return section;
   }
 
   /**
@@ -3299,14 +3403,14 @@ public class HomePane extends JRootPane implements HomeView {
           JComponent newFurnitureCatalogView = (JComponent)homePane.controller.getFurnitureCatalogController().getView();
           newFurnitureCatalogView.setComponentPopupMenu(oldFurnitureCatalogView.getComponentPopupMenu());
           homePane.setTransferEnabled(transferHandlerEnabled);
-          JComponent splitPaneTopComponent = newFurnitureCatalogView;
+          JComponent sectionContent = newFurnitureCatalogView;
           if (newFurnitureCatalogView instanceof Scrollable) {
-            splitPaneTopComponent = SwingTools.createScrollPane(newFurnitureCatalogView);
+            sectionContent = SwingTools.createScrollPane(newFurnitureCatalogView);
           } else {
-            splitPaneTopComponent = newFurnitureCatalogView;
+            sectionContent = newFurnitureCatalogView;
           }
-          ((JSplitPane)SwingUtilities.getAncestorOfClass(JSplitPane.class, oldFurnitureCatalogView)).
-              setTopComponent(splitPaneTopComponent);
+          ((CollapsibleSection)SwingUtilities.getAncestorOfClass(CollapsibleSection.class, oldFurnitureCatalogView)).
+              setContent(sectionContent);
           newFurnitureCatalogView.applyComponentOrientation(ComponentOrientation.getOrientation(Locale.getDefault()));
           this.furnitureCatalogView = new WeakReference<JComponent>(newFurnitureCatalogView);
         }

@@ -4,6 +4,7 @@
      Sweet Home 3D, Copyright (c) 2024 Space Mushrooms <info@sweethome3d.com>.
 
      Ant build file. Available targets :
+     - clean       : Deletes the files and directories created by the other targets, except downloaded JREs
      - build       : Builds SweetHome3D.jar file in build directory
      - furniture   : Builds Furniture.jar file in build directory
      - textures    : Builds Textures.jar file in build directory
@@ -83,6 +84,27 @@
   <target name="jreLinux64"
           description="Downloads Linux 64 bit JRE in jre/linux-x64">
     <temurin-jre os="linux" arch="x64" extension="tar.gz"/>
+  </target>
+
+  <target name="clean"
+          description="Deletes build artifacts, keeping the JREs downloaded in jre">
+    <delete dir="build"/>
+    <delete dir="deploy/lib"/>
+    <delete dir="install/javadoc"/>
+    <delete dir="install/source"/>
+    <delete dir="install/windows/build"/>
+    <delete dir="install/linux/x64"/>
+    <delete includeemptydirs="true">
+      <fileset dir="install" erroronmissingdir="false">
+        <include name="SweetHome3D-*.jar"/>
+        <include name="SweetHome3D-*.tgz"/>
+        <include name="SweetHome3D-*.exe"/>
+        <include name="SweetHome3D-*.dmg"/>
+        <include name="SweetHome3D-*.zip"/>
+        <include name="macosx/SweetHome3D-*/**"/>
+        <include name="portable/SweetHome3D-*-portable/**"/>
+      </fileset>
+    </delete>
   </target>
 
   <target name="build"

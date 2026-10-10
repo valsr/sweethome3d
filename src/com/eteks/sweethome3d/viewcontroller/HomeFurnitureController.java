@@ -36,6 +36,7 @@ import java.util.Map;
 
 import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
+import javax.swing.undo.UndoableEdit;
 import javax.swing.undo.UndoableEditSupport;
 
 import com.eteks.sweethome3d.model.CatalogPieceOfFurniture;
@@ -289,7 +290,7 @@ public class HomeFurnitureController implements Controller {
   /**
    * Updates edited properties from selected furniture in the home edited by this controller.
    */
-  protected void updateProperties() {
+  public void updateProperties() {
     List<HomePieceOfFurniture> selectedFurniture =
         Home.getFurnitureSubList(this.home.getSelectedItems());
     TextureChoiceController textureController = getTextureController();
@@ -1827,6 +1828,18 @@ public class HomeFurnitureController implements Controller {
    * Controls the modification of selected furniture in the edited home.
    */
   public void modifyFurniture() {
+    modifyFurniture(null);
+  }
+
+  /**
+   * Controls the modification of selected furniture in the edited home, with an undoable edit
+   * which will be merged with the previous one if that one was posted with an equal key.
+   * This lets a view apply each change of the user immediately, and the user undo successive
+   * changes of the same kind at once.
+   * @param mergeKey an object identifying the kind of modification,
+   *            or <code>null</code> if the edit shouldn't be merged with an other one
+   */
+  public void modifyFurniture(Object mergeKey) {
     List<Selectable> oldSelection = this.home.getSelectedItems();
     List<HomePieceOfFurniture> selectedFurniture = Home.getFurnitureSubList(oldSelection);
     if (!selectedFurniture.isEmpty()) {
@@ -1917,18 +1930,21 @@ public class HomeFurnitureController implements Controller {
           paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower, lightPowerUnit, lightColorMode, lightColor, lightColorTemperature);
       if (this.undoSupport != null) {
         List<Selectable> newSelection = this.home.getSelectedItems();
-        this.undoSupport.postEdit(new FurnitureModificationUndoableEdit(this.home, this.preferences,
+        FurnitureModificationUndoableEdit undoableEdit = new FurnitureModificationUndoableEdit(this.home, this.preferences,
             oldSelection.toArray(new Selectable [oldSelection.size()]), newSelection.toArray(new Selectable [newSelection.size()]),
             modifiedFurniture, name, nameVisible, description, additionalProperties, price, removePrice, valueAddedTaxPercentage, removeValueAddedTaxPercentage, currency,
             x, y, elevation, angle, roll, pitch, horizontalAxis, basePlanItem,
             width, depth, height, proportional, modelTransformations,
             this.wallThickness, this.wallDistance, this.wallWidth, this.wallLeft, this.wallHeight, this.wallTop, this.sashes,
-            paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower, lightPowerUnit, lightColorMode, lightColor, lightColorTemperature));
+            paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower, lightPowerUnit, lightColorMode, lightColor, lightColorTemperature);
+        undoableEdit.mergeKey = mergeKey;
+        this.undoSupport.postEdit(undoableEdit);
       }
-      if (name != null) {
+      // Don't propose the intermediate texts of a modification applied at each change
+      if (name != null && mergeKey == null) {
         this.preferences.addAutoCompletionString("HomePieceOfFurnitureName", name);
       }
-      if (description != null) {
+      if (description != null && mergeKey == null) {
         this.preferences.addAutoCompletionString("HomePieceOfFurnitureDescription", description);
       }
       if (valueAddedTaxPercentage != null) {
@@ -1991,6 +2007,8 @@ public class HomeFurnitureController implements Controller {
     private final float []                    widthsInPlan;
     private final float []                    depthsInPlan;
     private final float []                    heightsInPlan;
+    private Object                            mergeKey;
+    private List<FurnitureModificationUndoableEdit> mergedEdits;
 
     private FurnitureModificationUndoableEdit(Home home,
                                               UserPreferences preferences,
@@ -2079,6 +2097,35 @@ public class HomeFurnitureController implements Controller {
     @Override
     public void redo() throws CannotRedoException {
       super.redo();
+      redoModification();
+      if (this.mergedEdits != null) {
+        for (FurnitureModificationUndoableEdit mergedEdit : this.mergedEdits) {
+          mergedEdit.redoModification();
+        }
+      }
+      this.home.setSelectedItems(Arrays.asList(this.newSelection));
+    }
+
+    /**
+     * Merges the given edit with this one if they were posted with the same key. Undoing this edit
+     * restores the furniture as it was before this edit, and redoing it does the merged edits again.
+     */
+    @Override
+    public boolean addEdit(UndoableEdit edit) {
+      if (this.mergeKey != null
+          && edit instanceof FurnitureModificationUndoableEdit
+          && this.mergeKey.equals(((FurnitureModificationUndoableEdit)edit).mergeKey)) {
+        if (this.mergedEdits == null) {
+          this.mergedEdits = new ArrayList<FurnitureModificationUndoableEdit>();
+        }
+        this.mergedEdits.add((FurnitureModificationUndoableEdit)edit);
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    private void redoModification() {
       doModifyFurniture(this.modifiedFurniture,
           this.name, this.nameVisible, this.description, this.additionalProperties,
           this.price, this.removePrice, this.valueAddedTaxPercentage, this.removeValueAddedTaxPercentage, this.currency,
@@ -2096,7 +2143,6 @@ public class HomeFurnitureController implements Controller {
         piece.setDepthInPlan(this.depthsInPlan [i]);
         piece.setHeightInPlan(this.heightsInPlan [i]);
       }
-      this.home.setSelectedItems(Arrays.asList(this.newSelection));
     }
   }
 
