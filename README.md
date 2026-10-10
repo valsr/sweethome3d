@@ -132,6 +132,7 @@ Other targets (see the header of `build.xml` for the full list):
 | `windowsInstaller` | `install/SweetHome3D-7.5-windows.exe` (Windows, Launch4j and Inno Setup required) |
 | `macosxInstaller` | `install/SweetHome3D-7.5-macosx.dmg` (macOS required) |
 | `sourceArchive`, `javadoc` | source and Javadoc archives |
+| `clean` | deletes the files created by the other targets, except the JREs downloaded in `jre` |
 
 The bundled JRE archives are downloaded once into `jre/` and reused. Delete that
 directory to fetch a newer release. Change `bundledJavaVersion` in `build.xml` to
