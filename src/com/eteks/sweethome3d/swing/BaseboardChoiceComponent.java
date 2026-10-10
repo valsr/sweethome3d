@@ -30,7 +30,6 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JSeparator;
 import javax.swing.JSpinner;
 import javax.swing.KeyStroke;
 import javax.swing.event.ChangeEvent;
@@ -293,39 +292,40 @@ public class BaseboardChoiceComponent extends JPanel implements View {
         ? GridBagConstraints.LINE_END
         : GridBagConstraints.LINE_START;
     int standardGap = Math.round(5 * SwingTools.getResolutionScale());
+    int smallGap = Math.round(2 * SwingTools.getResolutionScale());
+    // First row
     add(this.visibleCheckBox, new GridBagConstraints(
-        3, 0, 2, 1, 0, 0, GridBagConstraints.CENTER,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 10, 0), 0, 0));
+        0, 0, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, smallGap, standardGap), 0, 0));
     add(this.sameColorAsWallRadioButton, new GridBagConstraints(
-        3, 1, 2, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE,  new Insets(0, 0, standardGap, standardGap), 0, 0));
+        2, 0, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE,  new Insets(0, 0, smallGap, 0), 0, 0));
+    // Second row
     add(this.colorRadioButton, new GridBagConstraints(
-        3, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE,  new Insets(0, 0, 2, standardGap), 0, 0));
+        0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE,  new Insets(0, 0, smallGap, smallGap), 0, 0));
     add(this.colorButton, new GridBagConstraints(
-        4, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 2, 0), 0, 0));
+        1, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, standardGap), 0, 0));
     add(this.textureRadioButton, new GridBagConstraints(
-        3, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE,  new Insets(0, 0, 0, standardGap), 0, 0));
+        2, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE,  new Insets(0, 0, smallGap, smallGap), 0, 0));
     add(this.textureComponent, new GridBagConstraints(
-        4, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
-    add(new JSeparator(), new GridBagConstraints(
-        3, 4, 2, 1, 1, 0, GridBagConstraints.CENTER,
-        GridBagConstraints.HORIZONTAL, new Insets(3, 0, Math.round(3 * SwingTools.getResolutionScale()), 0), 0, 0));
+        3, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, 0), 0, 0));
+    // Last row
     add(this.heightLabel, new GridBagConstraints(
-        3, 5, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, new Insets(0, 0, standardGap, standardGap), 0, 0));
+        0, 2, 1, 1, 0, 0, labelAlignment,
+        GridBagConstraints.NONE, new Insets(0, 0, 0, smallGap), 0, 0));
     int spinnerPadX = OperatingSystem.isMacOSX()  ? -20  : -10;
     add(this.heightSpinner, new GridBagConstraints(
-        4, 5, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, standardGap, 0), spinnerPadX, 0));
+        1, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, standardGap), spinnerPadX, 0));
     add(this.thicknessLabel, new GridBagConstraints(
-        3, 6, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
+        2, 2, 1, 1, 0, 0, labelAlignment,
+        GridBagConstraints.NONE, new Insets(0, 0, 0, smallGap), 0, 0));
     add(this.thicknessSpinner, new GridBagConstraints(
-        4, 6, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        3, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
     setOpaque(false);
   }
