@@ -36,6 +36,7 @@ import com.eteks.sweethome3d.io.DefaultUserPreferences;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.DimensionLine;
+import com.eteks.sweethome3d.model.ObserverCamera;
 import com.eteks.sweethome3d.model.PieceOfFurniture;
 import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
@@ -44,11 +45,13 @@ import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.swing.FileContentManager;
 import com.eteks.sweethome3d.swing.SelectionPropertiesPanel;
 import com.eteks.sweethome3d.swing.HomeFurniturePanel;
+import com.eteks.sweethome3d.swing.ObserverCameraPanel;
 import com.eteks.sweethome3d.swing.RoomPanel;
 import com.eteks.sweethome3d.swing.SwingTools;
 import com.eteks.sweethome3d.swing.SwingViewFactory;
 import com.eteks.sweethome3d.swing.WallPanel;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
+import com.eteks.sweethome3d.viewcontroller.ObserverCameraController;
 import com.eteks.sweethome3d.viewcontroller.PlanController;
 import com.eteks.sweethome3d.viewcontroller.RoomController;
 import com.eteks.sweethome3d.viewcontroller.WallController;
@@ -568,5 +571,51 @@ public class SelectionPropertiesPanelTest extends TestCase {
     assertSame(controller, this.panel.getWallController());
     assertEquals(600f, controller.getXEnd());
     assertFalse(this.undoManager.canUndo());
+  }
+
+  public void testSelectedObserverCameraIsEdited() throws Exception {
+    select(this.home.getObserverCamera());
+
+    assertNotNull(this.panel.getObserverCameraController());
+    assertEquals(this.home.getObserverCamera().getX(), this.panel.getObserverCameraController().getX());
+    assertNull(this.panel.getWallController());
+    assertEquals(1, SwingTools.findChildren(this.panel, ObserverCameraPanel.class).size());
+    assertFalse(isHintDisplayed());
+
+    select(this.home.getObserverCamera(), this.wall1);
+    assertTrue(isHintDisplayed());
+    assertNull(this.panel.getObserverCameraController());
+    assertNull(this.panel.getWallController());
+  }
+
+  public void testObserverCameraEditsAreAppliedImmediately() throws Exception {
+    ObserverCamera camera = this.home.getObserverCamera();
+    select(camera);
+    ObserverCameraController controller = this.panel.getObserverCameraController();
+    edit(new Runnable() {
+        public void run() {
+          panel.getObserverCameraController().setX(123f);
+          panel.getObserverCameraController().setFieldOfViewInDegrees(70);
+        }
+      });
+
+    assertEquals(123f, camera.getX());
+    assertEquals(70, Math.round(Math.toDegrees(camera.getFieldOfView())));
+    assertSame("Panel shouldn't be rebuilt by its own edits", controller, this.panel.getObserverCameraController());
+    assertFalse("Observer camera edits aren't undoable", this.undoManager.canUndo());
+  }
+
+  public void testObserverCameraMovedElsewhereIsUpdatedInPlace() throws Exception {
+    ObserverCamera camera = this.home.getObserverCamera();
+    select(camera);
+    ObserverCameraController controller = this.panel.getObserverCameraController();
+
+    // Simulate a move of the camera in the plan or in the 3D view
+    camera.setY(camera.getY() + 200);
+    waitForUpdate();
+    waitForUpdate();
+
+    assertSame(controller, this.panel.getObserverCameraController());
+    assertEquals(camera.getY(), controller.getY());
   }
 }

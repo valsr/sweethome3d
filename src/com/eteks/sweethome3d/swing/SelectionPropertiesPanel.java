@@ -38,6 +38,7 @@ import javax.swing.text.JTextComponent;
 
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomeObject;
+import com.eteks.sweethome3d.model.ObserverCamera;
 import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.SelectionEvent;
@@ -48,14 +49,15 @@ import com.eteks.sweethome3d.viewcontroller.BaseboardChoiceController;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
 import com.eteks.sweethome3d.viewcontroller.ModelMaterialsController;
+import com.eteks.sweethome3d.viewcontroller.ObserverCameraController;
 import com.eteks.sweethome3d.viewcontroller.PlanController;
 import com.eteks.sweethome3d.viewcontroller.RoomController;
 import com.eteks.sweethome3d.viewcontroller.TextureChoiceController;
 import com.eteks.sweethome3d.viewcontroller.WallController;
 
 /**
- * A panel which edits the properties of the furniture, the rooms or the walls selected in a home
- * without dialog box. Each change of the user is applied immediately to the selected objects, and
+ * A panel which edits the properties of the furniture, the rooms, the walls or the observer camera
+ * selected in a home without dialog box. Each change of the user is applied immediately to the selected objects, and
  * successive changes of the same property may be undone at once. Nothing is edited when the
  * selection is empty or contains objects of different kinds.
  */
@@ -87,10 +89,10 @@ public class SelectionPropertiesPanel extends JPanel {
   }
 
   /**
-   * Creates a panel editing the furniture, the rooms or the walls selected in <code>home</code>
-   * with the controllers created by the given controllers.
-   * @param planController the controller which creates the controllers of rooms and walls,
-   *            or <code>null</code> if rooms and walls shouldn't be edited
+   * Creates a panel editing the furniture, the rooms, the walls or the observer camera selected
+   * in <code>home</code> with the controllers created by the given controllers.
+   * @param planController the controller which creates the controllers of rooms, walls and observer camera,
+   *            or <code>null</code> if they shouldn't be edited
    */
   public SelectionPropertiesPanel(Home home,
                                   UserPreferences preferences,
@@ -154,6 +156,16 @@ public class SelectionPropertiesPanel extends JPanel {
   }
 
   /**
+   * Returns the controller of the observer camera currently edited by this panel,
+   * or <code>null</code> if it isn't edited.
+   */
+  public ObserverCameraController getObserverCameraController() {
+    return this.editor instanceof ObserverCameraEditor
+        ? ((ObserverCameraEditor)this.editor).controller
+        : null;
+  }
+
+  /**
    * Returns <code>true</code> if this panel is kept up to date with the selected objects.
    */
   public boolean isActive() {
@@ -213,19 +225,26 @@ public class SelectionPropertiesPanel extends JPanel {
     List<HomeObject> furniture = new ArrayList<HomeObject>(Home.getFurnitureSubList(selectedItems));
     List<HomeObject> rooms = new ArrayList<HomeObject>();
     List<HomeObject> walls = new ArrayList<HomeObject>();
+    List<HomeObject> observerCamera = new ArrayList<HomeObject>();
     if (this.planController != null) {
       rooms.addAll(Home.getRoomsSubList(selectedItems));
       walls.addAll(Home.getWallsSubList(selectedItems));
+      if (selectedItems.contains(this.home.getObserverCamera())) {
+        observerCamera.add(this.home.getObserverCamera());
+      }
     }
-    int kindsCount = (furniture.isEmpty() ? 0 : 1) + (rooms.isEmpty() ? 0 : 1) + (walls.isEmpty() ? 0 : 1);
+    int kindsCount = (furniture.isEmpty() ? 0 : 1) + (rooms.isEmpty() ? 0 : 1)
+        + (walls.isEmpty() ? 0 : 1) + (observerCamera.isEmpty() ? 0 : 1);
     if (kindsCount != 1) {
       return Collections.emptyList();
     } else if (!furniture.isEmpty()) {
       return furniture;
     } else if (!rooms.isEmpty()) {
       return rooms;
-    } else {
+    } else if (!walls.isEmpty()) {
       return walls;
+    } else {
+      return observerCamera;
     }
   }
 
@@ -262,6 +281,8 @@ public class SelectionPropertiesPanel extends JPanel {
           this.editor = new RoomsEditor();
         } else if (selectedObjects.get(0) instanceof Wall) {
           this.editor = new WallsEditor();
+        } else if (selectedObjects.get(0) instanceof ObserverCamera) {
+          this.editor = new ObserverCameraEditor();
         } else {
           this.editor = new FurnitureEditor();
         }
@@ -479,6 +500,38 @@ public class SelectionPropertiesPanel extends JPanel {
           createModificationListener(WallController.Property.RIGHT_SIDE_PAINT));
       addModificationListeners(this.controller.getLeftSideBaseboardController(), "leftSideBaseboard");
       addModificationListeners(this.controller.getRightSideBaseboardController(), "rightSideBaseboard");
+    }
+  }
+
+  /**
+   * The editor of the observer camera, which is modified without undoable edit.
+   */
+  private class ObserverCameraEditor extends Editor {
+    private final ObserverCameraController controller = planController.createObserverCameraController();
+
+    @Override
+    public Object getView() {
+      return this.controller.getView();
+    }
+
+    @Override
+    public void refresh() {
+      this.controller.updateProperties();
+    }
+
+    @Override
+    public void modify(Object mergeKey) {
+      this.controller.modifyObserverCamera();
+    }
+
+    @Override
+    public void addModificationListeners() {
+      for (ObserverCameraController.Property property : ObserverCameraController.Property.values()) {
+        // Ignore the property which doesn't describe a modification of the camera
+        if (property != ObserverCameraController.Property.MINIMUM_ELEVATION) {
+          this.controller.addPropertyChangeListener(property, createModificationListener(property));
+        }
+      }
     }
   }
 

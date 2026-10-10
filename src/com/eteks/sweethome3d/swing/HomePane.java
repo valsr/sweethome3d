@@ -3311,7 +3311,7 @@ public class HomePane extends JRootPane implements HomeView {
 
   /**
    * Adds to the given side bar a section which edits the properties of the selected furniture,
-   * rooms or walls, and displays this section when the user requests to modify them.
+   * rooms, walls or observer camera, and displays this section when the user requests to modify them.
    */
   private void addSelectionPropertiesSection(final PrimarySideBar primarySideBar,
                                              Home home,
@@ -3348,6 +3348,7 @@ public class HomePane extends JRootPane implements HomeView {
       controller.getPlanController().setSelectedFurnitureModifier(selectedObjectsModifier);
       controller.getPlanController().setSelectedRoomsModifier(selectedObjectsModifier);
       controller.getPlanController().setSelectedWallsModifier(selectedObjectsModifier);
+      controller.getPlanController().setObserverCameraModifier(selectedObjectsModifier);
     }
   }
 

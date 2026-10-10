@@ -211,6 +211,18 @@ public class HomePaneSideBarTest extends TestCase {
     assertNotNull(getPropertiesPanel().getWallController());
   }
 
+  public void testModifyObserverCameraSelectsItAndRevealsPropertiesSection() throws Exception {
+    getSection("Properties").setCollapsed(true);
+    assertTrue(this.home.getSelectedItems().isEmpty());
+
+    this.homeController.getPlanController().modifyObserverCamera();
+    waitForUpdate();
+
+    assertFalse(getSection("Properties").isCollapsed());
+    assertEquals(Arrays.asList(new Selectable [] {this.home.getObserverCamera()}), this.home.getSelectedItems());
+    assertNotNull(getPropertiesPanel().getObserverCameraController());
+  }
+
   public void testModifyFurnitureKeepsEditedProperties() throws Exception {
     addSelectedPiece();
     waitForUpdate();

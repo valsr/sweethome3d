@@ -129,6 +129,7 @@ public class PlanController extends FurnitureController implements Controller {
   private final UndoableEditSupport   undoSupport;
   private Runnable                    selectedWallsModifier;
   private Runnable                    selectedRoomsModifier;
+  private Runnable                    observerCameraModifier;
   private final PropertyChangeSupport propertyChangeSupport;
   private PlanView                    planView;
   private SelectionListener           selectionListener;
@@ -2007,7 +2008,32 @@ public class PlanController extends FurnitureController implements Controller {
    * Controls the modification of the observer camera.
    */
   public void modifyObserverCamera() {
-    new ObserverCameraController(this.home, this.preferences, this.viewFactory).displayView(getView());
+    if (this.observerCameraModifier != null) {
+      // Select observer camera to let its properties be edited without dialog box
+      List<Selectable> observerCameraSelection = Arrays.asList(new Selectable [] {this.home.getObserverCamera()});
+      if (!observerCameraSelection.equals(this.home.getSelectedItems())) {
+        selectItems(observerCameraSelection);
+      }
+      this.observerCameraModifier.run();
+    } else {
+      createObserverCameraController().displayView(getView());
+    }
+  }
+
+  /**
+   * Returns a new controller able to edit the observer camera of home.
+   */
+  public ObserverCameraController createObserverCameraController() {
+    return new ObserverCameraController(this.home, this.preferences, this.viewFactory);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifyObserverCamera() modify
+   * the observer camera}, in replacement of the dialog box displayed by default.
+   * @param observerCameraModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setObserverCameraModifier(Runnable observerCameraModifier) {
+    this.observerCameraModifier = observerCameraModifier;
   }
 
   /**
