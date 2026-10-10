@@ -24,6 +24,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 
+import javax.swing.JButton;
+import javax.swing.JTextField;
+import javax.swing.text.BadLocationException;
+import javax.swing.undo.AbstractUndoableEdit;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
@@ -39,24 +43,28 @@ import com.eteks.sweethome3d.swing.HomeFurniturePanel;
 import com.eteks.sweethome3d.swing.SwingTools;
 import com.eteks.sweethome3d.swing.SwingViewFactory;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
+import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
 
 import junit.framework.TestCase;
 
 /**
  * Tests the {@link com.eteks.sweethome3d.swing.FurniturePropertiesPanel panel}
- * which edits the properties of the selected furniture without dialog box.
+ * which edits the properties of the selected furniture without dialog box,
+ * and applies each edit immediately.
  */
 public class FurniturePropertiesPanelTest extends TestCase {
   private Home                     home;
   private HomePieceOfFurniture     piece1;
   private HomePieceOfFurniture     piece2;
+  private UserPreferences          preferences;
+  private UndoableEditSupport      undoSupport;
   private UndoManager              undoManager;
   private FurniturePropertiesPanel panel;
 
   @Override
   protected void setUp() throws Exception {
     Locale.setDefault(Locale.US);
-    UserPreferences preferences = new DefaultUserPreferences();
+    final UserPreferences preferences = this.preferences = new DefaultUserPreferences();
     this.home = new Home();
     PieceOfFurniture catalogPiece = preferences.getFurnitureCatalog().
         getCategories().get(0).getFurniture().get(0);
@@ -67,7 +75,7 @@ public class FurniturePropertiesPanelTest extends TestCase {
     this.piece2.setName("Piece 2");
     this.home.addPieceOfFurniture(this.piece2);
 
-    UndoableEditSupport undoSupport = new UndoableEditSupport();
+    UndoableEditSupport undoSupport = this.undoSupport = new UndoableEditSupport();
     this.undoManager = new UndoManager();
     undoSupport.addUndoableEditListener(this.undoManager);
     FurnitureController furnitureController = new FurnitureController(this.home, preferences,
@@ -83,6 +91,31 @@ public class FurniturePropertiesPanelTest extends TestCase {
     waitForUpdate();
   }
 
+  /**
+   * Runs the given edit in the Event Dispatch Thread, as the components of the panel do,
+   * and waits for it to be applied.
+   */
+  private void edit(Runnable edit) throws Exception {
+    EventQueue.invokeAndWait(edit);
+    waitForUpdate();
+  }
+
+  private void editName(final String name) throws Exception {
+    edit(new Runnable() {
+        public void run() {
+          panel.getFurnitureController().setName(name);
+        }
+      });
+  }
+
+  private void editX(final float x) throws Exception {
+    edit(new Runnable() {
+        public void run() {
+          panel.getFurnitureController().setX(x);
+        }
+      });
+  }
+
   private void waitForUpdate() throws Exception {
     EventQueue.invokeAndWait(new Runnable() {
         public void run() {
@@ -92,95 +125,163 @@ public class FurniturePropertiesPanelTest extends TestCase {
 
   public void testNothingIsEditedWithoutSelectedFurniture() throws Exception {
     assertNull(this.panel.getFurnitureController());
-    assertFalse(this.panel.getApplyButton().isEnabled());
-    assertFalse(this.panel.getResetButton().isEnabled());
     assertTrue(SwingTools.findChildren(this.panel, HomeFurniturePanel.class).isEmpty());
 
     select(this.piece1);
     select();
     assertNull(this.panel.getFurnitureController());
-    assertFalse(this.panel.getApplyButton().isEnabled());
     assertTrue(SwingTools.findChildren(this.panel, HomeFurniturePanel.class).isEmpty());
   }
 
-  public void testSelectedFurnitureIsEdited() throws Exception {
+  public void testSelectedFurnitureIsEditedWithoutApplyButton() throws Exception {
     select(this.piece1);
 
     assertEquals("Piece 1", this.panel.getFurnitureController().getName());
-    assertTrue(this.panel.getApplyButton().isEnabled());
-    assertTrue(this.panel.getResetButton().isEnabled());
     assertEquals(1, SwingTools.findChildren(this.panel, HomeFurniturePanel.class).size());
+    for (JButton button : SwingTools.findChildren(this.panel, JButton.class)) {
+      assertFalse("Edits are applied without button", "Apply".equals(button.getText()));
+    }
+    assertFalse("Selecting furniture shouldn't be undoable", this.undoManager.canUndo());
   }
 
-  public void testApplyButtonModifiesSelectedFurnitureInOneUndoableEdit() throws Exception {
+  public void testEditIsAppliedImmediatelyAndCanBeUndone() throws Exception {
     select(this.piece1);
-    float x = this.piece1.getX();
-    this.panel.getFurnitureController().setName("Renamed");
-    this.panel.getFurnitureController().setX(x + 50);
-    assertEquals("Furniture shouldn't change before apply", "Piece 1", this.piece1.getName());
+    HomeFurnitureController controller = this.panel.getFurnitureController();
 
-    this.panel.getApplyButton().doClick();
-    waitForUpdate();
-
+    editName("Renamed");
     assertEquals("Renamed", this.piece1.getName());
-    assertEquals(x + 50, this.piece1.getX());
-    assertEquals("Renamed", this.panel.getFurnitureController().getName());
-    assertFalse(this.panel.isModified());
+    assertSame("Panel shouldn't be rebuilt by its own edits", controller, this.panel.getFurnitureController());
 
     this.undoManager.undo();
     waitForUpdate();
     assertEquals("Piece 1", this.piece1.getName());
-    assertEquals(x, this.piece1.getX());
+    assertSame("Panel should be updated in place", controller, this.panel.getFurnitureController());
+    assertEquals("Piece 1", controller.getName());
     assertFalse(this.undoManager.canUndo());
-    assertEquals("Panel should show undone values", "Piece 1", this.panel.getFurnitureController().getName());
   }
 
-  public void testResetButtonDiscardsEdits() throws Exception {
+  public void testSuccessiveEditsOfSamePropertyAreUndoneAtOnce() throws Exception {
     select(this.piece1);
-    this.panel.getFurnitureController().setName("Renamed");
-    assertTrue(this.panel.isModified());
+    // Simulate a name typed character by character
+    for (String name : new String [] {"R", "Re", "Ren"}) {
+      editName(name);
+      assertEquals(name, this.piece1.getName());
+    }
 
-    this.panel.getResetButton().doClick();
-    waitForUpdate();
-
-    assertEquals("Piece 1", this.panel.getFurnitureController().getName());
+    this.undoManager.undo();
     assertEquals("Piece 1", this.piece1.getName());
-    assertFalse(this.panel.isModified());
+    assertFalse(this.undoManager.canUndo());
+
+    this.undoManager.redo();
+    assertEquals("Ren", this.piece1.getName());
+    assertFalse(this.undoManager.canRedo());
+  }
+
+  public void testEditsOfDifferentPropertiesAreUndoneSeparately() throws Exception {
+    select(this.piece1);
+    float x = this.piece1.getX();
+    editName("Renamed");
+    editX(x + 50);
+    editName("Renamed again");
+
+    this.undoManager.undo();
+    assertEquals("Renamed", this.piece1.getName());
+    assertEquals(x + 50, this.piece1.getX());
+    this.undoManager.undo();
+    assertEquals("Renamed", this.piece1.getName());
+    assertEquals(x, this.piece1.getX());
+    this.undoManager.undo();
+    assertEquals("Piece 1", this.piece1.getName());
     assertFalse(this.undoManager.canUndo());
   }
 
-  public void testSelectionChangeDiscardsEditsAndEditsNewSelection() throws Exception {
+  public void testEditsOfSamePropertyOnDifferentSelectionsAreUndoneSeparately() throws Exception {
     select(this.piece1);
-    this.panel.getFurnitureController().setName("Renamed");
-
+    editName("Renamed 1");
     select(this.piece2);
+    editName("Renamed 2");
 
-    assertEquals("Piece 2", this.panel.getFurnitureController().getName());
-    assertFalse(this.panel.isModified());
-    this.panel.getApplyButton().doClick();
+    this.undoManager.undo();
+    assertEquals("Renamed 1", this.piece1.getName());
+    assertEquals("Piece 2", this.piece2.getName());
+    this.undoManager.undo();
+    assertEquals("Piece 1", this.piece1.getName());
+  }
+
+  public void testEditsOfSamePropertyAroundAnotherUndoableEditAreUndoneSeparately() throws Exception {
+    select(this.piece1);
+    editName("Renamed");
+    // Simulate an edit made elsewhere, like a piece added to home
+    this.undoSupport.postEdit(new AbstractUndoableEdit());
+    editName("Renamed again");
+
+    this.undoManager.undo();
+    assertEquals("Renamed", this.piece1.getName());
+  }
+
+  public void testPropertiesChangedTogetherAreAppliedInOneEdit() throws Exception {
+    select(this.piece1);
+    float width = this.piece1.getWidth();
+    float depth = this.piece1.getDepth();
+    final HomeFurnitureController controller = this.panel.getFurnitureController();
+    edit(new Runnable() {
+        public void run() {
+          controller.setProportional(true);
+        }
+      });
+    assertFalse("Proportions choice isn't a furniture edit", this.undoManager.canUndo());
+
+    // Depth is updated with width when proportions are kept
+    final float newWidth = width * 2;
+    edit(new Runnable() {
+        public void run() {
+          controller.setWidth(newWidth);
+        }
+      });
+    assertEquals(width * 2, this.piece1.getWidth(), 0.001f);
+    assertEquals(depth * 2, this.piece1.getDepth(), 0.001f);
+
+    this.undoManager.undo();
+    assertEquals(width, this.piece1.getWidth(), 0.001f);
+    assertEquals(depth, this.piece1.getDepth(), 0.001f);
+    assertFalse(this.undoManager.canUndo());
+  }
+
+  public void testEditKeepsDifferentValuesOfSelectedFurniture() throws Exception {
+    select(this.piece1, this.piece2);
+    assertNull(this.panel.getFurnitureController().getName());
+
+    edit(new Runnable() {
+        public void run() {
+          panel.getFurnitureController().setElevation(30f);
+        }
+      });
+
+    assertEquals(30f, this.piece1.getElevation());
+    assertEquals(30f, this.piece2.getElevation());
     assertEquals("Piece 1", this.piece1.getName());
     assertEquals("Piece 2", this.piece2.getName());
   }
 
-  public void testFurnitureChangedElsewhereIsUpdatedWhenNoEditIsPending() throws Exception {
+  public void testFurnitureChangedElsewhereIsUpdatedInPlaceWithoutEdit() throws Exception {
     select(this.piece1);
+    HomeFurnitureController controller = this.panel.getFurnitureController();
 
     // Simulate a piece moved in the plan
     this.piece1.setX(this.piece1.getX() + 100);
     waitForUpdate();
-
-    assertEquals(this.piece1.getX(), this.panel.getFurnitureController().getX());
-  }
-
-  public void testPendingEditsAreKeptWhenFurnitureChangesElsewhere() throws Exception {
-    select(this.piece1);
-    this.panel.getFurnitureController().setName("Renamed");
-
-    this.piece1.setX(this.piece1.getX() + 100);
     waitForUpdate();
 
-    assertEquals("Renamed", this.panel.getFurnitureController().getName());
-    assertTrue(this.panel.isModified());
+    assertSame(controller, this.panel.getFurnitureController());
+    assertEquals(this.piece1.getX(), controller.getX());
+    assertFalse("Displaying a change made elsewhere shouldn't be undoable", this.undoManager.canUndo());
+  }
+
+  public void testTypedNamesAreNotProposedForAutoCompletion() throws Exception {
+    select(this.piece1);
+    editName("Ren");
+
+    assertFalse(this.preferences.getAutoCompletionStrings("HomePieceOfFurnitureName").contains("Ren"));
   }
 
   public void testInactivePanelIsUpdatedOnlyOnceActive() throws Exception {
@@ -205,5 +306,39 @@ public class FurniturePropertiesPanelTest extends TestCase {
     waitForUpdate();
 
     assertEquals("Piece 2", this.panel.getFurnitureController().getName());
+  }
+
+  public void testTypingInNameFieldAppliesNameAndKeepsCaret() throws Exception {
+    select(this.piece1);
+    final JTextField nameTextField = getNameTextField();
+    assertEquals("Piece 1", nameTextField.getText());
+
+    // Type a character in the middle of the name
+    edit(new Runnable() {
+        public void run() {
+          try {
+            nameTextField.setCaretPosition(5);
+            nameTextField.getDocument().insertString(5, "s", null);
+          } catch (BadLocationException ex) {
+            throw new IllegalStateException(ex);
+          }
+        }
+      });
+    waitForUpdate();
+
+    assertEquals("Pieces 1", this.piece1.getName());
+    assertSame("Edited component shouldn't be replaced", nameTextField, getNameTextField());
+    assertEquals("Pieces 1", nameTextField.getText());
+    assertEquals("Caret should stay after typed character", 6, nameTextField.getCaretPosition());
+  }
+
+  private JTextField getNameTextField() {
+    for (JTextField textField : SwingTools.findChildren(this.panel, JTextField.class)) {
+      if (this.piece1.getName().equals(textField.getText())) {
+        return textField;
+      }
+    }
+    fail("No text field displaying the name of the piece");
+    return null;
   }
 }

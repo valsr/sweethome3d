@@ -188,7 +188,7 @@ public class HomePaneSideBarTest extends TestCase {
     assertFalse(getSection("Properties").isCollapsed());
   }
 
-  public void testModifyFurnitureKeepsPendingEdits() throws Exception {
+  public void testModifyFurnitureKeepsEditedProperties() throws Exception {
     addSelectedPiece();
     waitForUpdate();
     getPropertiesPanel().getFurnitureController().setName("Renamed");
