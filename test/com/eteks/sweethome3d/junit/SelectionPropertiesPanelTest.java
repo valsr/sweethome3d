@@ -1,5 +1,5 @@
 /*
- * FurniturePropertiesPanelTest.java
+ * SelectionPropertiesPanelTest.java
  *
  * Sweet Home 3D, Copyright (c) 2024 Space Mushrooms <info@sweethome3d.com>
  *
@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Locale;
 
 import javax.swing.JButton;
+import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.text.BadLocationException;
 import javax.swing.undo.AbstractUndoableEdit;
@@ -34,32 +35,46 @@ import javax.swing.undo.UndoableEditSupport;
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
+import com.eteks.sweethome3d.model.DimensionLine;
+import com.eteks.sweethome3d.model.ObserverCamera;
 import com.eteks.sweethome3d.model.PieceOfFurniture;
+import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.UserPreferences;
+import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.swing.FileContentManager;
-import com.eteks.sweethome3d.swing.FurniturePropertiesPanel;
+import com.eteks.sweethome3d.swing.SelectionPropertiesPanel;
 import com.eteks.sweethome3d.swing.HomeFurniturePanel;
+import com.eteks.sweethome3d.swing.ObserverCameraPanel;
+import com.eteks.sweethome3d.swing.RoomPanel;
 import com.eteks.sweethome3d.swing.SwingTools;
 import com.eteks.sweethome3d.swing.SwingViewFactory;
-import com.eteks.sweethome3d.viewcontroller.FurnitureController;
+import com.eteks.sweethome3d.swing.WallPanel;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
+import com.eteks.sweethome3d.viewcontroller.ObserverCameraController;
+import com.eteks.sweethome3d.viewcontroller.PlanController;
+import com.eteks.sweethome3d.viewcontroller.RoomController;
+import com.eteks.sweethome3d.viewcontroller.WallController;
 
 import junit.framework.TestCase;
 
 /**
- * Tests the {@link com.eteks.sweethome3d.swing.FurniturePropertiesPanel panel}
+ * Tests the {@link com.eteks.sweethome3d.swing.SelectionPropertiesPanel panel}
  * which edits the properties of the selected furniture without dialog box,
  * and applies each edit immediately.
  */
-public class FurniturePropertiesPanelTest extends TestCase {
+public class SelectionPropertiesPanelTest extends TestCase {
   private Home                     home;
   private HomePieceOfFurniture     piece1;
   private HomePieceOfFurniture     piece2;
+  private Room                     room1;
+  private Room                     room2;
+  private Wall                     wall1;
+  private Wall                     wall2;
   private UserPreferences          preferences;
   private UndoableEditSupport      undoSupport;
   private UndoManager              undoManager;
-  private FurniturePropertiesPanel panel;
+  private SelectionPropertiesPanel panel;
 
   @Override
   protected void setUp() throws Exception {
@@ -78,9 +93,20 @@ public class FurniturePropertiesPanelTest extends TestCase {
     UndoableEditSupport undoSupport = this.undoSupport = new UndoableEditSupport();
     this.undoManager = new UndoManager();
     undoSupport.addUndoableEditListener(this.undoManager);
-    FurnitureController furnitureController = new FurnitureController(this.home, preferences,
+    this.room1 = new Room(new float [][] {{0, 0}, {400, 0}, {400, 300}, {0, 300}});
+    this.room1.setName("Room 1");
+    this.home.addRoom(this.room1);
+    this.room2 = new Room(new float [][] {{500, 0}, {900, 0}, {900, 300}, {500, 300}});
+    this.room2.setName("Room 2");
+    this.home.addRoom(this.room2);
+    this.wall1 = new Wall(0, 0, 400, 0, 10, 250);
+    this.home.addWall(this.wall1);
+    this.wall2 = new Wall(0, 300, 400, 300, 15, 250);
+    this.home.addWall(this.wall2);
+
+    PlanController planController = new PlanController(this.home, preferences,
         new SwingViewFactory(), new FileContentManager(preferences), undoSupport);
-    this.panel = new FurniturePropertiesPanel(this.home, preferences, furnitureController);
+    this.panel = new SelectionPropertiesPanel(this.home, preferences, planController, planController);
   }
 
   /**
@@ -297,12 +323,18 @@ public class FurniturePropertiesPanelTest extends TestCase {
 
   public void testSuccessiveSelectionChangesUpdatePanelOnce() throws Exception {
     select(this.piece1);
-    Object controller = this.panel.getFurnitureController();
+    final Object controller = this.panel.getFurnitureController();
 
-    // Change selection twice before the panel had a chance to be updated
-    this.home.setSelectedItems(Collections.<Selectable>emptyList());
-    this.home.setSelectedItems(Arrays.asList(new Selectable [] {this.piece2}));
-    assertSame("Panel should be updated later", controller, this.panel.getFurnitureController());
+    // Change selection twice in the Event Dispatch Thread before the panel has a chance to be updated
+    final Object [] controllerAfterSelection = new Object [1];
+    EventQueue.invokeAndWait(new Runnable() {
+        public void run() {
+          home.setSelectedItems(Collections.<Selectable>emptyList());
+          home.setSelectedItems(Arrays.asList(new Selectable [] {piece2}));
+          controllerAfterSelection [0] = panel.getFurnitureController();
+        }
+      });
+    assertSame("Panel should be updated later", controller, controllerAfterSelection [0]);
     waitForUpdate();
 
     assertEquals("Piece 2", this.panel.getFurnitureController().getName());
@@ -340,5 +372,250 @@ public class FurniturePropertiesPanelTest extends TestCase {
     }
     fail("No text field displaying the name of the piece");
     return null;
+  }
+
+  private boolean isHintDisplayed() {
+    for (JLabel label : SwingTools.findChildren(this.panel, JLabel.class)) {
+      if ("Select an object to see its properties".equals(label.getText())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public void testHintIsDisplayedWithoutEditedObject() throws Exception {
+    assertTrue(isHintDisplayed());
+    select(this.piece1);
+    assertFalse(isHintDisplayed());
+    select();
+    assertTrue(isHintDisplayed());
+  }
+
+  public void testHintIsDisplayedWhenObjectsOfDifferentKindsAreSelected() throws Exception {
+    select(this.piece1);
+    select(this.piece1, this.room1);
+    assertTrue(isHintDisplayed());
+    assertNull(this.panel.getFurnitureController());
+    assertNull(this.panel.getRoomController());
+
+    select(this.room1, this.wall1);
+    assertTrue(isHintDisplayed());
+    assertNull(this.panel.getRoomController());
+    assertNull(this.panel.getWallController());
+  }
+
+  public void testSelectedRoomsAreEdited() throws Exception {
+    select(this.room1);
+
+    assertEquals("Room 1", this.panel.getRoomController().getName());
+    assertNull(this.panel.getFurnitureController());
+    assertNull(this.panel.getWallController());
+    assertEquals(1, SwingTools.findChildren(this.panel, RoomPanel.class).size());
+    assertFalse(isHintDisplayed());
+
+    select(this.piece1);
+    assertNull(this.panel.getRoomController());
+    assertNotNull(this.panel.getFurnitureController());
+    assertTrue(SwingTools.findChildren(this.panel, RoomPanel.class).isEmpty());
+  }
+
+  public void testObjectsWithoutEditedPropertiesAreIgnored() throws Exception {
+    DimensionLine dimensionLine = new DimensionLine(0, 0, 100, 0, 20);
+    this.home.addDimensionLine(dimensionLine);
+    select(this.room1, dimensionLine);
+    assertNotNull(this.panel.getRoomController());
+
+    select(dimensionLine);
+    assertTrue(isHintDisplayed());
+  }
+
+  private void editRoomName(final String name) throws Exception {
+    edit(new Runnable() {
+        public void run() {
+          panel.getRoomController().setName(name);
+        }
+      });
+  }
+
+  public void testRoomEditsAreAppliedImmediatelyAndUndoneAtOnce() throws Exception {
+    select(this.room1);
+    RoomController controller = this.panel.getRoomController();
+    for (String name : new String [] {"K", "Ki", "Kit"}) {
+      editRoomName(name);
+      assertEquals(name, this.room1.getName());
+    }
+    assertSame("Panel shouldn't be rebuilt by its own edits", controller, this.panel.getRoomController());
+    assertFalse(this.preferences.getAutoCompletionStrings("RoomName").contains("Kit"));
+
+    this.undoManager.undo();
+    waitForUpdate();
+    assertEquals("Room 1", this.room1.getName());
+    assertFalse(this.undoManager.canUndo());
+    assertSame(controller, this.panel.getRoomController());
+    assertEquals("Room 1", controller.getName());
+
+    this.undoManager.redo();
+    assertEquals("Kit", this.room1.getName());
+  }
+
+  public void testRoomEditsOfDifferentPropertiesAreUndoneSeparately() throws Exception {
+    select(this.room1, this.room2);
+    final boolean ceilingFlat = this.room2.isCeilingFlat();
+    edit(new Runnable() {
+        public void run() {
+          panel.getRoomController().setFloorColor(0xFF0000);
+          panel.getRoomController().setFloorPaint(RoomController.RoomPaint.COLORED);
+        }
+      });
+    edit(new Runnable() {
+        public void run() {
+          panel.getRoomController().setCeilingFlat(!ceilingFlat);
+        }
+      });
+    assertEquals(Integer.valueOf(0xFF0000), this.room1.getFloorColor());
+    assertEquals(Integer.valueOf(0xFF0000), this.room2.getFloorColor());
+    assertEquals(!ceilingFlat, this.room2.isCeilingFlat());
+    assertEquals("Different names of rooms shouldn't change", "Room 1", this.room1.getName());
+    assertEquals("Room 2", this.room2.getName());
+
+    this.undoManager.undo();
+    assertEquals(ceilingFlat, this.room2.isCeilingFlat());
+    assertEquals(Integer.valueOf(0xFF0000), this.room1.getFloorColor());
+    this.undoManager.undo();
+    assertNull(this.room1.getFloorColor());
+    assertFalse(this.undoManager.canUndo());
+  }
+
+  public void testRoomChangedElsewhereIsUpdatedInPlaceWithoutEdit() throws Exception {
+    select(this.room1);
+    RoomController controller = this.panel.getRoomController();
+
+    this.room1.setName("Bedroom");
+    waitForUpdate();
+    waitForUpdate();
+
+    assertSame(controller, this.panel.getRoomController());
+    assertEquals("Bedroom", controller.getName());
+    assertFalse(this.undoManager.canUndo());
+  }
+
+  public void testSelectedWallsAreEdited() throws Exception {
+    select(this.wall1);
+
+    assertEquals(10f, this.panel.getWallController().getThickness());
+    assertNull(this.panel.getRoomController());
+    assertEquals(1, SwingTools.findChildren(this.panel, WallPanel.class).size());
+
+    select(this.wall1, this.wall2);
+    assertNull("Different thicknesses", this.panel.getWallController().getThickness());
+  }
+
+  private void editWallThickness(final float thickness) throws Exception {
+    edit(new Runnable() {
+        public void run() {
+          panel.getWallController().setThickness(thickness);
+        }
+      });
+  }
+
+  public void testWallEditsAreAppliedImmediatelyAndUndoneAtOnce() throws Exception {
+    select(this.wall1);
+    WallController controller = this.panel.getWallController();
+    editWallThickness(11);
+    assertEquals(11f, this.wall1.getThickness());
+    editWallThickness(12);
+    edit(new Runnable() {
+        public void run() {
+          panel.getWallController().setXEnd(500f);
+        }
+      });
+    assertEquals(12f, this.wall1.getThickness());
+    assertEquals(500f, this.wall1.getXEnd());
+    assertSame(controller, this.panel.getWallController());
+
+    this.undoManager.undo();
+    assertEquals(400f, this.wall1.getXEnd());
+    assertEquals(12f, this.wall1.getThickness());
+    this.undoManager.undo();
+    assertEquals(10f, this.wall1.getThickness());
+    assertFalse(this.undoManager.canUndo());
+
+    this.undoManager.redo();
+    assertEquals(12f, this.wall1.getThickness());
+  }
+
+  public void testWallBaseboardEditIsAppliedImmediately() throws Exception {
+    select(this.wall1);
+    assertNull(this.wall1.getLeftSideBaseboard());
+
+    edit(new Runnable() {
+        public void run() {
+          panel.getWallController().getLeftSideBaseboardController().setVisible(true);
+        }
+      });
+
+    assertNotNull(this.wall1.getLeftSideBaseboard());
+    this.undoManager.undo();
+    assertNull(this.wall1.getLeftSideBaseboard());
+  }
+
+  public void testWallChangedElsewhereIsUpdatedInPlaceWithoutEdit() throws Exception {
+    select(this.wall1);
+    WallController controller = this.panel.getWallController();
+
+    // Simulate a wall resized in the plan
+    this.wall1.setXEnd(600);
+    waitForUpdate();
+    waitForUpdate();
+
+    assertSame(controller, this.panel.getWallController());
+    assertEquals(600f, controller.getXEnd());
+    assertFalse(this.undoManager.canUndo());
+  }
+
+  public void testSelectedObserverCameraIsEdited() throws Exception {
+    select(this.home.getObserverCamera());
+
+    assertNotNull(this.panel.getObserverCameraController());
+    assertEquals(this.home.getObserverCamera().getX(), this.panel.getObserverCameraController().getX());
+    assertNull(this.panel.getWallController());
+    assertEquals(1, SwingTools.findChildren(this.panel, ObserverCameraPanel.class).size());
+    assertFalse(isHintDisplayed());
+
+    select(this.home.getObserverCamera(), this.wall1);
+    assertTrue(isHintDisplayed());
+    assertNull(this.panel.getObserverCameraController());
+    assertNull(this.panel.getWallController());
+  }
+
+  public void testObserverCameraEditsAreAppliedImmediately() throws Exception {
+    ObserverCamera camera = this.home.getObserverCamera();
+    select(camera);
+    ObserverCameraController controller = this.panel.getObserverCameraController();
+    edit(new Runnable() {
+        public void run() {
+          panel.getObserverCameraController().setX(123f);
+          panel.getObserverCameraController().setFieldOfViewInDegrees(70);
+        }
+      });
+
+    assertEquals(123f, camera.getX());
+    assertEquals(70, Math.round(Math.toDegrees(camera.getFieldOfView())));
+    assertSame("Panel shouldn't be rebuilt by its own edits", controller, this.panel.getObserverCameraController());
+    assertFalse("Observer camera edits aren't undoable", this.undoManager.canUndo());
+  }
+
+  public void testObserverCameraMovedElsewhereIsUpdatedInPlace() throws Exception {
+    ObserverCamera camera = this.home.getObserverCamera();
+    select(camera);
+    ObserverCameraController controller = this.panel.getObserverCameraController();
+
+    // Simulate a move of the camera in the plan or in the 3D view
+    camera.setY(camera.getY() + 200);
+    waitForUpdate();
+    waitForUpdate();
+
+    assertSame(controller, this.panel.getObserverCameraController());
+    assertEquals(camera.getY(), controller.getY());
   }
 }

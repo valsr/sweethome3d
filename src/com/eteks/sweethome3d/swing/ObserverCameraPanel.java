@@ -267,70 +267,72 @@ public class ObserverCameraPanel extends JPanel implements DialogView {
         ? GridBagConstraints.LINE_END
         : GridBagConstraints.LINE_START;
     int standardGap = Math.round(5 * SwingTools.getResolutionScale());
+    int smallGap = Math.round(2 * SwingTools.getResolutionScale());
+    // Reduce the preferred width of spinners which fill the available width
+    int spinnerPadX = -Math.round(25 * SwingTools.getResolutionScale());
+    // First row
     JPanel locationPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
         ObserverCameraPanel.class, "locationPanel.title"));
-    // First row
-    Insets labelInsets = new Insets(0, 0, standardGap, standardGap);
-    locationPanel.add(this.xLabel, new GridBagConstraints(
-        0, 0, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, labelInsets, 0, 0));
-    Insets componentInsets = new Insets(0, 0, standardGap, 0);
-    locationPanel.add(this.xSpinner, new GridBagConstraints(
-        1, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, componentInsets, -15, 0));
-    // Second row
-    locationPanel.add(this.yLabel, new GridBagConstraints(
-        0, 1, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, labelInsets, 0, 0));
-    locationPanel.add(this.ySpinner, new GridBagConstraints(
-        1, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, componentInsets, -15, 0));
-    // Third row
-    locationPanel.add(this.elevationLabel, new GridBagConstraints(
-        0, 2, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, labelInsets, 0, 0));
-    locationPanel.add(this.elevationSpinner, new GridBagConstraints(
-        1, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, componentInsets, 0, 0));
+    addRow(locationPanel, 0, labelAlignment, smallGap, standardGap, spinnerPadX,
+        this.xLabel, this.xSpinner, this.yLabel, this.ySpinner);
+    addRow(locationPanel, 1, labelAlignment, 0, standardGap, spinnerPadX,
+        this.elevationLabel, this.elevationSpinner, null, null);
     Insets rowInsets;
     if (OperatingSystem.isMacOSXLeopardOrSuperior()) {
       // User smaller insets for Mac OS X 10.5
       rowInsets = new Insets(0, 0, 0, 0);
     } else {
-      rowInsets = new Insets(0, 0, 5, 0);
+      rowInsets = new Insets(0, 0, standardGap, 0);
     }
     add(locationPanel, new GridBagConstraints(
-        0, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
+    // Second row
     JPanel anglesPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
         ObserverCameraPanel.class, "anglesPanel.title"));
-    anglesPanel.add(this.yawLabel, new GridBagConstraints(
-        0, 0, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, labelInsets, 0, 0));
-    anglesPanel.add(this.yawSpinner, new GridBagConstraints(
-        1, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, componentInsets, -10, 0));
-    anglesPanel.add(this.pitchLabel, new GridBagConstraints(
-        0, 1, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, labelInsets, 0, 0));
-    anglesPanel.add(this.pitchSpinner, new GridBagConstraints(
-        1, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, componentInsets, 0, 0));
-    anglesPanel.add(this.fieldOfViewLabel, new GridBagConstraints(
-        0, 2, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, labelInsets, 0, 0));
-    anglesPanel.add(this.fieldOfViewSpinner, new GridBagConstraints(
-        1, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, componentInsets, 0, 0));
+    addRow(anglesPanel, 0, labelAlignment, smallGap, standardGap, spinnerPadX,
+        this.yawLabel, this.yawSpinner, this.pitchLabel, this.pitchSpinner);
+    addRow(anglesPanel, 1, labelAlignment, 0, standardGap, spinnerPadX,
+        this.fieldOfViewLabel, this.fieldOfViewSpinner, null, null);
     add(anglesPanel, new GridBagConstraints(
-        1, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
+    // Last row
+    int row = 2;
     if (controller.isObserverCameraElevationAdjustedEditable()) {
       add(this.adjustObserverCameraElevationCheckBox, new GridBagConstraints(
-          0, 1, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+          0, row++, 1, 1, 1, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+    }
+    // Keep panels at the top when more height is available
+    add(new JLabel(), new GridBagConstraints(
+        0, row, 1, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+  }
+
+  /**
+   * Adds to <code>panel</code> a row which displays one or two labels followed by their spinner.
+   */
+  private void addRow(JPanel panel, int row, int labelAlignment,
+                      int bottomInset, int standardGap, int spinnerPadX,
+                      JComponent label1, JComponent spinner1,
+                      JComponent label2, JComponent spinner2) {
+    int smallGap = Math.round(2 * SwingTools.getResolutionScale());
+    panel.add(label1, new GridBagConstraints(
+        0, row, 1, 1, 0, 0, labelAlignment,
+        GridBagConstraints.NONE, new Insets(0, 0, bottomInset, smallGap), 0, 0));
+    panel.add(spinner1, new GridBagConstraints(
+        1, row, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, bottomInset, standardGap), spinnerPadX, 0));
+    if (label2 != null) {
+      panel.add(label2, new GridBagConstraints(
+          2, row, 1, 1, 0, 0, labelAlignment,
+          GridBagConstraints.NONE, new Insets(0, 0, bottomInset, smallGap), 0, 0));
+      panel.add(spinner2, new GridBagConstraints(
+          3, row, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, bottomInset, 0), spinnerPadX, 0));
     }
   }
 

@@ -3293,7 +3293,7 @@ public class HomePane extends JRootPane implements HomeView {
         addPrimarySideBarSection(primarySideBar, "catalogSection", catalogView, home, controller);
       }
       if (furnitureView != null) {
-        addFurniturePropertiesSection(primarySideBar, home, preferences, controller);
+        addSelectionPropertiesSection(primarySideBar, home, preferences, controller);
         addPrimarySideBarSection(primarySideBar, "furnitureSection", furnitureView, home, controller);
       }
       primarySideBar.addPropertyChangeListener(PrimarySideBar.SECTION_WEIGHTS_PROPERTY,
@@ -3311,14 +3311,14 @@ public class HomePane extends JRootPane implements HomeView {
 
   /**
    * Adds to the given side bar a section which edits the properties of the selected furniture,
-   * and displays this section when the user requests to modify furniture.
+   * rooms, walls or observer camera, and displays this section when the user requests to modify them.
    */
-  private void addFurniturePropertiesSection(final PrimarySideBar primarySideBar,
+  private void addSelectionPropertiesSection(final PrimarySideBar primarySideBar,
                                              Home home,
                                              UserPreferences preferences,
                                              HomeController controller) {
-    final FurniturePropertiesPanel propertiesPanel =
-        new FurniturePropertiesPanel(home, preferences, controller.getFurnitureController());
+    final SelectionPropertiesPanel propertiesPanel =
+        new SelectionPropertiesPanel(home, preferences, controller.getFurnitureController(), controller.getPlanController());
     final CollapsibleSection propertiesSection =
         addPrimarySideBarSection(primarySideBar, "propertiesSection", propertiesPanel, home, controller);
     // Update properties panel only when it's visible
@@ -3331,7 +3331,7 @@ public class HomePane extends JRootPane implements HomeView {
     primarySideBar.addPropertyChangeListener(PrimarySideBar.COLLAPSED_PROPERTY, visibilityListener);
     visibilityListener.propertyChange(null);
 
-    Runnable selectedFurnitureModifier = new Runnable() {
+    Runnable selectedObjectsModifier = new Runnable() {
         public void run() {
           primarySideBar.setCollapsed(false);
           propertiesSection.setCollapsed(false);
@@ -3343,9 +3343,12 @@ public class HomePane extends JRootPane implements HomeView {
             });
         }
       };
-    controller.getFurnitureController().setSelectedFurnitureModifier(selectedFurnitureModifier);
+    controller.getFurnitureController().setSelectedFurnitureModifier(selectedObjectsModifier);
     if (controller.getPlanController() != null) {
-      controller.getPlanController().setSelectedFurnitureModifier(selectedFurnitureModifier);
+      controller.getPlanController().setSelectedFurnitureModifier(selectedObjectsModifier);
+      controller.getPlanController().setSelectedRoomsModifier(selectedObjectsModifier);
+      controller.getPlanController().setSelectedWallsModifier(selectedObjectsModifier);
+      controller.getPlanController().setObserverCameraModifier(selectedObjectsModifier);
     }
   }
 

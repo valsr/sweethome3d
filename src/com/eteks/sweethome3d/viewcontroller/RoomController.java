@@ -235,7 +235,7 @@ public class RoomController implements Controller {
   /**
    * Updates edited properties from selected rooms in the home edited by this controller.
    */
-  protected void updateProperties() {
+  public void updateProperties() {
     List<Room> selectedRooms = Home.getRoomsSubList(this.home.getSelectedItems());
     if (selectedRooms.isEmpty()) {
       setAreaVisible(null); // Nothing to edit
@@ -1079,6 +1079,16 @@ public class RoomController implements Controller {
    * Controls the modification of selected rooms in edited home.
    */
   public void modifyRooms() {
+    modifyRooms(null);
+  }
+
+  /**
+   * Controls the modification of selected rooms in edited home, with an undoable edit
+   * which will be merged with the previous one if that one was posted with an equal key.
+   * @param mergeKey an object identifying the kind of modification,
+   *            or <code>null</code> if the edit shouldn't be merged with an other one
+   */
+  public void modifyRooms(Object mergeKey) {
     List<Selectable> oldSelection = this.home.getSelectedItems();
     List<Room> selectedRooms = Home.getRoomsSubList(oldSelection);
     if (!selectedRooms.isEmpty()) {
@@ -1147,7 +1157,7 @@ public class RoomController implements Controller {
           wallSidesBaseboardThickness, wallSidesBaseboardHeight, wallSidesBaseboardPaint,
           wallSidesBaseboardColor, wallSidesBaseboardTexture, null, null);
       if (this.undoSupport != null) {
-        this.undoSupport.postEdit(new RoomsAndWallSidesModificationUndoableEdit(this.home, this.preferences,
+        RoomsAndWallSidesModificationUndoableEdit undoableEdit = new RoomsAndWallSidesModificationUndoableEdit(this.home, this.preferences,
             oldSelection.toArray(new Selectable [oldSelection.size()]), newSelection.toArray(new Selectable [newSelection.size()]),
             modifiedRooms, name, areaVisible,
             floorVisible, floorPaint, floorColor, floorTexture, floorShininess, ceilingVisible,
@@ -1156,9 +1166,12 @@ public class RoomController implements Controller {
             wallSidesColor, wallSidesTexture, wallSidesShininess, wallSidesBaseboardVisible,
             wallSidesBaseboardThickness, wallSidesBaseboardHeight, wallSidesBaseboardPaint,
             wallSidesBaseboardColor, wallSidesBaseboardTexture, deletedWalls.toArray(new ModifiedWall [deletedWalls.size()]),
-            addedWalls.toArray(new ModifiedWall [addedWalls.size()])));
+            addedWalls.toArray(new ModifiedWall [addedWalls.size()]));
+        undoableEdit.setMergeKey(mergeKey);
+        this.undoSupport.postEdit(undoableEdit);
       }
-      if (name != null) {
+      // Don't propose the intermediate texts of a modification applied at each change
+      if (name != null && mergeKey == null) {
         this.preferences.addAutoCompletionString("RoomName", name);
       }
     }
@@ -1346,7 +1359,7 @@ public class RoomController implements Controller {
    * Undoable edit for rooms modification. This class isn't anonymous to avoid
    * being bound to controller and its view.
    */
-  private static class RoomsAndWallSidesModificationUndoableEdit extends LocalizedUndoableEdit {
+  private static class RoomsAndWallSidesModificationUndoableEdit extends MergeableUndoableEdit {
     private final Home                home;
     private final Selectable []       oldSelection;
     private final Selectable []       newSelection;
@@ -1451,13 +1464,27 @@ public class RoomController implements Controller {
     @Override
     public void undo() throws CannotUndoException {
       super.undo();
-      undoModifyRoomsAndWallSides(this.home, this.modifiedRooms, this.modifiedWallSides, this.deletedWalls, this.addedWalls);
+      undoMergedModifications();
+      undoModification();
       this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
 
     @Override
     public void redo() throws CannotRedoException {
       super.redo();
+      redoModification();
+      redoMergedModifications();
+      // Select the items selected after the last modification
+      this.home.setSelectedItems(Arrays.asList(((RoomsAndWallSidesModificationUndoableEdit)getLastEdit()).newSelection));
+    }
+
+    @Override
+    protected void undoModification() {
+      undoModifyRoomsAndWallSides(this.home, this.modifiedRooms, this.modifiedWallSides, this.deletedWalls, this.addedWalls);
+    }
+
+    @Override
+    protected void redoModification() {
       doModifyRoomsAndWallSides(this.home,
           this.modifiedRooms, this.name, this.areaVisible,
           this.floorVisible, this.floorPaint, this.floorColor, this.floorTexture, this.floorShininess, this.ceilingVisible,
@@ -1467,7 +1494,6 @@ public class RoomController implements Controller {
           this.wallSidesBaseboardThickness, this.wallSidesBaseboardHeight, this.wallSidesBaseboardPaint,
           this.wallSidesBaseboardColor, this.wallSidesBaseboardTexture, this.deletedWalls,
           this.addedWalls);
-      this.home.setSelectedItems(Arrays.asList(this.newSelection));
     }
   }
 

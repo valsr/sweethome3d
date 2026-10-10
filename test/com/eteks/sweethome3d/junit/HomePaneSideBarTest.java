@@ -34,10 +34,12 @@ import com.eteks.sweethome3d.io.DefaultUserPreferences;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.RecorderException;
+import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.UserPreferences;
+import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.swing.CollapsibleSection;
-import com.eteks.sweethome3d.swing.FurniturePropertiesPanel;
+import com.eteks.sweethome3d.swing.SelectionPropertiesPanel;
 import com.eteks.sweethome3d.swing.HomePane;
 import com.eteks.sweethome3d.swing.PrimarySideBar;
 import com.eteks.sweethome3d.swing.SwingTools;
@@ -133,8 +135,8 @@ public class HomePaneSideBarTest extends TestCase {
     assertFalse(SwingUtilities.isDescendingFrom(treeView, this.homePane));
   }
 
-  private FurniturePropertiesPanel getPropertiesPanel() {
-    return SwingTools.findChildren(getSection("Properties"), FurniturePropertiesPanel.class).get(0);
+  private SelectionPropertiesPanel getPropertiesPanel() {
+    return SwingTools.findChildren(getSection("Properties"), SelectionPropertiesPanel.class).get(0);
   }
 
   /**
@@ -186,6 +188,39 @@ public class HomePaneSideBarTest extends TestCase {
     waitForUpdate();
 
     assertFalse(getSection("Properties").isCollapsed());
+  }
+
+  public void testModifyRoomsAndWallsRevealPropertiesSectionInsteadOfDialog() throws Exception {
+    Room room = new Room(new float [][] {{0, 0}, {400, 0}, {400, 300}, {0, 300}});
+    this.home.addRoom(room);
+    Wall wall = new Wall(0, 0, 400, 0, 10, 250);
+    this.home.addWall(wall);
+
+    this.home.setSelectedItems(Arrays.asList(new Selectable [] {room}));
+    getSection("Properties").setCollapsed(true);
+    this.homeController.getPlanController().modifySelectedRooms();
+    waitForUpdate();
+    assertFalse(getSection("Properties").isCollapsed());
+    assertNotNull(getPropertiesPanel().getRoomController());
+
+    this.home.setSelectedItems(Arrays.asList(new Selectable [] {wall}));
+    this.sideBar.setCollapsed(true);
+    this.homeController.getPlanController().modifySelectedItem();
+    waitForUpdate();
+    assertFalse(this.sideBar.isCollapsed());
+    assertNotNull(getPropertiesPanel().getWallController());
+  }
+
+  public void testModifyObserverCameraSelectsItAndRevealsPropertiesSection() throws Exception {
+    getSection("Properties").setCollapsed(true);
+    assertTrue(this.home.getSelectedItems().isEmpty());
+
+    this.homeController.getPlanController().modifyObserverCamera();
+    waitForUpdate();
+
+    assertFalse(getSection("Properties").isCollapsed());
+    assertEquals(Arrays.asList(new Selectable [] {this.home.getObserverCamera()}), this.home.getSelectedItems());
+    assertNotNull(getPropertiesPanel().getObserverCameraController());
   }
 
   public void testModifyFurnitureKeepsEditedProperties() throws Exception {

@@ -108,7 +108,7 @@ public class ObserverCameraController implements Controller {
   /**
    * Updates edited properties from the 3D attributes of the home edited by this controller.
    */
-  protected void updateProperties() {
+  public void updateProperties() {
     ObserverCamera observerCamera = this.home.getObserverCamera();
     setX(observerCamera.getX());
     setY(observerCamera.getY());

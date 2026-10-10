@@ -34,7 +34,6 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.event.ChangeEvent;
@@ -742,104 +741,128 @@ public class RoomPanel extends JPanel implements DialogView {
         rowInsets = new Insets(0, 0, standardGap, 0);
       }
       add(nameAndAreaPanel, new GridBagConstraints(
-          0, 0, 3, 1, 0, 0, GridBagConstraints.LINE_START,
+          0, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
     }
-    // Last row
+    // Next rows display floor, ceiling, wall sides and baseboard in panels placed one under the other
+    int row = 1;
     if (this.floorVisibleCheckBox != null || this.floorColorRadioButton != null || this.floorMattRadioButton != null) {
-      JComponent filler = new JLabel();
-      filler.setPreferredSize(new JCheckBox().getPreferredSize());
-      JPanel floorPanel = createVerticalTitledPanel(preferences.getLocalizedString(
+      JPanel floorPanel = createCompactTitledPanel(preferences.getLocalizedString(
           RoomPanel.class, "floorPanel.title"),
-          new JComponent [][] {{this.floorVisibleCheckBox, null,
-                                this.floorColorRadioButton, this.floorColorButton,
-                                this.floorTextureRadioButton, this.floorTextureComponent,
-                                this.ceilingFlatCheckBox != null ? filler : null, null},
-                                {this.floorMattRadioButton, this.floorShinyRadioButton}});
+          new JComponent [] {this.floorVisibleCheckBox},
+          this.floorColorRadioButton, this.floorColorButton,
+          this.floorTextureRadioButton, this.floorTextureComponent,
+          this.floorMattRadioButton, this.floorShinyRadioButton);
       add(floorPanel, new GridBagConstraints(
-          0, 1, 1, 1, 1, 0, GridBagConstraints.NORTH,
-          GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+          0, row++, 1, 1, 1, 0, GridBagConstraints.NORTH,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
     }
     if (this.ceilingVisibleCheckBox != null || this.ceilingColorRadioButton != null || this.ceilingMattRadioButton != null) {
-      JComponent filler = new JLabel();
-      filler.setPreferredSize(new JCheckBox().getPreferredSize());
-      JPanel ceilingPanel = createVerticalTitledPanel(preferences.getLocalizedString(
+      JPanel ceilingPanel = createCompactTitledPanel(preferences.getLocalizedString(
           RoomPanel.class, "ceilingPanel.title"),
-          new JComponent [][] {{this.ceilingVisibleCheckBox, null,
-                                this.ceilingColorRadioButton, this.ceilingColorButton,
-                                this.ceilingTextureRadioButton, this.ceilingTextureComponent,
-                                this.ceilingFlatCheckBox != null ? this.ceilingFlatCheckBox : filler, null},
-                                {this.ceilingMattRadioButton, this.ceilingShinyRadioButton}});
+          new JComponent [] {this.ceilingVisibleCheckBox, this.ceilingFlatCheckBox},
+          this.ceilingColorRadioButton, this.ceilingColorButton,
+          this.ceilingTextureRadioButton, this.ceilingTextureComponent,
+          this.ceilingMattRadioButton, this.ceilingShinyRadioButton);
       add(ceilingPanel, new GridBagConstraints(
-          1, 1, 1, 1, 1, 0, GridBagConstraints.NORTH,
-          GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+          0, row++, 1, 1, 1, 0, GridBagConstraints.NORTH,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
     }
     if (this.wallSidesColorRadioButton != null || this.wallSidesMattRadioButton != null) {
-      JComponent filler = new JLabel();
-      filler.setPreferredSize(new JCheckBox().getPreferredSize());
-      JPanel wallSidesPanel = createVerticalTitledPanel(preferences.getLocalizedString(
+      JPanel wallSidesPanel = createCompactTitledPanel(preferences.getLocalizedString(
           RoomPanel.class, "wallSidesPanel.title"),
-          new JComponent [][] {{this.splitSurroundingWallsCheckBox, null,
-                               this.wallSidesColorRadioButton, this.wallSidesColorButton,
-                               this.wallSidesTextureRadioButton, this.wallSidesTextureComponent,
-                               this.ceilingFlatCheckBox != null ? filler : null, null},
-                               {this.wallSidesMattRadioButton, this.wallSidesShinyRadioButton}});
+          new JComponent [] {this.splitSurroundingWallsCheckBox},
+          this.wallSidesColorRadioButton, this.wallSidesColorButton,
+          this.wallSidesTextureRadioButton, this.wallSidesTextureComponent,
+          this.wallSidesMattRadioButton, this.wallSidesShinyRadioButton);
       add(wallSidesPanel, new GridBagConstraints(
-          2, 1, 1, 1, 1, 0, GridBagConstraints.NORTH,
-          GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+          0, row++, 1, 1, 1, 0, GridBagConstraints.NORTH,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
     }
     if (this.wallSidesBaseboardComponent != null) {
       JPanel wallSidesBaseboardPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
           RoomPanel.class, "wallSidesBaseboardPanel.title"));
       wallSidesBaseboardPanel.add(this.wallSidesBaseboardComponent, new GridBagConstraints(
-          0, 0, 1, 1, 0, 0, GridBagConstraints.CENTER,
-          GridBagConstraints.HORIZONTAL, new Insets(0, 0, new JCheckBox().getPreferredSize().height, 0), 0, 0));
+          0, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
       add(wallSidesBaseboardPanel, new GridBagConstraints(
-          3, 0, 1, 2, 0, 1, GridBagConstraints.NORTH,
-          GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+          0, row++, 1, 1, 1, 0, GridBagConstraints.NORTH,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
     }
+    // Keep panels at the top when more height is available
+    add(new JLabel(), new GridBagConstraints(
+        0, row, 1, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
   }
 
-  private JPanel createVerticalTitledPanel(String title, JComponent [][] componentGroups) {
+  /**
+   * Returns a titled panel which displays the given components in three compact rows:
+   * the options, the color and the texture, then the shininess.
+   */
+  private JPanel createCompactTitledPanel(String title,
+                                          JComponent [] options,
+                                          JComponent colorRadioButton, JComponent colorButton,
+                                          JComponent textureRadioButton, JComponent textureComponent,
+                                          JComponent mattRadioButton, JComponent shinyRadioButton) {
     JPanel titledPanel = SwingTools.createTitledPanel(title);
-
+    int smallGap = Math.round(2 * SwingTools.getResolutionScale());
+    int standardGap = Math.round(5 * SwingTools.getResolutionScale());
     int row = 0;
-    for (int i = 0; i < componentGroups.length; i++) {
-      JComponent [] components = componentGroups [i];
-      for (int j = 0; j < components.length; j += 2) {
-        int bottomInset = j < components.length - 2  ? Math.round(2 * SwingTools.getResolutionScale())  : 0;
-        JComponent component = components [j];
-        JComponent nextComponent = components [j + 1];
-        if (component != null) {
-          if (nextComponent != null) {
-            titledPanel.add(component, new GridBagConstraints(
-                0, row, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-                GridBagConstraints.NONE,  new Insets(0, 0, bottomInset, Math.round(5 * SwingTools.getResolutionScale())), 0, 0));
-            titledPanel.add(nextComponent, new GridBagConstraints(
-                1, row++, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-                GridBagConstraints.HORIZONTAL, new Insets(0, 0, bottomInset, 0), 0, 0));
-          } else {
-            titledPanel.add(component, new GridBagConstraints(
-                0, row++, 2, 1, 1, 0, GridBagConstraints.LINE_START,
-                GridBagConstraints.HORIZONTAL, new Insets(0, 0, bottomInset, 0), 0, 0));
-          }
-        }
-      }
+    JPanel optionsPanel = createRowPanel(standardGap, options);
+    if (optionsPanel != null) {
+      titledPanel.add(optionsPanel, new GridBagConstraints(
+          0, row++, 4, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, 0), 0, 0));
+    }
+    if (colorRadioButton != null) {
+      titledPanel.add(colorRadioButton, new GridBagConstraints(
+          0, row, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, smallGap, smallGap), 0, 0));
+      titledPanel.add(colorButton, new GridBagConstraints(
+          1, row, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, standardGap), 0, 0));
+    }
+    if (textureRadioButton != null) {
+      titledPanel.add(textureRadioButton, new GridBagConstraints(
+          2, row, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.NONE, new Insets(0, 0, smallGap, smallGap), 0, 0));
+      titledPanel.add(textureComponent, new GridBagConstraints(
+          3, row, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, smallGap, 0), 0, 0));
+    }
+    row++;
+    JPanel shininessPanel = createRowPanel(standardGap, mattRadioButton, shinyRadioButton);
+    if (shininessPanel != null) {
+      titledPanel.add(shininessPanel, new GridBagConstraints(
+          0, row, 4, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+    }
+    return titledPanel;
+  }
 
-      if (i < componentGroups.length - 1) {
-        // Add a separator between groups
-        for (JComponent otherComponent : componentGroups [i + 1]) {
-          if (otherComponent != null) {
-            titledPanel.add(new JSeparator(), new GridBagConstraints(
-                0, row++, 2, 1, 1, 0, GridBagConstraints.CENTER,
-                GridBagConstraints.HORIZONTAL, new Insets(3, 0, 3, 0), 0, 0));
-            break;
-          }
-        }
+  /**
+   * Returns a panel which displays the components different from <code>null</code> in a row,
+   * or <code>null</code> if there's no component to display.
+   */
+  private JPanel createRowPanel(int gap, JComponent ... components) {
+    JPanel rowPanel = new JPanel(new GridBagLayout());
+    int column = 0;
+    for (JComponent component : components) {
+      if (component != null) {
+        rowPanel.add(component, new GridBagConstraints(
+            column++, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+            GridBagConstraints.NONE, new Insets(0, 0, 0, 2 * gap), 0, 0));
       }
     }
-
-    return titledPanel;
+    if (column == 0) {
+      return null;
+    } else {
+      // Keep components at the start of the row
+      rowPanel.add(new JLabel(), new GridBagConstraints(
+          column, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+      return rowPanel;
+    }
   }
 
   /**
