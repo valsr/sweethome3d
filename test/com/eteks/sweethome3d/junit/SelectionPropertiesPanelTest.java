@@ -320,12 +320,18 @@ public class SelectionPropertiesPanelTest extends TestCase {
 
   public void testSuccessiveSelectionChangesUpdatePanelOnce() throws Exception {
     select(this.piece1);
-    Object controller = this.panel.getFurnitureController();
+    final Object controller = this.panel.getFurnitureController();
 
-    // Change selection twice before the panel had a chance to be updated
-    this.home.setSelectedItems(Collections.<Selectable>emptyList());
-    this.home.setSelectedItems(Arrays.asList(new Selectable [] {this.piece2}));
-    assertSame("Panel should be updated later", controller, this.panel.getFurnitureController());
+    // Change selection twice in the Event Dispatch Thread before the panel has a chance to be updated
+    final Object [] controllerAfterSelection = new Object [1];
+    EventQueue.invokeAndWait(new Runnable() {
+        public void run() {
+          home.setSelectedItems(Collections.<Selectable>emptyList());
+          home.setSelectedItems(Arrays.asList(new Selectable [] {piece2}));
+          controllerAfterSelection [0] = panel.getFurnitureController();
+        }
+      });
+    assertSame("Panel should be updated later", controller, controllerAfterSelection [0]);
     waitForUpdate();
 
     assertEquals("Piece 2", this.panel.getFurnitureController().getName());

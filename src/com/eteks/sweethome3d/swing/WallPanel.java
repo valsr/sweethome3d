@@ -19,6 +19,7 @@
  */
 package com.eteks.sweethome3d.swing;
 
+import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.ComponentOrientation;
 import java.awt.Dimension;
@@ -40,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
@@ -56,6 +58,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
@@ -960,7 +963,9 @@ public class WallPanel extends JPanel implements DialogView {
     int labelAlignment = OperatingSystem.isMacOSX()
         ? GridBagConstraints.LINE_END
         : GridBagConstraints.LINE_START;
-    // First row
+    JPanel generalPanel = new JPanel(new GridBagLayout());
+    JPanel colorAndTexturePanel = new JPanel(new GridBagLayout());
+    // First row of general tab
     final JPanel startPointPanel = createTitledPanel(
         preferences.getLocalizedString(WallPanel.class, "startPointPanel.title"),
         new JComponent [] {this.xStartLabel, this.xStartSpinner,
@@ -973,10 +978,10 @@ public class WallPanel extends JPanel implements DialogView {
     } else {
       rowInsets = new Insets(0, 0, standardGap, 0);
     }
-    add(startPointPanel, new GridBagConstraints(
+    generalPanel.add(startPointPanel, new GridBagConstraints(
         0, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
-    // Second row
+    // Second row of general tab
     final JPanel endPointPanel = createTitledPanel(
         preferences.getLocalizedString(WallPanel.class, "endPointPanel.title"),
         new JComponent [] {this.xEndLabel, this.xEndSpinner,
@@ -987,19 +992,19 @@ public class WallPanel extends JPanel implements DialogView {
         GridBagConstraints.NONE, new Insets(standardGap, 0, 0, standardGap), 0, 0));
     endPointPanel.add(this.distanceToEndPointSpinner, new GridBagConstraints(
         3, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), 0, 0));
+        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), -Math.round(35 * SwingTools.getResolutionScale()), 0));
 
-    add(endPointPanel, new GridBagConstraints(
+    generalPanel.add(endPointPanel, new GridBagConstraints(
         0, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
-    // Third and fourth rows
+    // First and second rows of color and texture tab
     JPanel leftSidePanel = createSidePanel(
         preferences.getLocalizedString(WallPanel.class, "leftSidePanel.title"),
         this.leftSideColorRadioButton, this.leftSideColorButton,
         this.leftSideTextureRadioButton, this.leftSideTextureComponent,
         this.leftSideMattRadioButton, this.leftSideShinyRadioButton, this.leftSideBaseboardButton);
-    add(leftSidePanel, new GridBagConstraints(
-        0, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+    colorAndTexturePanel.add(leftSidePanel, new GridBagConstraints(
+        0, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
     JPanel rightSidePanel = createSidePanel(
@@ -1007,11 +1012,11 @@ public class WallPanel extends JPanel implements DialogView {
         this.rightSideColorRadioButton, this.rightSideColorButton,
         this.rightSideTextureRadioButton, this.rightSideTextureComponent,
         this.rightSideMattRadioButton, this.rightSideShinyRadioButton, this.rightSideBaseboardButton);
-    add(rightSidePanel, new GridBagConstraints(
-        0, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+    colorAndTexturePanel.add(rightSidePanel, new GridBagConstraints(
+        0, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
-    // Fifth row
+    // Last row of color and texture tab
     JPanel topPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
         WallPanel.class, "topPanel.title"));
     int leftInset = new JRadioButton().getPreferredSize().width;
@@ -1033,9 +1038,9 @@ public class WallPanel extends JPanel implements DialogView {
     topPanel.add(this.topColorButton, new GridBagConstraints(
         3, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
-    add(topPanel, new GridBagConstraints(
-        0, 4, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
+    colorAndTexturePanel.add(topPanel, new GridBagConstraints(
+        0, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
 
     JPanel heightPanel = SwingTools.createTitledPanel(
         preferences.getLocalizedString(WallPanel.class, "heightPanel.title"));
@@ -1069,11 +1074,11 @@ public class WallPanel extends JPanel implements DialogView {
     heightPanel.add(this.slopingWallHeightAtEndSpinner, new GridBagConstraints(
         2, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
-    add(heightPanel, new GridBagConstraints(
-        0, 5, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+    generalPanel.add(heightPanel, new GridBagConstraints(
+        0, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
-    // Seventh row
+    // Fourth row of general tab
     JPanel ticknessAndArcExtentPanel = new JPanel(new GridBagLayout());
     ticknessAndArcExtentPanel.add(this.thicknessLabel, new GridBagConstraints(
         0, 0, 1, 1, 0, 0, labelAlignment,
@@ -1087,14 +1092,22 @@ public class WallPanel extends JPanel implements DialogView {
     ticknessAndArcExtentPanel.add(this.arcExtentSpinner, new GridBagConstraints(
         3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
-    add(ticknessAndArcExtentPanel, new GridBagConstraints(
-        0, 6, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.NONE, new Insets(0, 8, standardGap, 8), 0, 0));
+    generalPanel.add(ticknessAndArcExtentPanel, new GridBagConstraints(
+        0, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.NONE, new Insets(0, 0, standardGap, 0), 0, 0));
 
-    // Last row
-    add(this.wallOrientationLabel, new GridBagConstraints(
-        0, 7, 1, 1, 1, 1, GridBagConstraints.NORTH,
+    // Last row of general tab
+    generalPanel.add(this.wallOrientationLabel, new GridBagConstraints(
+        0, 4, 1, 1, 1, 0, GridBagConstraints.NORTH,
         GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+
+    // Display the panels in tabs
+    JTabbedPane tabbedPane = new JTabbedPane();
+    addTab(tabbedPane, generalPanel, preferences.getLocalizedString(WallPanel.class, "generalTab.title"));
+    addTab(tabbedPane, colorAndTexturePanel, preferences.getLocalizedString(WallPanel.class, "colorAndTextureTab.title"));
+    add(tabbedPane, new GridBagConstraints(
+        0, 0, 1, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
 
     // Make startPointPanel and endPointPanel visible depending on editable points property
     controller.addPropertyChangeListener(WallController.Property.EDITABLE_POINTS,
@@ -1110,6 +1123,17 @@ public class WallPanel extends JPanel implements DialogView {
     endPointPanel.setVisible(controller.isEditablePoints());
     this.arcExtentLabel.setVisible(controller.isEditablePoints());
     this.arcExtentSpinner.setVisible(controller.isEditablePoints());
+  }
+
+  /**
+   * Adds a tab displaying the given <code>panel</code> at its top.
+   */
+  private void addTab(JTabbedPane tabbedPane, JPanel panel, String title) {
+    int standardGap = Math.round(5 * SwingTools.getResolutionScale());
+    JPanel tabPanel = new JPanel(new BorderLayout());
+    tabPanel.setBorder(BorderFactory.createEmptyBorder(standardGap, standardGap, standardGap, standardGap));
+    tabPanel.add(panel, BorderLayout.NORTH);
+    tabbedPane.addTab(title, tabPanel);
   }
 
   /**

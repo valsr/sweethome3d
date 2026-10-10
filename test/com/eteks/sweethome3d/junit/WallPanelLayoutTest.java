@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.Locale;
 
 import javax.swing.AbstractButton;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
@@ -126,5 +129,46 @@ public class WallPanelLayoutTest extends TestCase {
     java.awt.Rectangle slopingWallBounds = getBounds("Sloping wall").get(0);
     assertTrue(rectangularWallBounds.y < slopingWallBounds.y);
     assertEquals(rectangularWallBounds.x, slopingWallBounds.x);
+  }
+
+  /**
+   * Returns the tab which displays the button or the label with the given text.
+   */
+  private String getTabTitle(String text) {
+    JTabbedPane tabbedPane = SwingTools.findChildren(this.panel, JTabbedPane.class).get(0);
+    for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+      JComponent tab = (JComponent)tabbedPane.getComponentAt(i);
+      for (AbstractButton button : SwingTools.findChildren(tab, AbstractButton.class)) {
+        if (text.equals(button.getText())) {
+          return tabbedPane.getTitleAt(i);
+        }
+      }
+      for (JLabel label : SwingTools.findChildren(tab, JLabel.class)) {
+        if (text.equals(label.getText())) {
+          return tabbedPane.getTitleAt(i);
+        }
+      }
+    }
+    fail("No component " + text + " in tabs");
+    return null;
+  }
+
+  public void testSidesAndTopAreDisplayedInColorAndTextureTab() {
+    JTabbedPane tabbedPane = SwingTools.findChildren(this.panel, JTabbedPane.class).get(0);
+    assertEquals(2, tabbedPane.getTabCount());
+    assertEquals("General", tabbedPane.getTitleAt(0));
+    assertEquals("Color and texture", tabbedPane.getTitleAt(1));
+    assertEquals(0, tabbedPane.getSelectedIndex());
+
+    // Left side, right side and top
+    assertEquals("Color and texture", getTabTitle("Modify baseboard..."));
+    assertEquals("Color and texture", getTabTitle("Texture:"));
+    assertEquals("Color and texture", getTabTitle("Pattern in plan:"));
+    assertEquals("Color and texture", getTabTitle("Top color in 3D view:"));
+    // Points, height, thickness and arc extent
+    assertEquals("General", getTabTitle("Distance between end points (inch):"));
+    assertEquals("General", getTabTitle("Rectangular wall"));
+    assertEquals("General", getTabTitle("Thickness (inch):"));
+    assertEquals("General", getTabTitle("Arc extent (\u00b0):"));
   }
 }
