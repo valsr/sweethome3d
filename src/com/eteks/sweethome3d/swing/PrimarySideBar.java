@@ -21,8 +21,10 @@ package com.eteks.sweethome3d.swing;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -31,7 +33,9 @@ import java.awt.LayoutManager;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -50,7 +54,8 @@ import javax.swing.SwingUtilities;
 import com.eteks.sweethome3d.model.UserPreferences;
 
 /**
- * A side bar displaying {@linkplain CollapsibleSection collapsible sections} stacked vertically.
+ * A side bar displaying {@linkplain CollapsibleSection collapsible sections} stacked vertically,
+ * with sizers between the expanded sections to let the user resize them.
  * The side bar itself may be collapsed with the toggle button of its {@linkplain #getEdgeStrip() edge strip},
  * which should be displayed out of this side bar to remain visible once the side bar is collapsed.
  */
@@ -67,6 +72,7 @@ public class PrimarySideBar extends JPanel {
   private final UserPreferences                preferences;
   private final List<CollapsibleSection>       sections = new ArrayList<CollapsibleSection>();
   private final Map<CollapsibleSection, Float> sectionWeights = new HashMap<CollapsibleSection, Float>();
+  private final Map<CollapsibleSection, Sizer> sizers = new HashMap<CollapsibleSection, Sizer>();
   private final JPanel                         edgeStrip;
   private final JButton                        toggleButton;
   private boolean                              collapsed;
@@ -105,7 +111,11 @@ public class PrimarySideBar extends JPanel {
           revalidate();
         }
       });
-    section.setHeaderDragListener(new SectionResizer());
+    if (this.sections.size() > 1) {
+      Sizer sizer = new Sizer(section);
+      this.sizers.put(section, sizer);
+      add(sizer);
+    }
     add(section);
     revalidate();
   }
@@ -115,6 +125,15 @@ public class PrimarySideBar extends JPanel {
    */
   public List<CollapsibleSection> getSections() {
     return new ArrayList<CollapsibleSection>(this.sections);
+  }
+
+  /**
+   * Returns the component displayed above the given <code>section</code> to resize it
+   * and the expanded section above, or <code>null</code> for the first section. A sizer
+   * is visible only if its section is expanded and follows an other expanded section.
+   */
+  public JComponent getSizer(CollapsibleSection section) {
+    return this.sizers.get(section);
   }
 
   /**
@@ -181,40 +200,96 @@ public class PrimarySideBar extends JPanel {
   }
 
   /**
-   * Resizes the expanded sections around the header dragged by the user.
+   * Returns <code>true</code> if the sizer above the given section can resize it,
+   * i.e. if it's expanded and follows an other expanded section.
    */
-  private class SectionResizer implements CollapsibleSection.HeaderDragListener {
-    private CollapsibleSection upperSection;
-    private CollapsibleSection lowerSection;
-    private int                pressedY;
-    private int                upperSectionHeight;
-    private int                lowerSectionHeight;
+  private boolean isSizerUsable(CollapsibleSection section) {
+    if (!section.isCollapsed()) {
+      for (int i = this.sections.indexOf(section) - 1; i >= 0; i--) {
+        if (!this.sections.get(i).isCollapsed()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
-    public void headerPressed(CollapsibleSection section, MouseEvent ev) {
-      this.pressedY = SwingUtilities.convertPoint(ev.getComponent(), ev.getPoint(), PrimarySideBar.this).y;
-      // Search the closest expanded sections on both sides of the top of the header
-      int sectionIndex = sections.indexOf(section);
+  /**
+   * A bar displayed above an expanded section that the user drags to resize
+   * this section and the closest expanded section above.
+   */
+  private class Sizer extends JComponent {
+    private final CollapsibleSection lowerSection;
+    private CollapsibleSection       upperSection;
+    private int                      pressedY;
+    private int                      upperSectionHeight;
+    private int                      lowerSectionHeight;
+    private boolean                  highlighted;
+
+    public Sizer(CollapsibleSection section) {
+      this.lowerSection = section;
+      setCursor(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR));
+      MouseAdapter mouseListener = new MouseAdapter() {
+          @Override
+          public void mousePressed(MouseEvent ev) {
+            if (SwingUtilities.isLeftMouseButton(ev)) {
+              startResize(ev);
+            }
+          }
+
+          @Override
+          public void mouseDragged(MouseEvent ev) {
+            if (SwingUtilities.isLeftMouseButton(ev)) {
+              resize(ev);
+            }
+          }
+
+          @Override
+          public void mouseReleased(MouseEvent ev) {
+            upperSection = null;
+            setHighlighted(getMousePosition() != null);
+          }
+
+          @Override
+          public void mouseEntered(MouseEvent ev) {
+            setHighlighted(true);
+          }
+
+          @Override
+          public void mouseExited(MouseEvent ev) {
+            // Keep sizer highlighted during a drag
+            setHighlighted(upperSection != null);
+          }
+        };
+      addMouseListener(mouseListener);
+      addMouseMotionListener(mouseListener);
+    }
+
+    private void setHighlighted(boolean highlighted) {
+      if (highlighted != this.highlighted) {
+        this.highlighted = highlighted;
+        repaint();
+      }
+    }
+
+    private void startResize(MouseEvent ev) {
+      this.pressedY = SwingUtilities.convertPoint(this, ev.getPoint(), PrimarySideBar.this).y;
+      // Search the closest expanded section above
       this.upperSection = null;
-      for (int i = sectionIndex - 1; i >= 0 && this.upperSection == null; i--) {
+      for (int i = sections.indexOf(this.lowerSection) - 1; i >= 0 && this.upperSection == null; i--) {
         if (!sections.get(i).isCollapsed()) {
           this.upperSection = sections.get(i);
         }
       }
-      this.lowerSection = null;
-      for (int i = sectionIndex; i < sections.size() && this.lowerSection == null; i++) {
-        if (!sections.get(i).isCollapsed()) {
-          this.lowerSection = sections.get(i);
-        }
-      }
-      if (this.upperSection != null && this.lowerSection != null) {
+      if (this.upperSection != null) {
         this.upperSectionHeight = getContentHeight(this.upperSection);
         this.lowerSectionHeight = getContentHeight(this.lowerSection);
       }
     }
 
-    public void headerDragged(CollapsibleSection section, MouseEvent ev) {
-      if (this.upperSection != null && this.lowerSection != null) {
-        int y = SwingUtilities.convertPoint(ev.getComponent(), ev.getPoint(), PrimarySideBar.this).y;
+    private void resize(MouseEvent ev) {
+      if (this.upperSection != null) {
+        int y = SwingUtilities.convertPoint(this, ev.getPoint(), PrimarySideBar.this).y;
         int delta = Math.max(-this.upperSectionHeight, Math.min(y - this.pressedY, this.lowerSectionHeight));
         // Use the current heights of the contents as weights
         for (CollapsibleSection expandedSection : sections) {
@@ -225,8 +300,30 @@ public class PrimarySideBar extends JPanel {
         sectionWeights.put(this.upperSection, (float)(this.upperSectionHeight + delta));
         sectionWeights.put(this.lowerSection, (float)(this.lowerSectionHeight - delta));
         revalidate();
-        firePropertyChange(SECTION_WEIGHTS_PROPERTY, null, null);
+        PrimarySideBar.this.firePropertyChange(SECTION_WEIGHTS_PROPERTY, null, null);
       }
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+      return new Dimension(0, Math.round(6 * SwingTools.getResolutionScale()));
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      Graphics2D g2D = (Graphics2D)g.create();
+      g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      Color foreground = PrimarySideBar.this.getForeground();
+      // Draw a grip of three dots at the middle of the sizer
+      g2D.setColor(new Color(foreground.getRed(), foreground.getGreen(), foreground.getBlue(),
+          this.highlighted ? 220 : 110));
+      float dotSize = 2 * SwingTools.getResolutionScale();
+      float centerX = getWidth() / 2f;
+      float centerY = getHeight() / 2f;
+      for (int i = -1; i <= 1; i++) {
+        g2D.fill(new Ellipse2D.Float(centerX + i * 3 * dotSize - dotSize / 2, centerY - dotSize / 2, dotSize, dotSize));
+      }
+      g2D.dispose();
     }
   }
 
@@ -250,6 +347,9 @@ public class PrimarySideBar extends JPanel {
             : section.getPreferredSize();
         width = Math.max(width, size.width);
         height += size.height;
+        if (isSizerUsable(section)) {
+          height += sizers.get(section).getPreferredSize().height;
+        }
       }
       return new Dimension(width + insets.left + insets.right, height + insets.top + insets.bottom);
     }
@@ -267,6 +367,9 @@ public class PrimarySideBar extends JPanel {
       CollapsibleSection lastExpandedSection = null;
       for (CollapsibleSection section : sections) {
         availableHeight -= section.getHeader().getPreferredSize().height;
+        if (isSizerUsable(section)) {
+          availableHeight -= sizers.get(section).getPreferredSize().height;
+        }
         if (!section.isCollapsed()) {
           weightsSum += sectionWeights.get(section);
           expandedSectionsCount++;
@@ -278,6 +381,17 @@ public class PrimarySideBar extends JPanel {
       int y = insets.top;
       int remainingHeight = availableHeight;
       for (CollapsibleSection section : sections) {
+        Sizer sizer = sizers.get(section);
+        if (sizer != null) {
+          // Display sizer above the section it resizes
+          boolean sizerUsable = isSizerUsable(section);
+          sizer.setVisible(sizerUsable);
+          if (sizerUsable) {
+            int sizerHeight = sizer.getPreferredSize().height;
+            sizer.setBounds(insets.left, y, width, sizerHeight);
+            y += sizerHeight;
+          }
+        }
         int height = section.getHeader().getPreferredSize().height;
         if (!section.isCollapsed()) {
           int contentHeight;

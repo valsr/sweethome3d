@@ -51,11 +51,10 @@ public class CollapsibleSection extends JPanel {
    */
   public static final String COLLAPSED_PROPERTY = "collapsed";
 
-  private final String       title;
-  private final JComponent   header;
-  private JComponent         content;
-  private boolean            collapsed;
-  private HeaderDragListener headerDragListener;
+  private final String     title;
+  private final JComponent header;
+  private JComponent       content;
+  private boolean          collapsed;
 
   /**
    * Creates an expanded section with the given <code>title</code> and <code>content</code>.
@@ -125,22 +124,6 @@ public class CollapsibleSection extends JPanel {
   }
 
   /**
-   * Sets the listener notified when the user drags the header of this section.
-   */
-  void setHeaderDragListener(HeaderDragListener headerDragListener) {
-    this.headerDragListener = headerDragListener;
-  }
-
-  /**
-   * A listener notified when the header of a section is pressed then dragged.
-   */
-  static interface HeaderDragListener {
-    public void headerPressed(CollapsibleSection section, MouseEvent ev);
-
-    public void headerDragged(CollapsibleSection section, MouseEvent ev);
-  }
-
-  /**
    * The header of a section displaying an arrow followed by its title.
    */
   private class Header extends JComponent {
@@ -168,9 +151,6 @@ public class CollapsibleSection extends JPanel {
               this.pressedY = ev.getY();
               this.dragged = false;
               requestFocusInWindow();
-              if (headerDragListener != null) {
-                headerDragListener.headerPressed(CollapsibleSection.this, ev);
-              }
             }
           }
 
@@ -178,12 +158,8 @@ public class CollapsibleSection extends JPanel {
           public void mouseDragged(MouseEvent ev) {
             if (SwingUtilities.isLeftMouseButton(ev)) {
               // Ignore small moves to avoid handling a shaky click as a drag
-              if (!this.dragged
-                  && Math.abs(ev.getY() - this.pressedY) > 3 * SwingTools.getResolutionScale()) {
+              if (Math.abs(ev.getY() - this.pressedY) > 3 * SwingTools.getResolutionScale()) {
                 this.dragged = true;
-              }
-              if (this.dragged && headerDragListener != null) {
-                headerDragListener.headerDragged(CollapsibleSection.this, ev);
               }
             }
           }

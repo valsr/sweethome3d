@@ -21,6 +21,7 @@ package com.eteks.sweethome3d.junit;
 
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Cursor;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
@@ -48,6 +49,7 @@ public class PrimarySideBarTest extends TestCase {
   private CollapsibleSection middleSection;
   private CollapsibleSection bottomSection;
   private int                headerHeight;
+  private int                sizerHeight;
 
   @Override
   protected void setUp() throws Exception {
@@ -60,9 +62,58 @@ public class PrimarySideBarTest extends TestCase {
     this.sideBar.addSection(this.middleSection, 1);
     this.sideBar.addSection(this.bottomSection, 2);
     this.headerHeight = this.topSection.getHeader().getPreferredSize().height;
-    // Give a height that leaves 400 pixels to the contents of the three sections
-    this.sideBar.setSize(200, 3 * this.headerHeight + 400);
+    this.sizerHeight = this.sideBar.getSizer(this.bottomSection).getPreferredSize().height;
+    // Give a height that leaves 400 pixels to the contents of the three sections separated by two sizers
+    setContentsHeight(400, 2);
+  }
+
+  /**
+   * Sets the size of the side bar to leave the given height to the contents of its sections.
+   */
+  private void setContentsHeight(int contentsHeight, int visibleSizersCount) {
+    this.sideBar.setSize(200, 3 * this.headerHeight + visibleSizersCount * this.sizerHeight + contentsHeight);
     layout(this.sideBar);
+  }
+
+  public void testSizersAreDisplayedBetweenExpandedSections() {
+    assertTrue(this.sizerHeight > 0);
+    assertNull("No sizer above first section", this.sideBar.getSizer(this.topSection));
+    JComponent middleSizer = this.sideBar.getSizer(this.middleSection);
+    JComponent bottomSizer = this.sideBar.getSizer(this.bottomSection);
+    assertTrue(middleSizer.isVisible());
+    assertEquals(this.topSection.getHeight(), middleSizer.getY());
+    assertEquals(this.sizerHeight, middleSizer.getHeight());
+    assertEquals(200, middleSizer.getWidth());
+    assertEquals(middleSizer.getY() + this.sizerHeight, this.middleSection.getY());
+    assertEquals(this.bottomSection.getY() - this.sizerHeight, bottomSizer.getY());
+    assertEquals(Cursor.N_RESIZE_CURSOR, bottomSizer.getCursor().getType());
+  }
+
+  public void testSizersAreDisplayedOnlyAboveExpandedSectionsWithAnExpandedSectionAbove() {
+    this.middleSection.setCollapsed(true);
+    layout(this.sideBar);
+    assertFalse(this.sideBar.getSizer(this.middleSection).isVisible());
+    assertTrue(this.sideBar.getSizer(this.bottomSection).isVisible());
+    assertEquals("Hidden sizer shouldn't take room",
+        this.topSection.getHeight(), this.middleSection.getY());
+
+    this.middleSection.setCollapsed(false);
+    this.topSection.setCollapsed(true);
+    layout(this.sideBar);
+    assertFalse(this.sideBar.getSizer(this.middleSection).isVisible());
+    assertTrue(this.sideBar.getSizer(this.bottomSection).isVisible());
+
+    this.middleSection.setCollapsed(true);
+    layout(this.sideBar);
+    assertFalse(this.sideBar.getSizer(this.bottomSection).isVisible());
+  }
+
+  public void testDraggingHeaderDoesNotResizeSections() {
+    int middleHeight = this.middleSection.getHeight();
+    drag(this.bottomSection.getHeader(), -50);
+    layout(this.sideBar);
+
+    assertEquals(middleHeight, this.middleSection.getHeight());
   }
 
   public void testExpandedSectionsShareHeightAccordingToTheirWeights() {
@@ -70,13 +121,13 @@ public class PrimarySideBarTest extends TestCase {
     assertEquals(this.headerHeight + 100, this.middleSection.getHeight());
     assertEquals(this.headerHeight + 200, this.bottomSection.getHeight());
     assertEquals(0, this.topSection.getY());
-    assertEquals(this.topSection.getHeight(), this.middleSection.getY());
+    assertEquals(this.topSection.getHeight() + this.sizerHeight, this.middleSection.getY());
     assertEquals(200, this.bottomSection.getWidth());
   }
 
   public void testCollapsedSectionShowsOnlyItsHeader() {
     this.middleSection.setCollapsed(true);
-    layout(this.sideBar);
+    setContentsHeight(400, 1);
 
     assertFalse(this.middleSection.getContent().isVisible());
     assertEquals(this.headerHeight, this.middleSection.getHeight());
@@ -115,9 +166,9 @@ public class PrimarySideBarTest extends TestCase {
     assertTrue(this.topSection.getContent().isVisible());
   }
 
-  public void testDraggingHeaderResizesExpandedSectionsAroundIt() {
-    // Drag the header of bottom section 50 pixels up
-    drag(this.bottomSection.getHeader(), -50);
+  public void testDraggingSizerResizesExpandedSectionsAroundIt() {
+    // Drag the sizer above bottom section 50 pixels up
+    drag(this.sideBar.getSizer(this.bottomSection), -50);
     layout(this.sideBar);
 
     assertFalse("Drag shouldn't collapse section", this.bottomSection.isCollapsed());
@@ -128,14 +179,14 @@ public class PrimarySideBarTest extends TestCase {
     assertEquals(5f, this.sideBar.getSectionWeight(this.bottomSection) / this.sideBar.getSectionWeight(this.middleSection), 0.01f);
   }
 
-  public void testDraggingHeaderSkipsCollapsedSections() {
+  public void testDraggingSizerSkipsCollapsedSections() {
     this.middleSection.setCollapsed(true);
     layout(this.sideBar);
     int topHeight = this.topSection.getHeight();
     int bottomHeight = this.bottomSection.getHeight();
 
-    // Dragging the header of bottom section resizes top section since middle one is collapsed
-    drag(this.bottomSection.getHeader(), 30);
+    // Dragging the sizer of bottom section resizes top section since middle one is collapsed
+    drag(this.sideBar.getSizer(this.bottomSection), 30);
     layout(this.sideBar);
 
     assertEquals(topHeight + 30, this.topSection.getHeight());
@@ -143,8 +194,8 @@ public class PrimarySideBarTest extends TestCase {
     assertEquals(bottomHeight - 30, this.bottomSection.getHeight());
   }
 
-  public void testDraggingHeaderCantShrinkSectionBelowItsHeader() {
-    drag(this.bottomSection.getHeader(), -1000);
+  public void testDraggingSizerCantShrinkSectionBelowItsHeader() {
+    drag(this.sideBar.getSizer(this.bottomSection), -1000);
     layout(this.sideBar);
 
     assertEquals(this.headerHeight, this.middleSection.getHeight());
