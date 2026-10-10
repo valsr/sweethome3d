@@ -28,7 +28,6 @@ import java.util.List;
 
 import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
-import javax.swing.undo.UndoableEdit;
 import javax.swing.undo.UndoableEditSupport;
 
 import com.eteks.sweethome3d.model.Baseboard;
@@ -214,7 +213,7 @@ public class WallController implements Controller {
   /**
    * Updates edited properties from selected walls in the home edited by this controller.
    */
-  protected void updateProperties() {
+  public void updateProperties() {
     List<Wall> selectedWalls = Home.getWallsSubList(this.home.getSelectedItems());
     if (selectedWalls.isEmpty()) {
       setXStart(null); // Nothing to edit
@@ -1285,6 +1284,16 @@ public class WallController implements Controller {
    * Controls the modification of selected walls in edited home.
    */
   public void modifyWalls() {
+    modifyWalls(null);
+  }
+
+  /**
+   * Controls the modification of selected walls in edited home, with an undoable edit
+   * which will be merged with the previous one if that one was posted with an equal key.
+   * @param mergeKey an object identifying the kind of modification,
+   *            or <code>null</code> if the edit shouldn't be merged with an other one
+   */
+  public void modifyWalls(Object mergeKey) {
     List<Selectable> oldSelection = this.home.getSelectedItems();
     List<Wall> selectedWalls = Home.getWallsSubList(oldSelection);
     if (!selectedWalls.isEmpty()) {
@@ -1376,7 +1385,7 @@ public class WallController implements Controller {
           pattern, modifiedTopColor, topColor,
           height, heightAtEnd, thickness, arcExtent);
       if (this.undoSupport != null) {
-        UndoableEdit undoableEdit = new WallsModificationUndoableEdit(this.home,
+        WallsModificationUndoableEdit undoableEdit = new WallsModificationUndoableEdit(this.home,
             this.preferences, oldSelection.toArray(new Selectable [oldSelection.size()]) , modifiedWalls,
             this.preferences.getNewWallBaseboardThickness(), this.preferences.getNewWallBaseboardHeight(),
             xStart, yStart, xEnd, yEnd,
@@ -1388,6 +1397,7 @@ public class WallController implements Controller {
             rightSideBaseboardPaint, rightSideBaseboardColor, rightSideBaseboardTexture,
             pattern, modifiedTopColor, topColor,
             height, heightAtEnd, thickness, arcExtent);
+        undoableEdit.setMergeKey(mergeKey);
         this.undoSupport.postEdit(undoableEdit);
       }
     }
@@ -1397,7 +1407,7 @@ public class WallController implements Controller {
    * Undoable edit for walls modification. This class isn't anonymous to avoid
    * being bound to controller and its view.
    */
-  private static class WallsModificationUndoableEdit extends LocalizedUndoableEdit {
+  private static class WallsModificationUndoableEdit extends MergeableUndoableEdit {
     private final Home             home;
     private final Selectable []    oldSelection;
     private final ModifiedWall []  modifiedWalls;
@@ -1497,13 +1507,26 @@ public class WallController implements Controller {
     @Override
     public void undo() throws CannotUndoException {
       super.undo();
-      undoModifyWalls(this.modifiedWalls);
+      undoMergedModifications();
+      undoModification();
       this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
 
     @Override
     public void redo() throws CannotRedoException {
       super.redo();
+      redoModification();
+      redoMergedModifications();
+      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
+    }
+
+    @Override
+    protected void undoModification() {
+      undoModifyWalls(this.modifiedWalls);
+    }
+
+    @Override
+    protected void redoModification() {
       doModifyWalls(this.modifiedWalls, this.newWallBaseboardThickness, this.newWallBaseboardHeight,
           this.xStart, this.yStart, this.xEnd, this.yEnd,
           this.leftSidePaint, this.leftSideColor, this.leftSideTexture, this.leftSideShininess,
@@ -1514,7 +1537,6 @@ public class WallController implements Controller {
           this.rightSideBaseboardPaint, this.rightSideBaseboardColor, this.rightSideBaseboardTexture,
           this.pattern, this.modifiedTopColor, this.topColor,
           this.height, this.heightAtEnd, this.thickness, this.arcExtent);
-      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
   }
 

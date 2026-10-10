@@ -127,6 +127,8 @@ public class PlanController extends FurnitureController implements Controller {
   private final ViewFactory           viewFactory;
   private final ContentManager        contentManager;
   private final UndoableEditSupport   undoSupport;
+  private Runnable                    selectedWallsModifier;
+  private Runnable                    selectedRoomsModifier;
   private final PropertyChangeSupport propertyChangeSupport;
   private PlanView                    planView;
   private SelectionListener           selectionListener;
@@ -917,9 +919,29 @@ public class PlanController extends FurnitureController implements Controller {
    */
   public void modifySelectedWalls() {
     if (!Home.getWallsSubList(this.home.getSelectedItems()).isEmpty()) {
-      new WallController(this.home, this.preferences, this.viewFactory,
-          this.contentManager, this.undoSupport).displayView(getView());
+      if (this.selectedWallsModifier != null) {
+        this.selectedWallsModifier.run();
+      } else {
+        createWallController().displayView(getView());
+      }
     }
+  }
+
+  /**
+   * Returns a new controller able to edit the walls currently selected in home.
+   */
+  public WallController createWallController() {
+    return new WallController(this.home, this.preferences, this.viewFactory,
+        this.contentManager, this.undoSupport);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifySelectedWalls() modify
+   * selected walls}, in replacement of the dialog box displayed by default.
+   * @param selectedWallsModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setSelectedWallsModifier(Runnable selectedWallsModifier) {
+    this.selectedWallsModifier = selectedWallsModifier;
   }
 
   /**
@@ -1898,9 +1920,29 @@ public class PlanController extends FurnitureController implements Controller {
    */
   public void modifySelectedRooms() {
     if (!Home.getRoomsSubList(this.home.getSelectedItems()).isEmpty()) {
-      new RoomController(this.home, this.preferences, this.viewFactory,
-          this.contentManager, this.undoSupport).displayView(getView());
+      if (this.selectedRoomsModifier != null) {
+        this.selectedRoomsModifier.run();
+      } else {
+        createRoomController().displayView(getView());
+      }
     }
+  }
+
+  /**
+   * Returns a new controller able to edit the rooms currently selected in home.
+   */
+  public RoomController createRoomController() {
+    return new RoomController(this.home, this.preferences, this.viewFactory,
+        this.contentManager, this.undoSupport);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifySelectedRooms() modify
+   * selected rooms}, in replacement of the dialog box displayed by default.
+   * @param selectedRoomsModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setSelectedRoomsModifier(Runnable selectedRoomsModifier) {
+    this.selectedRoomsModifier = selectedRoomsModifier;
   }
 
   /**

@@ -36,7 +36,6 @@ import java.util.Map;
 
 import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
-import javax.swing.undo.UndoableEdit;
 import javax.swing.undo.UndoableEditSupport;
 
 import com.eteks.sweethome3d.model.CatalogPieceOfFurniture;
@@ -1937,7 +1936,7 @@ public class HomeFurnitureController implements Controller {
             width, depth, height, proportional, modelTransformations,
             this.wallThickness, this.wallDistance, this.wallWidth, this.wallLeft, this.wallHeight, this.wallTop, this.sashes,
             paint, color, texture, modelMaterials, defaultShininess, shininess, visible, modelMirrored, lightPower, lightPowerUnit, lightColorMode, lightColor, lightColorTemperature);
-        undoableEdit.mergeKey = mergeKey;
+        undoableEdit.setMergeKey(mergeKey);
         this.undoSupport.postEdit(undoableEdit);
       }
       // Don't propose the intermediate texts of a modification applied at each change
@@ -1957,7 +1956,7 @@ public class HomeFurnitureController implements Controller {
    * Undoable edit for furniture modification. This class isn't anonymous to avoid
    * being bound to controller and its view.
    */
-  private static class FurnitureModificationUndoableEdit extends LocalizedUndoableEdit {
+  private static class FurnitureModificationUndoableEdit extends MergeableUndoableEdit {
     private final Home                        home;
     private final ModifiedPieceOfFurniture [] modifiedFurniture;
     private final Selectable []               oldSelection;
@@ -2007,8 +2006,6 @@ public class HomeFurnitureController implements Controller {
     private final float []                    widthsInPlan;
     private final float []                    depthsInPlan;
     private final float []                    heightsInPlan;
-    private Object                            mergeKey;
-    private List<FurnitureModificationUndoableEdit> mergedEdits;
 
     private FurnitureModificationUndoableEdit(Home home,
                                               UserPreferences preferences,
@@ -2090,7 +2087,8 @@ public class HomeFurnitureController implements Controller {
     @Override
     public void undo() throws CannotUndoException {
       super.undo();
-      undoModifyFurniture(this.modifiedFurniture);
+      undoMergedModifications();
+      undoModification();
       this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
 
@@ -2098,34 +2096,17 @@ public class HomeFurnitureController implements Controller {
     public void redo() throws CannotRedoException {
       super.redo();
       redoModification();
-      if (this.mergedEdits != null) {
-        for (FurnitureModificationUndoableEdit mergedEdit : this.mergedEdits) {
-          mergedEdit.redoModification();
-        }
-      }
+      redoMergedModifications();
       this.home.setSelectedItems(Arrays.asList(this.newSelection));
     }
 
-    /**
-     * Merges the given edit with this one if they were posted with the same key. Undoing this edit
-     * restores the furniture as it was before this edit, and redoing it does the merged edits again.
-     */
     @Override
-    public boolean addEdit(UndoableEdit edit) {
-      if (this.mergeKey != null
-          && edit instanceof FurnitureModificationUndoableEdit
-          && this.mergeKey.equals(((FurnitureModificationUndoableEdit)edit).mergeKey)) {
-        if (this.mergedEdits == null) {
-          this.mergedEdits = new ArrayList<FurnitureModificationUndoableEdit>();
-        }
-        this.mergedEdits.add((FurnitureModificationUndoableEdit)edit);
-        return true;
-      } else {
-        return false;
-      }
+    protected void undoModification() {
+      undoModifyFurniture(this.modifiedFurniture);
     }
 
-    private void redoModification() {
+    @Override
+    protected void redoModification() {
       doModifyFurniture(this.modifiedFurniture,
           this.name, this.nameVisible, this.description, this.additionalProperties,
           this.price, this.removePrice, this.valueAddedTaxPercentage, this.removeValueAddedTaxPercentage, this.currency,
