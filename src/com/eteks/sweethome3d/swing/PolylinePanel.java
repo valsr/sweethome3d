@@ -505,6 +505,10 @@ public class PolylinePanel extends JPanel implements DialogView {
     add(this.visibleIn3DViewCheckBox, new GridBagConstraints(
         0, 6, 2, 1, 0, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
+    // Keep components at the top and let them fill the available width when more space is available
+    add(new JLabel(), new GridBagConstraints(
+        0, 7, 2, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
   }
 
   /**

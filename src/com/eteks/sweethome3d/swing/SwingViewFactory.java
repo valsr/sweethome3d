@@ -34,6 +34,7 @@ import com.eteks.sweethome3d.viewcontroller.DialogView;
 import com.eteks.sweethome3d.viewcontroller.DimensionLineController;
 import com.eteks.sweethome3d.viewcontroller.FurnitureCatalogController;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
+import com.eteks.sweethome3d.viewcontroller.GuidelineController;
 import com.eteks.sweethome3d.viewcontroller.HelpController;
 import com.eteks.sweethome3d.viewcontroller.HelpView;
 import com.eteks.sweethome3d.viewcontroller.Home3DAttributesController;
@@ -224,6 +225,14 @@ public class SwingViewFactory implements ViewFactory {
   public DialogView createPolylineView(UserPreferences preferences,
                                        PolylineController polylineController) {
     return new PolylinePanel(preferences, polylineController);
+  }
+
+  /**
+   * Returns a new view that edits guideline values.
+   */
+  public DialogView createGuidelineView(UserPreferences preferences,
+                                        GuidelineController guidelineController) {
+    return new GuidelinePanel(preferences, guidelineController);
   }
 
   /**

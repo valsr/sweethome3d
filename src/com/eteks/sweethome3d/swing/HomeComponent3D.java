@@ -2016,18 +2016,23 @@ public class HomeComponent3D extends JComponent implements View3D, Printable {
     inputMap.put(KeyStroke.getKeyStroke("DOWN"), ActionType.MOVE_CAMERA_BACKWARD);
     inputMap.put(KeyStroke.getKeyStroke("alt DOWN"), ActionType.MOVE_CAMERA_BACKWARD);
     inputMap.put(KeyStroke.getKeyStroke("S"), ActionType.MOVE_CAMERA_BACKWARD);
+    // A / D strafe and Q / E spin like W / A / S / D / Q / E keys in video games
     inputMap.put(KeyStroke.getKeyStroke("shift alt LEFT"), ActionType.MOVE_CAMERA_FAST_LEFT);
+    inputMap.put(KeyStroke.getKeyStroke("shift A"), ActionType.MOVE_CAMERA_FAST_LEFT);
     inputMap.put(KeyStroke.getKeyStroke("alt LEFT"), ActionType.MOVE_CAMERA_LEFT);
+    inputMap.put(KeyStroke.getKeyStroke("A"), ActionType.MOVE_CAMERA_LEFT);
     inputMap.put(KeyStroke.getKeyStroke("shift alt RIGHT"), ActionType.MOVE_CAMERA_FAST_RIGHT);
+    inputMap.put(KeyStroke.getKeyStroke("shift D"), ActionType.MOVE_CAMERA_FAST_RIGHT);
     inputMap.put(KeyStroke.getKeyStroke("alt RIGHT"), ActionType.MOVE_CAMERA_RIGHT);
+    inputMap.put(KeyStroke.getKeyStroke("D"), ActionType.MOVE_CAMERA_RIGHT);
     inputMap.put(KeyStroke.getKeyStroke("shift LEFT"), ActionType.ROTATE_CAMERA_YAW_FAST_LEFT);
-    inputMap.put(KeyStroke.getKeyStroke("shift A"), ActionType.ROTATE_CAMERA_YAW_FAST_LEFT);
+    inputMap.put(KeyStroke.getKeyStroke("shift Q"), ActionType.ROTATE_CAMERA_YAW_FAST_LEFT);
     inputMap.put(KeyStroke.getKeyStroke("LEFT"), ActionType.ROTATE_CAMERA_YAW_LEFT);
-    inputMap.put(KeyStroke.getKeyStroke("A"), ActionType.ROTATE_CAMERA_YAW_LEFT);
+    inputMap.put(KeyStroke.getKeyStroke("Q"), ActionType.ROTATE_CAMERA_YAW_LEFT);
     inputMap.put(KeyStroke.getKeyStroke("shift RIGHT"), ActionType.ROTATE_CAMERA_YAW_FAST_RIGHT);
-    inputMap.put(KeyStroke.getKeyStroke("shift D"), ActionType.ROTATE_CAMERA_YAW_FAST_RIGHT);
+    inputMap.put(KeyStroke.getKeyStroke("shift E"), ActionType.ROTATE_CAMERA_YAW_FAST_RIGHT);
     inputMap.put(KeyStroke.getKeyStroke("RIGHT"), ActionType.ROTATE_CAMERA_YAW_RIGHT);
-    inputMap.put(KeyStroke.getKeyStroke("D"), ActionType.ROTATE_CAMERA_YAW_RIGHT);
+    inputMap.put(KeyStroke.getKeyStroke("E"), ActionType.ROTATE_CAMERA_YAW_RIGHT);
     inputMap.put(KeyStroke.getKeyStroke("shift PAGE_UP"), ActionType.ROTATE_CAMERA_PITCH_FAST_UP);
     inputMap.put(KeyStroke.getKeyStroke("PAGE_UP"), ActionType.ROTATE_CAMERA_PITCH_UP);
     inputMap.put(KeyStroke.getKeyStroke("shift PAGE_DOWN"), ActionType.ROTATE_CAMERA_PITCH_FAST_DOWN);

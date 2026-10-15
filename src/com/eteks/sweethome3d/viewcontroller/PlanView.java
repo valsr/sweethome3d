@@ -55,6 +55,12 @@ public interface PlanView extends TransferableView, ExportableView {
   public abstract void makePointVisible(float x, float y);
 
   /**
+   * Returns <code>true</code> if the point at (<code>x</code>, <code>y</code>)
+   * is displayed in the visible area of this view.
+   */
+  public abstract boolean isPointVisible(float x, float y);
+
+  /**
    * Returns the scale used to display the plan.
    */
   public abstract float getScale();

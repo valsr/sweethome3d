@@ -145,6 +145,12 @@ public interface ViewFactory {
                                                      UserPreferences preferences,
                                                      DimensionLineController dimensionLineController);
   /**
+   * Returns a new view that edits guideline values.
+   */
+  public abstract DialogView createGuidelineView(UserPreferences preferences,
+                                                 GuidelineController guidelineController);
+
+  /**
    * Returns a new view that edits label values.
    */
   public abstract DialogView createLabelView(boolean modification,

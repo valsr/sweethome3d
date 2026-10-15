@@ -40,11 +40,33 @@ build and run on current Java.
 - **Primary side bar.** The catalog, the properties of the selected objects and the
   furniture list are displayed in stacked sections: a click on the header of a section
   collapses or expands it, and dragging the sizer between two expanded sections resizes them.
-  The properties of the selected furniture, rooms, walls or virtual visitor are edited
-  there instead of a dialog box, in panels laid out in compact rows, and each change is
+  The properties of the selected furniture, rooms, walls, virtual visitor, texts, polylines
+  or dimension lines are edited there instead of a dialog box, in panels laid out in
+  compact rows, and each change is
   applied immediately. Successive changes of the same property are undone at once.
   Nothing is edited when objects of different kinds are selected.
   The button on the edge of the window hides or shows the whole side bar.
+- **Guides.** Dragging from the horizontal or vertical ruler of the plan adds a horizontal
+  or vertical guide, displayed at all levels as a thin line of its color whatever the zoom.
+  A guide is moved with the mouse, and deleted when it's dropped back on a ruler or
+  with the *Delete* key. With magnetism, a moved guide snaps to the points of the items
+  displayed at the selected level, and the points of drawn or resized walls, rooms,
+  polylines and dimensions, and the moved items, snap to the guides close to them.
+  The position and the color of the selected guides are edited in the properties section
+  of the primary side bar. Guides are neither printed nor exported, and are saved in
+  `guideline` elements, which the original program ignores.
+- **Arrangement tool bar buttons.** The tool bar proposes the actions which flip the
+  selection, group or ungroup furniture, and align or distribute furniture.
+- **Selection cycle.** Clicking again on the selected item in the plan selects the next
+  item under the cursor, to reach the furniture, walls and rooms stacked at the same place.
+  A double click still modifies the item selected before its first click.
+- **See-through walls.** A toggle button of the tool bar, also in the *3D view* menu and
+  the 3D view contextual menu, displays walls see-through or solid in the 3D view. Walls
+  made see-through again get back the transparency they had, 50% by default.
+- **Magnetism and walls shortcuts.** *Ctrl+G* (*Cmd+G* under macOS) enables or disables
+  magnetism, also proposed in the *Plan* menu and the plan contextual menu, and holding
+  the *S* key in the plan forces magnetism on while drawing or moving items, whatever its
+  setting. *Ctrl+T* (*Cmd+T*) displays walls see-through or solid in the 3D view.
 - **Light color and power.** A light can be given a color or a color temperature that
   replaces the color of its sources, and its power can be entered in percentage or in
   lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,

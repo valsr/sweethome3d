@@ -93,6 +93,8 @@ public class Home implements Serializable, Cloneable {
   private transient CollectionChangeSupport<DimensionLine> dimensionLinesChangeSupport;
   private List<Label>                                 labels;
   private transient CollectionChangeSupport<Label>    labelsChangeSupport;
+  private List<Guideline>                             guidelines;
+  private transient CollectionChangeSupport<Guideline> guidelinesChangeSupport;
   private Camera                                      camera;
   private String                                      name;
   private final float                                 wallHeight;
@@ -421,6 +423,7 @@ public class Home implements Serializable, Cloneable {
     this.polylines = new ArrayList<Polyline>();
     this.dimensionLines = new ArrayList<DimensionLine>();
     this.labels = new ArrayList<Label>();
+    this.guidelines = new ArrayList<Guideline>();
     this.compass = new Compass(HOME_COMPASS_ID, -100, 50, 100);
     this.levels = new ArrayList<Level>();
     // Let compass be visible only on new homes
@@ -441,6 +444,7 @@ public class Home implements Serializable, Cloneable {
     home.polylinesChangeSupport = new CollectionChangeSupport<Polyline>(home);
     home.dimensionLinesChangeSupport = new CollectionChangeSupport<DimensionLine>(home);
     home.labelsChangeSupport = new CollectionChangeSupport<Label>(home);
+    home.guidelinesChangeSupport = new CollectionChangeSupport<Guideline>(home);
     home.propertyChangeSupport = new PropertyChangeSupport(home);
   }
 
@@ -1305,6 +1309,61 @@ public class Home implements Serializable, Cloneable {
   }
 
   /**
+   * Adds the guideline <code>listener</code> in parameter to this home.
+   */
+  public void addGuidelinesListener(CollectionListener<Guideline> listener) {
+    this.guidelinesChangeSupport.addCollectionListener(listener);
+  }
+
+  /**
+   * Removes the guideline <code>listener</code> in parameter from this home.
+   */
+  public void removeGuidelinesListener(CollectionListener<Guideline> listener) {
+    this.guidelinesChangeSupport.removeCollectionListener(listener);
+  }
+
+  /**
+   * Returns an unmodifiable list of the guidelines of this home,
+   * which are displayed at all levels.
+   */
+  public List<Guideline> getGuidelines() {
+    return Collections.unmodifiableList(this.guidelines);
+  }
+
+  /**
+   * Adds the given guideline to the set of guidelines of this home.
+   * Once <code>guideline</code> is added, guideline listeners added
+   * to this home will receive a {@link CollectionListener#collectionChanged(CollectionEvent) collectionChanged}
+   * notification, with an {@link CollectionEvent#getType() event type}
+   * equal to {@link CollectionEvent.Type#ADD ADD}.
+   */
+  public void addGuideline(Guideline guideline) {
+    // Make a copy of the list to avoid conflicts in the list returned by getGuidelines
+    this.guidelines = new ArrayList<Guideline>(this.guidelines);
+    this.guidelines.add(guideline);
+    this.guidelinesChangeSupport.fireCollectionChanged(guideline, CollectionEvent.Type.ADD);
+  }
+
+  /**
+   * Removes the given guideline from the set of guidelines of this home.
+   * Once <code>guideline</code> is removed, guideline listeners added to this home will receive a
+   * {@link CollectionListener#collectionChanged(CollectionEvent) collectionChanged}
+   * notification, with an {@link CollectionEvent#getType() event type}
+   * equal to {@link CollectionEvent.Type#DELETE DELETE}.
+   */
+  public void deleteGuideline(Guideline guideline) {
+    //  Ensure selectedItems don't keep a reference to guideline
+    deselectItem(guideline);
+    int index = this.guidelines.indexOf(guideline);
+    if (index != -1) {
+      // Make a copy of the list to avoid conflicts in the list returned by getGuidelines
+      this.guidelines = new ArrayList<Guideline>(this.guidelines);
+      this.guidelines.remove(index);
+      this.guidelinesChangeSupport.fireCollectionChanged(guideline, CollectionEvent.Type.DELETE);
+    }
+  }
+
+  /**
    * Returns all the selectable and viewable items in this home, except the observer camera.
    * @return a list containing viewable walls, rooms, furniture, dimension lines, polylines, labels and compass.
    * @since 5.0
@@ -1361,6 +1420,7 @@ public class Home implements Serializable, Cloneable {
     homeItems.addAll(this.dimensionLines);
     homeItems.addAll(this.polylines);
     homeItems.addAll(this.labels);
+    homeItems.addAll(this.guidelines);
     for (HomePieceOfFurniture piece : getFurniture()) {
       homeItems.add(piece);
       if (piece instanceof HomeFurnitureGroup) {
@@ -2008,6 +2068,7 @@ public class Home implements Serializable, Cloneable {
     destination.polylines = cloneSelectableItems(
         source.polylines, source.selectedItems, destination.selectedItems);
     destination.labels = cloneSelectableItems(source.labels, source.selectedItems, destination.selectedItems);
+    destination.guidelines = cloneSelectableItems(source.guidelines, source.selectedItems, destination.selectedItems);
     // Deep copy walls
     destination.walls = Wall.clone(source.walls);
     for (int i = 0; i < source.walls.size(); i++) {
@@ -2209,6 +2270,14 @@ public class Home implements Serializable, Cloneable {
    */
   public static List<Label> getLabelsSubList(List<? extends Selectable> items) {
     return getSubList(items, Label.class);
+  }
+
+  /**
+   * Returns a sub list of <code>items</code> that contains only guidelines.
+   * @param items  the items among which the search is done
+   */
+  public static List<Guideline> getGuidelinesSubList(List<? extends Selectable> items) {
+    return getSubList(items, Guideline.class);
   }
 
   /**

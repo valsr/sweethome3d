@@ -36,9 +36,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.text.JTextComponent;
 
+import com.eteks.sweethome3d.model.DimensionLine;
+import com.eteks.sweethome3d.model.Guideline;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomeObject;
+import com.eteks.sweethome3d.model.Label;
 import com.eteks.sweethome3d.model.ObserverCamera;
+import com.eteks.sweethome3d.model.Polyline;
 import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.SelectionEvent;
@@ -46,18 +50,22 @@ import com.eteks.sweethome3d.model.SelectionListener;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.viewcontroller.BaseboardChoiceController;
+import com.eteks.sweethome3d.viewcontroller.DimensionLineController;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
+import com.eteks.sweethome3d.viewcontroller.GuidelineController;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
+import com.eteks.sweethome3d.viewcontroller.LabelController;
 import com.eteks.sweethome3d.viewcontroller.ModelMaterialsController;
 import com.eteks.sweethome3d.viewcontroller.ObserverCameraController;
 import com.eteks.sweethome3d.viewcontroller.PlanController;
+import com.eteks.sweethome3d.viewcontroller.PolylineController;
 import com.eteks.sweethome3d.viewcontroller.RoomController;
 import com.eteks.sweethome3d.viewcontroller.TextureChoiceController;
 import com.eteks.sweethome3d.viewcontroller.WallController;
 
 /**
- * A panel which edits the properties of the furniture, the rooms, the walls or the observer camera
- * selected in a home without dialog box. Each change of the user is applied immediately to the selected objects, and
+ * A panel which edits the properties of the furniture, the rooms, the walls, the observer camera,
+ * the texts, the polylines, the dimension lines or the guidelines selected in a home without dialog box. Each change of the user is applied immediately to the selected objects, and
  * successive changes of the same property may be undone at once. Nothing is edited when the
  * selection is empty or contains objects of different kinds.
  */
@@ -89,10 +97,11 @@ public class SelectionPropertiesPanel extends JPanel {
   }
 
   /**
-   * Creates a panel editing the furniture, the rooms, the walls or the observer camera selected
-   * in <code>home</code> with the controllers created by the given controllers.
-   * @param planController the controller which creates the controllers of rooms, walls and observer camera,
-   *            or <code>null</code> if they shouldn't be edited
+   * Creates a panel editing the furniture, the rooms, the walls, the observer camera, the texts,
+   * the polylines or the dimension lines selected in <code>home</code> with the controllers
+   * created by the given controllers.
+   * @param planController the controller which creates the controllers of the objects displayed
+   *            in the plan, or <code>null</code> if only furniture should be edited
    */
   public SelectionPropertiesPanel(Home home,
                                   UserPreferences preferences,
@@ -166,6 +175,46 @@ public class SelectionPropertiesPanel extends JPanel {
   }
 
   /**
+   * Returns the controller of the labels currently edited by this panel,
+   * or <code>null</code> if no label is edited.
+   */
+  public LabelController getLabelController() {
+    return this.editor instanceof LabelsEditor
+        ? ((LabelsEditor)this.editor).controller
+        : null;
+  }
+
+  /**
+   * Returns the controller of the polylines currently edited by this panel,
+   * or <code>null</code> if no polyline is edited.
+   */
+  public PolylineController getPolylineController() {
+    return this.editor instanceof PolylinesEditor
+        ? ((PolylinesEditor)this.editor).controller
+        : null;
+  }
+
+  /**
+   * Returns the controller of the dimension lines currently edited by this panel,
+   * or <code>null</code> if no dimension line is edited.
+   */
+  public DimensionLineController getDimensionLineController() {
+    return this.editor instanceof DimensionLinesEditor
+        ? ((DimensionLinesEditor)this.editor).controller
+        : null;
+  }
+
+  /**
+   * Returns the controller of the guidelines currently edited by this panel,
+   * or <code>null</code> if no guideline is edited.
+   */
+  public GuidelineController getGuidelineController() {
+    return this.editor instanceof GuidelinesEditor
+        ? ((GuidelinesEditor)this.editor).controller
+        : null;
+  }
+
+  /**
    * Returns <code>true</code> if this panel is kept up to date with the selected objects.
    */
   public boolean isActive() {
@@ -222,30 +271,30 @@ public class SelectionPropertiesPanel extends JPanel {
    */
   private List<HomeObject> getEditableSelectedObjects() {
     List<Selectable> selectedItems = this.home.getSelectedItems();
-    List<HomeObject> furniture = new ArrayList<HomeObject>(Home.getFurnitureSubList(selectedItems));
-    List<HomeObject> rooms = new ArrayList<HomeObject>();
-    List<HomeObject> walls = new ArrayList<HomeObject>();
-    List<HomeObject> observerCamera = new ArrayList<HomeObject>();
+    List<List<? extends HomeObject>> objectsOfEachKind = new ArrayList<List<? extends HomeObject>>();
+    objectsOfEachKind.add(Home.getFurnitureSubList(selectedItems));
     if (this.planController != null) {
-      rooms.addAll(Home.getRoomsSubList(selectedItems));
-      walls.addAll(Home.getWallsSubList(selectedItems));
+      objectsOfEachKind.add(Home.getRoomsSubList(selectedItems));
+      objectsOfEachKind.add(Home.getWallsSubList(selectedItems));
+      objectsOfEachKind.add(Home.getLabelsSubList(selectedItems));
+      objectsOfEachKind.add(Home.getPolylinesSubList(selectedItems));
+      objectsOfEachKind.add(Home.getDimensionLinesSubList(selectedItems));
+      objectsOfEachKind.add(Home.getGuidelinesSubList(selectedItems));
       if (selectedItems.contains(this.home.getObserverCamera())) {
-        observerCamera.add(this.home.getObserverCamera());
+        objectsOfEachKind.add(Collections.singletonList(this.home.getObserverCamera()));
       }
     }
-    int kindsCount = (furniture.isEmpty() ? 0 : 1) + (rooms.isEmpty() ? 0 : 1)
-        + (walls.isEmpty() ? 0 : 1) + (observerCamera.isEmpty() ? 0 : 1);
-    if (kindsCount != 1) {
-      return Collections.emptyList();
-    } else if (!furniture.isEmpty()) {
-      return furniture;
-    } else if (!rooms.isEmpty()) {
-      return rooms;
-    } else if (!walls.isEmpty()) {
-      return walls;
-    } else {
-      return observerCamera;
+    List<HomeObject> editableObjects = Collections.emptyList();
+    for (List<? extends HomeObject> objects : objectsOfEachKind) {
+      if (!objects.isEmpty()) {
+        if (!editableObjects.isEmpty()) {
+          // Objects of different kinds are selected
+          return Collections.emptyList();
+        }
+        editableObjects = new ArrayList<HomeObject>(objects);
+      }
     }
+    return editableObjects;
   }
 
   /**
@@ -283,6 +332,14 @@ public class SelectionPropertiesPanel extends JPanel {
           this.editor = new WallsEditor();
         } else if (selectedObjects.get(0) instanceof ObserverCamera) {
           this.editor = new ObserverCameraEditor();
+        } else if (selectedObjects.get(0) instanceof Label) {
+          this.editor = new LabelsEditor();
+        } else if (selectedObjects.get(0) instanceof Polyline) {
+          this.editor = new PolylinesEditor();
+        } else if (selectedObjects.get(0) instanceof DimensionLine) {
+          this.editor = new DimensionLinesEditor();
+        } else if (selectedObjects.get(0) instanceof Guideline) {
+          this.editor = new GuidelinesEditor();
         } else {
           this.editor = new FurnitureEditor();
         }
@@ -532,6 +589,126 @@ public class SelectionPropertiesPanel extends JPanel {
           this.controller.addPropertyChangeListener(property, createModificationListener(property));
         }
       }
+    }
+  }
+
+  /**
+   * The editor of selected labels.
+   */
+  private class LabelsEditor extends Editor {
+    private final LabelController controller = planController.createLabelController();
+
+    @Override
+    public Object getView() {
+      return this.controller.getView();
+    }
+
+    @Override
+    public void refresh() {
+      this.controller.updateProperties();
+    }
+
+    @Override
+    public void modify(Object mergeKey) {
+      this.controller.modifyLabels(mergeKey);
+    }
+
+    @Override
+    public void addModificationListeners() {
+      for (LabelController.Property property : LabelController.Property.values()) {
+        this.controller.addPropertyChangeListener(property, createModificationListener(property));
+      }
+    }
+  }
+
+  /**
+   * The editor of selected polylines.
+   */
+  private class PolylinesEditor extends Editor {
+    private final PolylineController controller = planController.createPolylineController();
+
+    @Override
+    public Object getView() {
+      return this.controller.getView();
+    }
+
+    @Override
+    public void refresh() {
+      this.controller.updateProperties();
+    }
+
+    @Override
+    public void modify(Object mergeKey) {
+      this.controller.modifyPolylines(mergeKey);
+    }
+
+    @Override
+    public void addModificationListeners() {
+      for (PolylineController.Property property : PolylineController.Property.values()) {
+        this.controller.addPropertyChangeListener(property, createModificationListener(property));
+      }
+    }
+  }
+
+  /**
+   * The editor of selected dimension lines.
+   */
+  private class DimensionLinesEditor extends Editor {
+    private final DimensionLineController controller = planController.createDimensionLineController();
+
+    @Override
+    public Object getView() {
+      return this.controller.getView();
+    }
+
+    @Override
+    public void refresh() {
+      this.controller.updateProperties();
+    }
+
+    @Override
+    public void modify(Object mergeKey) {
+      this.controller.modifyDimensionLines(mergeKey);
+    }
+
+    @Override
+    public void addModificationListeners() {
+      for (DimensionLineController.Property property : DimensionLineController.Property.values()) {
+        // Ignore the property which doesn't describe a modification of dimension lines
+        if (property != DimensionLineController.Property.EDITABLE_DISTANCE) {
+          this.controller.addPropertyChangeListener(property, createModificationListener(property));
+        }
+      }
+    }
+  }
+
+  /**
+   * The editor of selected guidelines.
+   */
+  private class GuidelinesEditor extends Editor {
+    private final GuidelineController controller = planController.createGuidelineController();
+
+    @Override
+    public Object getView() {
+      return this.controller.getView();
+    }
+
+    @Override
+    public void refresh() {
+      this.controller.updateProperties();
+    }
+
+    @Override
+    public void modify(Object mergeKey) {
+      this.controller.modifyGuidelines(mergeKey);
+    }
+
+    @Override
+    public void addModificationListeners() {
+      this.controller.addPropertyChangeListener(GuidelineController.Property.POSITION,
+          createModificationListener(GuidelineController.Property.POSITION));
+      this.controller.addPropertyChangeListener(GuidelineController.Property.COLOR,
+          createModificationListener(GuidelineController.Property.COLOR));
     }
   }
 

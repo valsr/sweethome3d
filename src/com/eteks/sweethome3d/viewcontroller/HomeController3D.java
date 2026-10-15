@@ -28,6 +28,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import javax.swing.undo.CannotRedoException;
+import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.UndoableEditSupport;
 
 import com.eteks.sweethome3d.model.Camera;
@@ -60,6 +62,7 @@ public class HomeController3D implements Controller {
   private final ViewFactory           viewFactory;
   private final ContentManager        contentManager;
   private final UndoableEditSupport   undoSupport;
+  private float                       seeThroughWallsAlpha = 0.5f;
   private PlanController              planController;
   private View                        home3DView;
   // Possibles states
@@ -280,6 +283,56 @@ public class HomeController3D implements Controller {
    */
   public void displaySelectedLevel() {
     this.home.getEnvironment().setAllLevelsVisible(false);
+  }
+
+  /**
+   * Displays walls see-through in the 3D view if they're solid, or solid if they're see-through.
+   * See-through walls get back the transparency they had when they were last made solid.
+   */
+  public void toggleSeeThroughWalls() {
+    HomeEnvironment environment = this.home.getEnvironment();
+    float oldWallsAlpha = environment.getWallsAlpha();
+    float newWallsAlpha;
+    if (oldWallsAlpha == 0) {
+      newWallsAlpha = this.seeThroughWallsAlpha;
+    } else {
+      this.seeThroughWallsAlpha = oldWallsAlpha;
+      newWallsAlpha = 0;
+    }
+    environment.setWallsAlpha(newWallsAlpha);
+    if (this.undoSupport != null) {
+      this.undoSupport.postEdit(new WallsAlphaModificationUndoableEdit(environment, this.preferences,
+          newWallsAlpha == 0 ? "undoSolidWallsName" : "undoSeeThroughWallsName", oldWallsAlpha, newWallsAlpha));
+    }
+  }
+
+  /**
+   * Undoable edit for walls transparency modification.
+   */
+  private static class WallsAlphaModificationUndoableEdit extends LocalizedUndoableEdit {
+    private final HomeEnvironment environment;
+    private final float           oldWallsAlpha;
+    private final float           newWallsAlpha;
+
+    public WallsAlphaModificationUndoableEdit(HomeEnvironment environment, UserPreferences preferences,
+                                              String presentationNameKey, float oldWallsAlpha, float newWallsAlpha) {
+      super(preferences, HomeController3D.class, presentationNameKey);
+      this.environment = environment;
+      this.oldWallsAlpha = oldWallsAlpha;
+      this.newWallsAlpha = newWallsAlpha;
+    }
+
+    @Override
+    public void undo() throws CannotUndoException {
+      super.undo();
+      this.environment.setWallsAlpha(this.oldWallsAlpha);
+    }
+
+    @Override
+    public void redo() throws CannotRedoException {
+      super.redo();
+      this.environment.setWallsAlpha(this.newWallsAlpha);
+    }
   }
 
   /**

@@ -107,7 +107,7 @@ public class LabelController implements Controller {
   /**
    * Updates edited properties from selected labels in the home edited by this controller.
    */
-  protected void updateProperties() {
+  public void updateProperties() {
     List<Label> selectedLabels = Home.getLabelsSubList(this.home.getSelectedItems());
     if (selectedLabels.isEmpty()) {
       setText(null); // Nothing to edit
@@ -533,6 +533,16 @@ public class LabelController implements Controller {
    * Controls the modification of selected labels.
    */
   public void modifyLabels() {
+    modifyLabels(null);
+  }
+
+  /**
+   * Controls the modification of selected labels, with an undoable edit
+   * which will be merged with the previous one if that one was posted with an equal key.
+   * @param mergeKey an object identifying the kind of modification,
+   *            or <code>null</code> if the edit shouldn't be merged with an other one
+   */
+  public void modifyLabels(Object mergeKey) {
     List<Selectable> oldSelection = this.home.getSelectedItems();
     List<Label> selectedLabels = Home.getLabelsSubList(oldSelection);
     if (!selectedLabels.isEmpty()) {
@@ -558,12 +568,14 @@ public class LabelController implements Controller {
       TextStyle defaultStyle = this.preferences.getDefaultTextStyle(Label.class);
       doModifyLabels(modifiedLabels, text, alignment, fontName, fontNameSet, fontSize, defaultStyle, color, pitch, pitchEnabled, elevation);
       if (this.undoSupport != null) {
-        UndoableEdit undoableEdit = new LabelModificationUndoableEdit(this.home,
+        LabelModificationUndoableEdit undoableEdit = new LabelModificationUndoableEdit(this.home,
             this.preferences, oldSelection.toArray(new Selectable [oldSelection.size()]),
             modifiedLabels, text, alignment, fontName, fontNameSet, fontSize, defaultStyle, color, pitch, pitchEnabled, elevation);
+        undoableEdit.setMergeKey(mergeKey);
         this.undoSupport.postEdit(undoableEdit);
       }
-      if (text != null && text.indexOf('\n') < 0) {
+      // Don't propose the intermediate texts of a modification applied at each change
+      if (text != null && text.indexOf('\n') < 0 && mergeKey == null) {
         this.preferences.addAutoCompletionString("LabelText", text);
       }
     }
@@ -573,7 +585,7 @@ public class LabelController implements Controller {
    * Undoable edit for label modification. This class isn't anonymous to avoid
    * being bound to controller and its view.
    */
-  private static class LabelModificationUndoableEdit extends LocalizedUndoableEdit {
+  private static class LabelModificationUndoableEdit extends MergeableUndoableEdit {
     private final Home                home;
     private final Selectable []       oldSelection;
     private final ModifiedLabel []    modifiedLabels;
@@ -616,16 +628,28 @@ public class LabelController implements Controller {
     @Override
     public void undo() throws CannotUndoException {
       super.undo();
-      undoModifyLabels(this.modifiedLabels);
+      undoMergedModifications();
+      undoModification();
       this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
 
     @Override
     public void redo() throws CannotRedoException {
       super.redo();
+      redoModification();
+      redoMergedModifications();
+      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
+    }
+
+    @Override
+    protected void undoModification() {
+      undoModifyLabels(this.modifiedLabels);
+    }
+
+    @Override
+    protected void redoModification() {
       doModifyLabels(this.modifiedLabels, this.text, this.alignment, this.fontName, this.fontNameSet, this.fontSize, this.defaultStyle,
           this.color, this.pitch, this.pitchEnabled, this.elevation);
-      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
   }
 

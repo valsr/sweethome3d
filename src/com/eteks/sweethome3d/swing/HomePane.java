@@ -550,6 +550,8 @@ public class HomePane extends JRootPane implements HomeView {
           homeController3D, "displayAllLevels");
       createToggleAction(ActionType.DISPLAY_SELECTED_LEVEL, !allLevelsVisible, displayLevelGroup, preferences,
           homeController3D, "displaySelectedLevel");
+      createToggleAction(ActionType.TOGGLE_SEE_THROUGH_WALLS, home.getEnvironment().getWallsAlpha() > 0, null, preferences,
+          homeController3D, "toggleSeeThroughWalls");
       createAction(ActionType.MODIFY_3D_ATTRIBUTES, preferences, homeController3D, "modifyAttributes");
       createAction(ActionType.CREATE_PHOTO, preferences, controller, "createPhoto");
       createAction(ActionType.CREATE_PHOTOS_AT_POINTS_OF_VIEW, preferences, controller, "createPhotos");
@@ -799,6 +801,14 @@ public class HomePane extends JRootPane implements HomeView {
             boolean allLevelsVisible = home.getEnvironment().isAllLevelsVisible();
             setToggleButtonModelSelected(ActionType.DISPLAY_ALL_LEVELS, allLevelsVisible);
             setToggleButtonModelSelected(ActionType.DISPLAY_SELECTED_LEVEL, !allLevelsVisible);
+          }
+        });
+    home.getEnvironment().addPropertyChangeListener(HomeEnvironment.Property.WALLS_ALPHA,
+        new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            if (getActionMap().get(ActionType.TOGGLE_SEE_THROUGH_WALLS) != null) {
+              setToggleButtonModelSelected(ActionType.TOGGLE_SEE_THROUGH_WALLS, home.getEnvironment().getWallsAlpha() > 0);
+            }
           }
         });
   }
@@ -1264,6 +1274,10 @@ public class HomePane extends JRootPane implements HomeView {
     if (lockUnlockBasePlanMenuItem != null) {
       planMenu.add(lockUnlockBasePlanMenuItem);
     }
+    JMenuItem enableDisableMagnetismMenuItem = createEnableDisableMagnetismMenuItem(preferences, false);
+    if (enableDisableMagnetismMenuItem != null) {
+      planMenu.add(enableDisableMagnetismMenuItem);
+    }
     addActionToMenu(ActionType.FLIP_HORIZONTALLY, planMenu);
     addActionToMenu(ActionType.FLIP_VERTICALLY, planMenu);
     addActionToMenu(ActionType.MODIFY_COMPASS, planMenu);
@@ -1312,6 +1326,7 @@ public class HomePane extends JRootPane implements HomeView {
     }
     addToggleActionToMenu(ActionType.DISPLAY_ALL_LEVELS, true, preview3DMenu);
     addToggleActionToMenu(ActionType.DISPLAY_SELECTED_LEVEL, true, preview3DMenu);
+    addToggleActionToMenu(ActionType.TOGGLE_SEE_THROUGH_WALLS, false, preview3DMenu);
     addActionToMenu(ActionType.MODIFY_3D_ATTRIBUTES, preview3DMenu);
     preview3DMenu.addSeparator();
     addActionToMenu(ActionType.CREATE_PHOTO, preview3DMenu);
@@ -1933,16 +1948,52 @@ public class HomePane extends JRootPane implements HomeView {
         && disableMagnetismAction.getValue(Action.NAME) != null
         && enableMagnetismAction.getValue(Action.NAME) != null) {
       final JButton enableDisableMagnetismButton = new JButton(
-          new ResourceAction.ToolBarAction(preferences.isMagnetismEnabled()
-              ? disableMagnetismAction
-              : enableMagnetismAction));
+          createEnableDisableMagnetismAction(this, preferences, MagnetismChangeListener.TOOL_BAR));
       // Add a listener to preferences on magnestismEnabled property change to
       // switch action according to magnestismEnabled change
       preferences.addPropertyChangeListener(UserPreferences.Property.MAGNETISM_ENABLED,
-          new MagnetismChangeListener(this, enableDisableMagnetismButton));
+          new MagnetismChangeListener(this, enableDisableMagnetismButton, MagnetismChangeListener.TOOL_BAR));
       return enableDisableMagnetismButton;
     } else {
       return null;
+    }
+  }
+
+  /**
+   * Returns Enable / Disable magnetism menu item.
+   */
+  private JMenuItem createEnableDisableMagnetismMenuItem(UserPreferences preferences, boolean popup) {
+    ActionMap actionMap = getActionMap();
+    Action disableMagnetismAction = actionMap.get(ActionType.DISABLE_MAGNETISM);
+    Action enableMagnetismAction = actionMap.get(ActionType.ENABLE_MAGNETISM);
+    if (disableMagnetismAction != null
+        && disableMagnetismAction.getValue(Action.NAME) != null
+        && enableMagnetismAction.getValue(Action.NAME) != null) {
+      int target = popup ? MagnetismChangeListener.POPUP_MENU : MagnetismChangeListener.MENU;
+      JMenuItem enableDisableMagnetismMenuItem = new JMenuItem(
+          createEnableDisableMagnetismAction(this, preferences, target));
+      preferences.addPropertyChangeListener(UserPreferences.Property.MAGNETISM_ENABLED,
+          new MagnetismChangeListener(this, enableDisableMagnetismMenuItem, target));
+      return enableDisableMagnetismMenuItem;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the action active on Enable / Disable magnetism button or menu item.
+   */
+  private static Action createEnableDisableMagnetismAction(HomePane homePane, UserPreferences preferences, int target) {
+    Action action = homePane.getActionMap().get(preferences.isMagnetismEnabled()
+        ? ActionType.DISABLE_MAGNETISM
+        : ActionType.ENABLE_MAGNETISM);
+    switch (target) {
+      case MagnetismChangeListener.TOOL_BAR :
+        return new ResourceAction.ToolBarAction(action);
+      case MagnetismChangeListener.POPUP_MENU :
+        return new ResourceAction.PopupMenuItemAction(action);
+      default :
+        return new ResourceAction.MenuItemAction(action);
     }
   }
 
@@ -1951,27 +2002,31 @@ public class HomePane extends JRootPane implements HomeView {
    * strong link between preferences and this component.
    */
   private static class MagnetismChangeListener implements PropertyChangeListener {
-    private WeakReference<HomePane> homePane;
-    private WeakReference<JButton>  enableDisableMagnetismButton;
+    static final int TOOL_BAR   = 0;
+    static final int MENU       = 1;
+    static final int POPUP_MENU = 2;
 
-    public MagnetismChangeListener(HomePane homePane, JButton enableDisableMagnetismButton) {
-      this.enableDisableMagnetismButton = new WeakReference<JButton>(enableDisableMagnetismButton);
+    private WeakReference<HomePane>       homePane;
+    private WeakReference<AbstractButton> enableDisableMagnetismButton;
+    private int                           target;
+
+    public MagnetismChangeListener(HomePane homePane, AbstractButton enableDisableMagnetismButton, int target) {
+      this.enableDisableMagnetismButton = new WeakReference<AbstractButton>(enableDisableMagnetismButton);
       this.homePane = new WeakReference<HomePane>(homePane);
+      this.target = target;
     }
 
     public void propertyChange(PropertyChangeEvent ev) {
       // If home pane was garbage collected, remove this listener from preferences
       HomePane homePane = this.homePane.get();
-      JButton enableDisableMagnetismButton = this.enableDisableMagnetismButton.get();
+      AbstractButton enableDisableMagnetismButton = this.enableDisableMagnetismButton.get();
       UserPreferences preferences = (UserPreferences)ev.getSource();
       UserPreferences.Property property = UserPreferences.Property.valueOf(ev.getPropertyName());
       if (homePane == null || enableDisableMagnetismButton == null) {
         preferences.removePropertyChangeListener(property, this);
       } else {
         enableDisableMagnetismButton.setAction(
-            new ResourceAction.ToolBarAction(preferences.isMagnetismEnabled()
-                ? homePane.getActionMap().get(ActionType.DISABLE_MAGNETISM)
-                : homePane.getActionMap().get(ActionType.ENABLE_MAGNETISM)));
+            createEnableDisableMagnetismAction(homePane, preferences, this.target));
       }
     }
   }
@@ -2620,6 +2675,18 @@ public class HomePane extends JRootPane implements HomeView {
     }
 
     toolBar.addSeparator();
+    addActionGroupsToToolBar(toolBar, new ActionType [][] {
+        {ActionType.FLIP_HORIZONTALLY, ActionType.FLIP_VERTICALLY},
+        {ActionType.GROUP_FURNITURE, ActionType.UNGROUP_FURNITURE},
+        {ActionType.ALIGN_FURNITURE_ON_TOP, ActionType.ALIGN_FURNITURE_ON_BOTTOM,
+         ActionType.ALIGN_FURNITURE_ON_LEFT, ActionType.ALIGN_FURNITURE_ON_RIGHT},
+        {ActionType.ALIGN_FURNITURE_ON_FRONT_SIDE, ActionType.ALIGN_FURNITURE_ON_BACK_SIDE,
+         ActionType.ALIGN_FURNITURE_ON_LEFT_SIDE, ActionType.ALIGN_FURNITURE_ON_RIGHT_SIDE},
+        {ActionType.ALIGN_FURNITURE_SIDE_BY_SIDE},
+        {ActionType.DISTRIBUTE_FURNITURE_HORIZONTALLY, ActionType.DISTRIBUTE_FURNITURE_VERTICALLY}});
+
+    toolBar.addSeparator();
+    addToggleActionToToolBar(ActionType.TOGGLE_SEE_THROUGH_WALLS, toolBar);
     addActionToToolBar(ActionType.CREATE_PHOTO, toolBar);
     addActionToToolBar(ActionType.CREATE_VIDEO, toolBar);
     toolBar.addSeparator();
@@ -2654,6 +2721,23 @@ public class HomePane extends JRootPane implements HomeView {
     }
 
     return toolBar;
+  }
+
+  /**
+   * Adds to tool bar the buttons matching the given groups of actions,
+   * with a small space between groups.
+   */
+  private void addActionGroupsToToolBar(JToolBar toolBar, ActionType [][] actionGroups) {
+    int previousCount = toolBar.getComponentCount();
+    for (ActionType [] actionGroup : actionGroups) {
+      if (previousCount != toolBar.getComponentCount()) {
+        toolBar.add(Box.createRigidArea(new Dimension(2, 2)));
+      }
+      previousCount = toolBar.getComponentCount();
+      for (ActionType actionType : actionGroup) {
+        addActionToToolBar(actionType, toolBar);
+      }
+    }
   }
 
   /**
@@ -3311,7 +3395,8 @@ public class HomePane extends JRootPane implements HomeView {
 
   /**
    * Adds to the given side bar a section which edits the properties of the selected furniture,
-   * rooms, walls or observer camera, and displays this section when the user requests to modify them.
+   * rooms, walls, observer camera, texts, polylines, dimension lines or guides, and displays this section
+   * when the user requests to modify them.
    */
   private void addSelectionPropertiesSection(final PrimarySideBar primarySideBar,
                                              Home home,
@@ -3349,6 +3434,10 @@ public class HomePane extends JRootPane implements HomeView {
       controller.getPlanController().setSelectedRoomsModifier(selectedObjectsModifier);
       controller.getPlanController().setSelectedWallsModifier(selectedObjectsModifier);
       controller.getPlanController().setObserverCameraModifier(selectedObjectsModifier);
+      controller.getPlanController().setSelectedLabelsModifier(selectedObjectsModifier);
+      controller.getPlanController().setSelectedPolylinesModifier(selectedObjectsModifier);
+      controller.getPlanController().setSelectedDimensionLinesModifier(selectedObjectsModifier);
+      controller.getPlanController().setSelectedGuidelinesModifier(selectedObjectsModifier);
     }
   }
 
@@ -3484,6 +3573,10 @@ public class HomePane extends JRootPane implements HomeView {
       JMenuItem lockUnlockBasePlanMenuItem = createLockUnlockBasePlanMenuItem(home, true);
       if (lockUnlockBasePlanMenuItem != null) {
         planViewPopup.add(lockUnlockBasePlanMenuItem);
+      }
+      JMenuItem enableDisableMagnetismMenuItem = createEnableDisableMagnetismMenuItem(preferences, true);
+      if (enableDisableMagnetismMenuItem != null) {
+        planViewPopup.add(enableDisableMagnetismMenuItem);
       }
       addActionToPopupMenu(ActionType.FLIP_HORIZONTALLY, planViewPopup);
       addActionToPopupMenu(ActionType.FLIP_VERTICALLY, planViewPopup);
@@ -3644,6 +3737,7 @@ public class HomePane extends JRootPane implements HomeView {
       }
       addToggleActionToPopupMenu(ActionType.DISPLAY_ALL_LEVELS, true, view3DPopup);
       addToggleActionToPopupMenu(ActionType.DISPLAY_SELECTED_LEVEL, true, view3DPopup);
+      addToggleActionToPopupMenu(ActionType.TOGGLE_SEE_THROUGH_WALLS, false, view3DPopup);
       addActionToPopupMenu(ActionType.MODIFY_3D_ATTRIBUTES, view3DPopup);
       view3DPopup.addSeparator();
       addActionToPopupMenu(ActionType.CREATE_PHOTO, view3DPopup);

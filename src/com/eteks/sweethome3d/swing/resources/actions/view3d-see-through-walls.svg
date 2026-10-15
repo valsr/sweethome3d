@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>vue3D/view3d-see-through-walls</title>
+    <g id="vue3D/view3d-see-through-walls" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" fill="#DDDDDD" fill-rule="nonzero" opacity="0">
+            <g id="Rectangle-Copy-25">
+                <rect x="0" y="0" width="16" height="16"></rect>
+            </g>
+        </g>
+        <polygon id="Box-side" fill="#A4A4A4" stroke="#000000" stroke-width="0.75" stroke-linejoin="round" points="6.5 9.5 9.5 10.5 9.5 14 6.5 13"></polygon>
+        <polygon id="Box-front" fill="#DDDDDD" stroke="#000000" stroke-width="0.75" stroke-linejoin="round" points="9.5 10.5 12.5 9.5 12.5 13 9.5 14"></polygon>
+        <polygon id="Box-top" fill="#FFFFFF" stroke="#000000" stroke-width="0.75" stroke-linejoin="round" points="6.5 9.5 9.5 8.5 12.5 9.5 9.5 10.5"></polygon>
+        <polyline id="Wall-right" stroke="#000000" fill="#FFFFFF" fill-opacity="0.35" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5,1" points="4.5 11.7 4.5 0.2 15.5 3.2 15.5 15.2 4.5 11.7"></polyline>
+        <polygon id="Wall-left" stroke="#000000" fill="#DDDDDD" fill-opacity="0.35" fill-rule="nonzero" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5,1" points="4.5 0.2 4.5 11.7 0.5 15.2 0.5 3.2"></polygon>
+    </g>
+</svg>

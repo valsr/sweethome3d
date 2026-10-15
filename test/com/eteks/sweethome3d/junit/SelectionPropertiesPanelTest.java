@@ -36,23 +36,31 @@ import com.eteks.sweethome3d.io.DefaultUserPreferences;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.DimensionLine;
+import com.eteks.sweethome3d.model.Label;
 import com.eteks.sweethome3d.model.ObserverCamera;
 import com.eteks.sweethome3d.model.PieceOfFurniture;
+import com.eteks.sweethome3d.model.Polyline;
 import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.model.Wall;
+import com.eteks.sweethome3d.swing.DimensionLinePanel;
 import com.eteks.sweethome3d.swing.FileContentManager;
 import com.eteks.sweethome3d.swing.SelectionPropertiesPanel;
 import com.eteks.sweethome3d.swing.HomeFurniturePanel;
+import com.eteks.sweethome3d.swing.LabelPanel;
 import com.eteks.sweethome3d.swing.ObserverCameraPanel;
+import com.eteks.sweethome3d.swing.PolylinePanel;
 import com.eteks.sweethome3d.swing.RoomPanel;
 import com.eteks.sweethome3d.swing.SwingTools;
 import com.eteks.sweethome3d.swing.SwingViewFactory;
 import com.eteks.sweethome3d.swing.WallPanel;
+import com.eteks.sweethome3d.viewcontroller.DimensionLineController;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
+import com.eteks.sweethome3d.viewcontroller.LabelController;
 import com.eteks.sweethome3d.viewcontroller.ObserverCameraController;
 import com.eteks.sweethome3d.viewcontroller.PlanController;
+import com.eteks.sweethome3d.viewcontroller.PolylineController;
 import com.eteks.sweethome3d.viewcontroller.RoomController;
 import com.eteks.sweethome3d.viewcontroller.WallController;
 
@@ -420,12 +428,10 @@ public class SelectionPropertiesPanelTest extends TestCase {
   }
 
   public void testObjectsWithoutEditedPropertiesAreIgnored() throws Exception {
-    DimensionLine dimensionLine = new DimensionLine(0, 0, 100, 0, 20);
-    this.home.addDimensionLine(dimensionLine);
-    select(this.room1, dimensionLine);
+    select(this.room1, this.home.getCompass());
     assertNotNull(this.panel.getRoomController());
 
-    select(dimensionLine);
+    select(this.home.getCompass());
     assertTrue(isHintDisplayed());
   }
 
@@ -617,5 +623,192 @@ public class SelectionPropertiesPanelTest extends TestCase {
 
     assertSame(controller, this.panel.getObserverCameraController());
     assertEquals(camera.getY(), controller.getY());
+  }
+
+  public void testSelectedLabelsAreEdited() throws Exception {
+    Label label = new Label("Hello", 0, 0);
+    this.home.addLabel(label);
+    select(label);
+
+    assertEquals("Hello", this.panel.getLabelController().getText());
+    assertNull(this.panel.getRoomController());
+    assertEquals(1, SwingTools.findChildren(this.panel, LabelPanel.class).size());
+    assertFalse(isHintDisplayed());
+
+    select(label, this.room1);
+    assertTrue(isHintDisplayed());
+    assertNull(this.panel.getLabelController());
+  }
+
+  private void editLabelText(final String text) throws Exception {
+    edit(new Runnable() {
+        public void run() {
+          panel.getLabelController().setText(text);
+        }
+      });
+  }
+
+  public void testLabelEditsAreAppliedImmediatelyAndUndoneAtOnce() throws Exception {
+    Label label = new Label("Hello", 0, 0);
+    this.home.addLabel(label);
+    select(label);
+    LabelController controller = this.panel.getLabelController();
+    for (String text : new String [] {"W", "Wo", "Wor"}) {
+      editLabelText(text);
+      assertEquals(text, label.getText());
+    }
+    edit(new Runnable() {
+        public void run() {
+          panel.getLabelController().setColor(0xFF0000);
+        }
+      });
+    assertEquals(Integer.valueOf(0xFF0000), label.getColor());
+    assertSame("Panel shouldn't be rebuilt by its own edits", controller, this.panel.getLabelController());
+    assertFalse(this.preferences.getAutoCompletionStrings("LabelText").contains("Wor"));
+
+    this.undoManager.undo();
+    assertNull(label.getColor());
+    assertEquals("Wor", label.getText());
+    this.undoManager.undo();
+    assertEquals("Hello", label.getText());
+    assertFalse(this.undoManager.canUndo());
+
+    this.undoManager.redo();
+    assertEquals("Wor", label.getText());
+  }
+
+  public void testLabelChangedElsewhereIsUpdatedInPlaceWithoutEdit() throws Exception {
+    Label label = new Label("Hello", 0, 0);
+    this.home.addLabel(label);
+    select(label);
+    LabelController controller = this.panel.getLabelController();
+
+    label.setText("Bonjour");
+    waitForUpdate();
+    waitForUpdate();
+
+    assertSame(controller, this.panel.getLabelController());
+    assertEquals("Bonjour", controller.getText());
+    assertFalse(this.undoManager.canUndo());
+  }
+
+  public void testSelectedPolylinesAreEdited() throws Exception {
+    Polyline polyline1 = new Polyline(new float [][] {{0, 0}, {100, 0}});
+    polyline1.setThickness(2);
+    this.home.addPolyline(polyline1);
+    Polyline polyline2 = new Polyline(new float [][] {{0, 100}, {100, 100}});
+    polyline2.setThickness(3);
+    this.home.addPolyline(polyline2);
+    select(polyline1);
+
+    assertEquals(2f, this.panel.getPolylineController().getThickness());
+    assertEquals(1, SwingTools.findChildren(this.panel, PolylinePanel.class).size());
+
+    select(polyline1, polyline2);
+    assertNull("Different thicknesses", this.panel.getPolylineController().getThickness());
+  }
+
+  private void editPolylineThickness(final float thickness) throws Exception {
+    edit(new Runnable() {
+        public void run() {
+          panel.getPolylineController().setThickness(thickness);
+        }
+      });
+  }
+
+  public void testPolylineEditsAreAppliedImmediatelyAndUndoneAtOnce() throws Exception {
+    Polyline polyline = new Polyline(new float [][] {{0, 0}, {100, 0}});
+    polyline.setThickness(2);
+    this.home.addPolyline(polyline);
+    select(polyline);
+    PolylineController controller = this.panel.getPolylineController();
+    editPolylineThickness(4);
+    editPolylineThickness(6);
+    assertEquals(6f, polyline.getThickness());
+    edit(new Runnable() {
+        public void run() {
+          panel.getPolylineController().setEndArrowStyle(Polyline.ArrowStyle.DELTA);
+        }
+      });
+    assertEquals(Polyline.ArrowStyle.DELTA, polyline.getEndArrowStyle());
+    assertSame(controller, this.panel.getPolylineController());
+
+    this.undoManager.undo();
+    assertEquals(Polyline.ArrowStyle.NONE, polyline.getEndArrowStyle());
+    assertEquals(6f, polyline.getThickness());
+    this.undoManager.undo();
+    assertEquals(2f, polyline.getThickness());
+    assertFalse(this.undoManager.canUndo());
+
+    this.undoManager.redo();
+    assertEquals(6f, polyline.getThickness());
+  }
+
+  public void testSelectedDimensionLinesAreEdited() throws Exception {
+    DimensionLine dimensionLine = new DimensionLine(0, 0, 100, 0, 20);
+    this.home.addDimensionLine(dimensionLine);
+    select(dimensionLine);
+
+    assertEquals(20f, this.panel.getDimensionLineController().getOffset());
+    assertEquals(1, SwingTools.findChildren(this.panel, DimensionLinePanel.class).size());
+    assertFalse(isHintDisplayed());
+
+    Polyline polyline = new Polyline(new float [][] {{0, 0}, {100, 0}});
+    this.home.addPolyline(polyline);
+    select(dimensionLine, polyline);
+    assertTrue(isHintDisplayed());
+    assertNull(this.panel.getDimensionLineController());
+    assertNull(this.panel.getPolylineController());
+  }
+
+  private void editDimensionLineOffset(final float offset) throws Exception {
+    edit(new Runnable() {
+        public void run() {
+          panel.getDimensionLineController().setOffset(offset);
+        }
+      });
+  }
+
+  public void testDimensionLineEditsAreAppliedImmediatelyAndUndoneAtOnce() throws Exception {
+    DimensionLine dimensionLine = new DimensionLine(0, 0, 100, 0, 20);
+    this.home.addDimensionLine(dimensionLine);
+    select(dimensionLine);
+    DimensionLineController controller = this.panel.getDimensionLineController();
+    editDimensionLineOffset(25);
+    editDimensionLineOffset(30);
+    assertEquals(30f, dimensionLine.getOffset());
+    edit(new Runnable() {
+        public void run() {
+          panel.getDimensionLineController().setXEnd(200f);
+        }
+      });
+    assertEquals(200f, dimensionLine.getXEnd());
+    assertSame(controller, this.panel.getDimensionLineController());
+
+    this.undoManager.undo();
+    assertEquals(100f, dimensionLine.getXEnd());
+    assertEquals(30f, dimensionLine.getOffset());
+    this.undoManager.undo();
+    assertEquals(20f, dimensionLine.getOffset());
+    assertFalse(this.undoManager.canUndo());
+
+    this.undoManager.redo();
+    assertEquals(30f, dimensionLine.getOffset());
+  }
+
+  public void testDimensionLineChangedElsewhereIsUpdatedInPlaceWithoutEdit() throws Exception {
+    DimensionLine dimensionLine = new DimensionLine(0, 0, 100, 0, 20);
+    this.home.addDimensionLine(dimensionLine);
+    select(dimensionLine);
+    DimensionLineController controller = this.panel.getDimensionLineController();
+
+    // Simulate a dimension line moved in the plan
+    dimensionLine.setOffset(50);
+    waitForUpdate();
+    waitForUpdate();
+
+    assertSame(controller, this.panel.getDimensionLineController());
+    assertEquals(50f, controller.getOffset());
+    assertFalse(this.undoManager.canUndo());
   }
 }

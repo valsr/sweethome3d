@@ -324,6 +324,7 @@ public class HomeController implements Controller {
     homeView.setEnabled(HomeView.ActionType.ATTACH_3D_VIEW, true);
     homeView.setEnabled(HomeView.ActionType.VIEW_FROM_OBSERVER, true);
     homeView.setEnabled(HomeView.ActionType.MODIFY_3D_ATTRIBUTES, true);
+    homeView.setEnabled(HomeView.ActionType.TOGGLE_SEE_THROUGH_WALLS, true);
     homeView.setEnabled(HomeView.ActionType.CREATE_PHOTO, true);
     homeView.setEnabled(HomeView.ActionType.CREATE_VIDEO, true);
     homeView.setEnabled(HomeView.ActionType.EXPORT_TO_OBJ, true);

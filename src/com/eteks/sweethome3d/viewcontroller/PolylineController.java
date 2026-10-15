@@ -26,7 +26,6 @@ import java.util.List;
 
 import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
-import javax.swing.undo.UndoableEdit;
 import javax.swing.undo.UndoableEditSupport;
 
 import com.eteks.sweethome3d.model.Home;
@@ -119,7 +118,7 @@ public class PolylineController implements Controller {
   /**
    * Updates edited properties from selected polylines in the home edited by this controller.
    */
-  protected void updateProperties() {
+  public void updateProperties() {
     List<Polyline> selectedPolylines = Home.getPolylinesSubList(this.home.getSelectedItems());
     if (selectedPolylines.isEmpty()) {
       setThickness(null); // Nothing to edit
@@ -508,6 +507,16 @@ public class PolylineController implements Controller {
    * Controls the modification of selected polylines in edited home.
    */
   public void modifyPolylines() {
+    modifyPolylines(null);
+  }
+
+  /**
+   * Controls the modification of selected polylines in edited home, with an undoable edit
+   * which will be merged with the previous one if that one was posted with an equal key.
+   * @param mergeKey an object identifying the kind of modification,
+   *            or <code>null</code> if the edit shouldn't be merged with an other one
+   */
+  public void modifyPolylines(Object mergeKey) {
     List<Selectable> oldSelection = this.home.getSelectedItems();
     List<Polyline> selectedPolylines = Home.getPolylinesSubList(oldSelection);
     if (!selectedPolylines.isEmpty()) {
@@ -532,10 +541,11 @@ public class PolylineController implements Controller {
       doModifyPolylines(modifiedPolylines, thickness,
           capStyle, joinStyle, dashStyle, dashPattern, dashOffset, startArrowStyle, endArrowStyle, color, elevation, elevationEnabled);
       if (this.undoSupport != null) {
-        UndoableEdit undoableEdit = new PolylinesModificationUndoableEdit(
+        PolylinesModificationUndoableEdit undoableEdit = new PolylinesModificationUndoableEdit(
             this.home, this.preferences, oldSelection.toArray(new Selectable [oldSelection.size()]),
             modifiedPolylines, thickness, capStyle, joinStyle, dashStyle, dashPattern, dashOffset,
             startArrowStyle, endArrowStyle, color, elevation, elevationEnabled);
+        undoableEdit.setMergeKey(mergeKey);
         this.undoSupport.postEdit(undoableEdit);
       }
     }
@@ -545,7 +555,7 @@ public class PolylineController implements Controller {
    * Undoable edit for polylines modification. This class isn't anonymous to avoid
    * being bound to controller and its view.
    */
-  private static class PolylinesModificationUndoableEdit extends LocalizedUndoableEdit {
+  private static class PolylinesModificationUndoableEdit extends MergeableUndoableEdit {
     private final Home                home;
     private final Selectable []       oldSelection;
     private final ModifiedPolyline [] modifiedPolylines;
@@ -595,18 +605,30 @@ public class PolylineController implements Controller {
     @Override
     public void undo() throws CannotUndoException {
       super.undo();
-      undoModifyPolylines(this.modifiedPolylines);
+      undoMergedModifications();
+      undoModification();
       this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
 
     @Override
     public void redo() throws CannotRedoException {
       super.redo();
+      redoModification();
+      redoMergedModifications();
+      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
+    }
+
+    @Override
+    protected void undoModification() {
+      undoModifyPolylines(this.modifiedPolylines);
+    }
+
+    @Override
+    protected void redoModification() {
       doModifyPolylines(this.modifiedPolylines, this.thickness,
           this.capStyle, this.joinStyle, this.dashStyle, this.dashPattern, this.dashOffset,
           this.startArrowStyle, this.endArrowStyle, this.color,
           this.elevation, this.elevationEnabled);
-      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
   }
 
