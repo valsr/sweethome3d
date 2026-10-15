@@ -420,4 +420,52 @@ public class FurnitureTableGroupingTest extends TestCase {
     assertFalse("Kitchen not collapsed after printing", this.table.isRowExpanded(rowOf(bucket(this.chair))));
     assertEquals(collapsedProperty, this.home.getProperty("com.eteks.sweethome3d.SweetHome3D.CollapsedFurnitureHeaders"));
   }
+
+  /**
+   * Prints the first page of the table and returns the count of horizontal grid lines.
+   */
+  private int countPrintedGridLines() throws Exception {
+    java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(612, 792, java.awt.image.BufferedImage.TYPE_INT_RGB);
+    java.awt.Graphics2D g = image.createGraphics();
+    g.setColor(java.awt.Color.WHITE);
+    g.fillRect(0, 0, image.getWidth(), image.getHeight());
+    this.table.print(g, new java.awt.print.PageFormat(), 0);
+    g.dispose();
+    // Find table left border
+    int left = -1;
+    for (int column = 0; column < image.getWidth() && left < 0; column++) {
+      for (int y = 0; y < image.getHeight(); y++) {
+        if (isDark(image, column, y)) {
+          left = column;
+          break;
+        }
+      }
+    }
+    assertTrue("Nothing printed", left >= 0);
+    // Count horizontal grid lines crossed by a vertical line inside the name column
+    int lineCount = 0;
+    boolean previousDark = false;
+    for (int y = 0; y < image.getHeight(); y++) {
+      boolean dark = isDark(image, left + 4, y);
+      if (dark && !previousDark) {
+        lineCount++;
+      }
+      previousDark = dark;
+    }
+    return lineCount;
+  }
+
+  private static boolean isDark(java.awt.image.BufferedImage image, int x, int y) {
+    java.awt.Color color = new java.awt.Color(image.getRGB(x, y));
+    return color.getRed() + color.getGreen() + color.getBlue() < 300;
+  }
+
+  public void testPrintedPageContainsAllRows() throws Exception {
+    this.table.setSize(this.table.getPreferredSize());
+    int expandedLineCount = countPrintedGridLines();
+    toggleRow(this.table, this.level0);
+    // Size table as it would be displayed with collapsed rows
+    this.table.setSize(this.table.getPreferredSize());
+    assertEquals("Wrong printed row count", expandedLineCount, countPrintedGridLines());
+  }
 }

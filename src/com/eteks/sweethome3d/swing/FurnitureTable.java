@@ -23,6 +23,7 @@ import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Graphics;
@@ -1031,6 +1032,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
       // Print all the furniture listed under collapsed headers
       FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
       tableModel.setAllHeadersExpanded(true);
+      // Ensure table height matches expanded rows since layout is updated later
+      Dimension oldSize = getSize();
+      setSize(oldSize.width, getRowCount() * getRowHeight());
       setColumnModel(printableColumnModel);
       if (OperatingSystem.isWindows()) {
         // Add 3 pixels to columns to get a correct rendering
@@ -1047,6 +1051,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
         setColumnModel(oldColumnModel);
         setGridColor(oldGridColor);
         tableModel.setAllHeadersExpanded(false);
+        setSize(oldSize);
       }
     } else {
       // Print synchronously table in Event Dispatch Thread
