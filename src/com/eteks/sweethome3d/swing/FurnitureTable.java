@@ -1028,6 +1028,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     if (EventQueue.isDispatchThread()) {
       TableColumnModel oldColumnModel = getColumnModel();
       Color oldGridColor = getGridColor();
+      // Print all the furniture listed under collapsed headers
+      FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
+      tableModel.setAllHeadersExpanded(true);
       setColumnModel(printableColumnModel);
       if (OperatingSystem.isWindows()) {
         // Add 3 pixels to columns to get a correct rendering
@@ -1037,11 +1040,14 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
       }
       setGridColor(gridColor);
       Printable printable = getPrintable(PrintMode.FIT_WIDTH, null, null);
-      int pageExists = printable.print(g, pageFormat, pageIndex);
-      // Restore column model and grid color to their previous values
-      setColumnModel(oldColumnModel);
-      setGridColor(oldGridColor);
-      return pageExists;
+      try {
+        return printable.print(g, pageFormat, pageIndex);
+      } finally {
+        // Restore column model, grid color and headers to their previous values
+        setColumnModel(oldColumnModel);
+        setGridColor(oldGridColor);
+        tableModel.setAllHeadersExpanded(false);
+      }
     } else {
       // Print synchronously table in Event Dispatch Thread
       // The best solution should be to be able to print out of Event Dispatch Thread
@@ -1120,8 +1126,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
   public void exportToCSV(Writer writer, char fieldSeparator) throws IOException {
     TableColumnModel columnModel = getExportColumnModel();
     exportHeaderToCSV(writer, columnModel, fieldSeparator);
-    for (int row = 0, n = getRowCount(); row < n; row++) {
-      exportRowToCSV(writer, row, columnModel, fieldSeparator);
+    // Export furniture as if it wasn't grouped by level and room
+    for (HomePieceOfFurniture piece : ((FurnitureTreeTableModel)getModel()).getFlatFurniture()) {
+      exportRowToCSV(writer, piece, -1, columnModel, fieldSeparator);
     }
   }
 
@@ -1169,11 +1176,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     writer.write(System.getProperty("line.separator"));
   }
 
-  private void exportRowToCSV(Writer writer, int rowIndex,
+  private void exportRowToCSV(Writer writer, HomePieceOfFurniture exportedPiece, int rowIndex,
                               TableColumnModel columnModel,
                               char fieldSeparator) throws IOException {
-    TableModel model = getModel();
-    HomePieceOfFurniture exportedPiece = (HomePieceOfFurniture)model.getValueAt(rowIndex, 0);
     // Force format for sizes to always display decimals
     Format lengthFormat;
     if (this.preferences.getLengthUnit().isMetric()
@@ -1320,7 +1325,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             writer.write(text);
           }
         } else {
-          writer.write(String.valueOf(model.getValueAt(rowIndex, columnIndex)));
+          writer.write(String.valueOf(exportedPiece));
         }
       }
     }
@@ -1346,8 +1351,16 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     TableColumnModel columnModel = getExportColumnModel();
     try {
       exportHeaderToCSV(writer, columnModel, '\t');
+      FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
       for (int row : getSelectedRows()) {
-        exportRowToCSV(writer, row, columnModel, '\t');
+        if (tableModel.isPieceRow(row)) {
+          exportRowToCSV(writer, (HomePieceOfFurniture)tableModel.getValueAt(row, 0), row, columnModel, '\t');
+        } else {
+          // Selected collapsed header
+          for (HomePieceOfFurniture piece : tableModel.getPiecesUnderHeader(row)) {
+            exportRowToCSV(writer, piece, -1, columnModel, '\t');
+          }
+        }
       }
     } catch (IOException ex) {
       // May not happen since there's no IO write
@@ -2848,6 +2861,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     private Map<Object, List<?>>                    childFurnitureCache;
     private boolean                                 containsNotViewableFurniture;
     private Set<Object>                             collapsedHeaders;
+    private boolean                                 allHeadersExpanded;
 
     public FurnitureTreeTableModel(Home home) {
       this.home = home;
@@ -2998,6 +3012,26 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
      */
     public boolean isPieceRow(int rowIndex) {
       return this.rows.get(rowIndex) instanceof HomePieceOfFurniture;
+    }
+
+    /**
+     * Returns the furniture that would be listed if it wasn't grouped by level and room.
+     */
+    public List<HomePieceOfFurniture> getFlatFurniture() {
+      return getFilteredAndSortedFurniture(this.home.getFurniture(), true);
+    }
+
+    /**
+     * Sets whether all level and room headers should be temporarily expanded,
+     * without changing their stored collapsed state.
+     */
+    public void setAllHeadersExpanded(boolean allHeadersExpanded) {
+      if (this.allHeadersExpanded != allHeadersExpanded) {
+        this.allHeadersExpanded = allHeadersExpanded;
+        if (this.grouped && !this.collapsedHeaders.isEmpty()) {
+          filterAndSortFurniture();
+        }
+      }
     }
 
     /**
@@ -3204,13 +3238,13 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             && bucket.getLevel() != rowLevel) {
           rowLevel = bucket.getLevel();
           rows.add(rowLevel);
-          levelCollapsed = this.collapsedHeaders.contains(rowLevel);
+          levelCollapsed = !this.allHeadersExpanded && this.collapsedHeaders.contains(rowLevel);
         }
         if (levelCollapsed) {
           continue;
         }
         rows.add(bucket);
-        if (this.collapsedHeaders.contains(bucket)) {
+        if (!this.allHeadersExpanded && this.collapsedHeaders.contains(bucket)) {
           continue;
         }
         for (HomePieceOfFurniture piece : bucketFurniture.get(bucket)) {
@@ -3490,7 +3524,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
       if (row instanceof HomePieceOfFurniture) {
         return this.expandedGroups.contains(row);
       } else {
-        return !this.collapsedHeaders.contains(row);
+        return this.allHeadersExpanded || !this.collapsedHeaders.contains(row);
       }
     }
 

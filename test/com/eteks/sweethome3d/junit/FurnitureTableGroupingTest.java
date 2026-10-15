@@ -381,4 +381,43 @@ public class FurnitureTableGroupingTest extends TestCase {
     this.table.addRowSelectionInterval(kitchenRow, kitchenRow);
     assertSameElements(Arrays.asList(this.lamp, this.chair, stool), this.home.getSelectedItems());
   }
+
+  public void testCsvExportIgnoresGrouping() throws Exception {
+    toggleRow(this.table, bucket(this.chair));
+    java.io.StringWriter groupedCsv = new java.io.StringWriter();
+    this.table.exportToCSV(groupedCsv, ',');
+    this.controller.toggleFurnitureGrouping();
+    java.io.StringWriter flatCsv = new java.io.StringWriter();
+    this.table.exportToCSV(flatCsv, ',');
+    assertEquals(flatCsv.toString(), groupedCsv.toString());
+    assertEquals(this.table.getRowCount() + 1, groupedCsv.toString().split(System.getProperty("line.separator")).length);
+  }
+
+  public void testPrintExpandsHeadersAndHidesFilteredHeaders() throws Exception {
+    int expandedRowCount = this.table.getRowCount();
+    toggleRow(this.table, bucket(this.chair));
+    this.table.setFurnitureFilter(new com.eteks.sweethome3d.viewcontroller.FurnitureView.FurnitureFilter() {
+        public boolean include(Home home, HomePieceOfFurniture piece) {
+          return !piece.isDoorOrWindow();
+        }
+      });
+    assertFalse("Doors and windows header still listed", getRows(this.table).contains(bucket(this.door)));
+    final int [] maxRowCount = {0};
+    this.table.getModel().addTableModelListener(new javax.swing.event.TableModelListener() {
+        public void tableChanged(javax.swing.event.TableModelEvent ev) {
+          maxRowCount [0] = Math.max(maxRowCount [0], table.getModel().getRowCount());
+        }
+      });
+    String collapsedProperty = this.home.getProperty("com.eteks.sweethome3d.SweetHome3D.CollapsedFurnitureHeaders");
+    java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(600, 800, java.awt.image.BufferedImage.TYPE_INT_RGB);
+    java.awt.Graphics2D g = image.createGraphics();
+    this.table.setSize(this.table.getPreferredSize());
+    int result = this.table.print(g, new java.awt.print.PageFormat(), 0);
+    g.dispose();
+    assertEquals(java.awt.print.Printable.PAGE_EXISTS, result);
+    // All rows except door bucket header and door are printed
+    assertEquals("Headers not expanded while printing", expandedRowCount - 2, maxRowCount [0]);
+    assertFalse("Kitchen not collapsed after printing", this.table.isRowExpanded(rowOf(bucket(this.chair))));
+    assertEquals(collapsedProperty, this.home.getProperty("com.eteks.sweethome3d.SweetHome3D.CollapsedFurnitureHeaders"));
+  }
 }
