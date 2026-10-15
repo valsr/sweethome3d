@@ -54,7 +54,10 @@ public final class FurnitureRoomResolver {
     private final Kind  kind;
     private final Room  room;
 
-    private Bucket(Level level, Kind kind, Room room) {
+    /**
+     * Creates a bucket for the given level, kind and room.
+     */
+    public Bucket(Level level, Kind kind, Room room) {
       this.level = level;
       this.kind = kind;
       this.room = room;

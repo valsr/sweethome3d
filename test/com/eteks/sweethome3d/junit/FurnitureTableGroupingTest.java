@@ -256,4 +256,90 @@ public class FurnitureTableGroupingTest extends TestCase {
     rows = getRows(this.table);
     assertTrue("Room addition not followed", indexOfBucketWithRoom(rows, newRoom) >= 0);
   }
+
+  private int rowOf(Object value) {
+    return getRows(this.table).indexOf(value);
+  }
+
+  private void toggleRow(FurnitureTable table, Object value) {
+    table.toggleRowExpandedState(getRows(table).indexOf(value));
+  }
+
+  public void testCollapseLevelAndRoomHeaders() {
+    toggleRow(this.table, bucket(this.chair));
+    assertEquals(-1, rowOf(this.chair));
+    assertTrue(rowOf(bucket(this.chair)) >= 0);
+    assertFalse(this.table.isRowExpanded(rowOf(bucket(this.chair))));
+
+    toggleRow(this.table, this.level0);
+    assertEquals(Arrays.<Object>asList(this.level0, this.level1, bucket(this.bed), this.bed), getRows(this.table));
+    assertFalse(this.table.isRowExpanded(0));
+
+    toggleRow(this.table, this.level0);
+    assertTrue(rowOf(bucket(this.chair)) >= 0);
+    assertEquals("Kitchen should stay collapsed", -1, rowOf(this.chair));
+    assertTrue(rowOf(this.desk) >= 0);
+  }
+
+  public void testCollapsedHeadersPersisted() {
+    toggleRow(this.table, bucket(this.chair));
+    toggleRow(this.table, this.level1);
+    String property = this.home.getProperty("com.eteks.sweethome3d.SweetHome3D.CollapsedFurnitureHeaders");
+    assertNotNull("Collapsed headers not stored", property);
+    List<String> tokens = Arrays.asList(property.split(","));
+    assertTrue(property, tokens.contains("R:" + this.kitchen.getId()));
+    assertTrue(property, tokens.contains("L:" + this.level1.getId()));
+
+    FurnitureTable otherTable = getTable(new FurnitureController(this.home, this.preferences, new SwingViewFactory()));
+    assertEquals(getRows(this.table), getRows(otherTable));
+  }
+
+  public void testSelectionFromPlanExpandsCollapsedHeader() {
+    toggleRow(this.table, bucket(this.chair));
+    toggleRow(this.table, this.level0);
+    this.home.setSelectedItems(Arrays.asList(this.chair));
+    int chairRow = rowOf(this.chair);
+    assertTrue("Chair not visible", chairRow >= 0);
+    assertTrue(this.table.isRowSelected(chairRow));
+    assertTrue(this.table.isRowExpanded(rowOf(bucket(this.chair))));
+    assertTrue(this.table.isRowExpanded(rowOf(this.level0)));
+  }
+
+  public void testSelectionKeptWhenHeaderCollapsed() {
+    this.home.setSelectedItems(Arrays.asList(this.chair, this.desk));
+    toggleRow(this.table, bucket(this.chair));
+    assertEquals(Arrays.asList(this.chair, this.desk), this.home.getSelectedItems());
+    assertFalse("Kitchen re-expanded", this.table.isRowExpanded(rowOf(bucket(this.chair))));
+    assertEquals(-1, rowOf(this.chair));
+    assertTrue(this.table.isRowSelected(rowOf(this.desk)));
+  }
+
+  public void testSelectionKeptWhenPieceMovesToNewRoom() {
+    Room hall = createRoom("Hall", 1000, 1000, 1100, 1100, this.level0);
+    // Keep another piece in no room bucket so that row count changes
+    createPiece("Rug", 800, 800, this.level0);
+    this.home.setSelectedItems(Arrays.asList(this.lamp));
+    int rowCount = this.table.getRowCount();
+    this.lamp.setX(1050);
+    this.lamp.setY(1050);
+    assertTrue("Hall not listed", indexOfBucketWithRoom(getRows(this.table), hall) >= 0);
+    assertEquals("Row count unchanged", rowCount + 1, this.table.getRowCount());
+    assertEquals(Arrays.asList(this.lamp), this.home.getSelectedItems());
+    assertTrue(this.table.isRowSelected(rowOf(this.lamp)));
+  }
+
+  public void testPressOnHeaderArrowTogglesWithoutChangingSelection() {
+    this.home.setSelectedItems(Arrays.asList(this.desk));
+    int kitchenRow = rowOf(bucket(this.chair));
+    int nameColumn = this.table.getColumnModel().getColumnIndex(HomePieceOfFurniture.SortableProperty.NAME);
+    java.awt.Rectangle cellBounds = this.table.getCellRect(kitchenRow, nameColumn, true);
+    this.table.dispatchEvent(new java.awt.event.MouseEvent(this.table, java.awt.event.MouseEvent.MOUSE_PRESSED,
+        System.currentTimeMillis(), java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+        cellBounds.x + 2, cellBounds.y + cellBounds.height / 2, 1, false, java.awt.event.MouseEvent.BUTTON1));
+    this.table.dispatchEvent(new java.awt.event.MouseEvent(this.table, java.awt.event.MouseEvent.MOUSE_RELEASED,
+        System.currentTimeMillis(), 0,
+        cellBounds.x + 2, cellBounds.y + cellBounds.height / 2, 1, false, java.awt.event.MouseEvent.BUTTON1));
+    assertFalse("Kitchen not collapsed", this.table.isRowExpanded(rowOf(bucket(this.chair))));
+    assertEquals(Arrays.asList(this.desk), this.home.getSelectedItems());
+  }
 }
