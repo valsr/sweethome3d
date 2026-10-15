@@ -449,8 +449,8 @@ public class LabelPanel extends JPanel implements DialogView {
         GridBagConstraints.NONE, new Insets(0, 0, 0, OperatingSystem.isMacOSX()  ? 6  : 0), 0, 0));
     int rowGap = OperatingSystem.isMacOSXLeopardOrSuperior() ? 0 : standardGap;
     add(nameAndStylePanel, new GridBagConstraints(
-        0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
+        0, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
 
     JPanel rendering3DPanel = SwingTools.createTitledPanel(
         preferences.getLocalizedString(LabelPanel.class, "rendering3DPanel.title"));
@@ -473,8 +473,12 @@ public class LabelPanel extends JPanel implements DialogView {
         1, 3, 2, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     add(rendering3DPanel, new GridBagConstraints(
-        0, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+    // Keep components at the top when more height is available
+    add(new JLabel(), new GridBagConstraints(
+        0, 3, 1, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
   }
 
   /**

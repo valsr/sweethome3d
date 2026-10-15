@@ -155,7 +155,7 @@ public class DimensionLineController implements Controller {
   /**
    * Updates edited properties from selected dimension lines in the home edited by this controller.
    */
-  protected void updateProperties() {
+  public void updateProperties() {
     List<DimensionLine> selectedDimensionLines = Home.getDimensionLinesSubList(this.home.getSelectedItems());
     if (selectedDimensionLines.isEmpty()) {
       setXStart(null); // Nothing to edit
@@ -813,6 +813,16 @@ public class DimensionLineController implements Controller {
    * Controls the modification of selected dimension lines in edited home.
    */
   public void modifyDimensionLines() {
+    modifyDimensionLines(null);
+  }
+
+  /**
+   * Controls the modification of selected dimension lines in edited home, with an undoable edit
+   * which will be merged with the previous one if that one was posted with an equal key.
+   * @param mergeKey an object identifying the kind of modification,
+   *            or <code>null</code> if the edit shouldn't be merged with an other one
+   */
+  public void modifyDimensionLines(Object mergeKey) {
     List<Selectable> oldSelection = this.home.getSelectedItems();
     List<DimensionLine> selectedDimensionLines = Home.getDimensionLinesSubList(oldSelection);
     if (!selectedDimensionLines.isEmpty()) {
@@ -839,10 +849,11 @@ public class DimensionLineController implements Controller {
           xStart, yStart, elevationStart, xEnd, yEnd, elevationEnd, offset,
           lengthFontSize, defaultStyle, color, visibleIn3D, pitch);
       if (this.undoSupport != null) {
-        UndoableEdit undoableEdit = new DimensionLinesModificationUndoableEdit(this.home,
+        DimensionLinesModificationUndoableEdit undoableEdit = new DimensionLinesModificationUndoableEdit(this.home,
             this.preferences, oldSelection.toArray(new Selectable [oldSelection.size()]) , modifiedDimensionLines,
             xStart, yStart, elevationStart, xEnd, yEnd, elevationEnd, offset,
             lengthFontSize, defaultStyle, color, visibleIn3D, pitch);
+        undoableEdit.setMergeKey(mergeKey);
         this.undoSupport.postEdit(undoableEdit);
       }
     }
@@ -852,7 +863,7 @@ public class DimensionLineController implements Controller {
    * Undoable edit for dimension lines modification. This class isn't anonymous to avoid
    * being bound to controller and its view.
    */
-  private static class DimensionLinesModificationUndoableEdit extends LocalizedUndoableEdit {
+  private static class DimensionLinesModificationUndoableEdit extends MergeableUndoableEdit {
     private final Home             home;
     private final Selectable []    oldSelection;
     private final ModifiedDimensionLine [] modifiedDimensionLines;
@@ -897,17 +908,29 @@ public class DimensionLineController implements Controller {
     @Override
     public void undo() throws CannotUndoException {
       super.undo();
-      undoModifyDimensionLines(this.modifiedDimensionLines);
+      undoMergedModifications();
+      undoModification();
       this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
 
     @Override
     public void redo() throws CannotRedoException {
       super.redo();
+      redoModification();
+      redoMergedModifications();
+      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
+    }
+
+    @Override
+    protected void undoModification() {
+      undoModifyDimensionLines(this.modifiedDimensionLines);
+    }
+
+    @Override
+    protected void redoModification() {
       doModifyDimensionLines(this.modifiedDimensionLines, this.xStart, this.yStart, this.elevationStart,
           this.xEnd, this.yEnd, this.elevationEnd, this.offset,
           this.lengthFontSize, this.defaultStyle, this.color, this.visibleIn3D, this.pitch);
-      this.home.setSelectedItems(Arrays.asList(this.oldSelection));
     }
   }
 

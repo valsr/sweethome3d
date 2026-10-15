@@ -40,8 +40,9 @@ build and run on current Java.
 - **Primary side bar.** The catalog, the properties of the selected objects and the
   furniture list are displayed in stacked sections: a click on the header of a section
   collapses or expands it, and dragging the sizer between two expanded sections resizes them.
-  The properties of the selected furniture, rooms, walls or virtual visitor are edited
-  there instead of a dialog box, in panels laid out in compact rows, and each change is
+  The properties of the selected furniture, rooms, walls, virtual visitor, texts, polylines
+  or dimension lines are edited there instead of a dialog box, in panels laid out in
+  compact rows, and each change is
   applied immediately. Successive changes of the same property are undone at once.
   Nothing is edited when objects of different kinds are selected.
   The button on the edge of the window hides or shows the whole side bar.

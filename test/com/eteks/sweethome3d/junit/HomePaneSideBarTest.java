@@ -31,8 +31,11 @@ import javax.swing.JSplitPane;
 import javax.swing.SwingUtilities;
 
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
+import com.eteks.sweethome3d.model.DimensionLine;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
+import com.eteks.sweethome3d.model.Label;
+import com.eteks.sweethome3d.model.Polyline;
 import com.eteks.sweethome3d.model.RecorderException;
 import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Selectable;
@@ -209,6 +212,36 @@ public class HomePaneSideBarTest extends TestCase {
     waitForUpdate();
     assertFalse(this.sideBar.isCollapsed());
     assertNotNull(getPropertiesPanel().getWallController());
+  }
+
+  public void testModifyLabelsPolylinesAndDimensionLinesRevealPropertiesSectionInsteadOfDialog() throws Exception {
+    Label label = new Label("Hello", 0, 0);
+    this.home.addLabel(label);
+    Polyline polyline = new Polyline(new float [][] {{0, 0}, {100, 0}});
+    this.home.addPolyline(polyline);
+    DimensionLine dimensionLine = new DimensionLine(0, 0, 100, 0, 20);
+    this.home.addDimensionLine(dimensionLine);
+
+    this.home.setSelectedItems(Arrays.asList(new Selectable [] {label}));
+    getSection("Properties").setCollapsed(true);
+    this.homeController.getPlanController().modifySelectedLabels();
+    waitForUpdate();
+    assertFalse(getSection("Properties").isCollapsed());
+    assertNotNull(getPropertiesPanel().getLabelController());
+
+    this.home.setSelectedItems(Arrays.asList(new Selectable [] {polyline}));
+    this.sideBar.setCollapsed(true);
+    this.homeController.getPlanController().modifySelectedItem();
+    waitForUpdate();
+    assertFalse(this.sideBar.isCollapsed());
+    assertNotNull(getPropertiesPanel().getPolylineController());
+
+    this.home.setSelectedItems(Arrays.asList(new Selectable [] {dimensionLine}));
+    getSection("Properties").setCollapsed(true);
+    this.homeController.getPlanController().modifySelectedItem();
+    waitForUpdate();
+    assertFalse(getSection("Properties").isCollapsed());
+    assertNotNull(getPropertiesPanel().getDimensionLineController());
   }
 
   public void testModifyObserverCameraSelectsItAndRevealsPropertiesSection() throws Exception {

@@ -130,6 +130,9 @@ public class PlanController extends FurnitureController implements Controller {
   private Runnable                    selectedWallsModifier;
   private Runnable                    selectedRoomsModifier;
   private Runnable                    observerCameraModifier;
+  private Runnable                    selectedLabelsModifier;
+  private Runnable                    selectedPolylinesModifier;
+  private Runnable                    selectedDimensionLinesModifier;
   private final PropertyChangeSupport propertyChangeSupport;
   private PlanView                    planView;
   private SelectionListener           selectionListener;
@@ -1969,9 +1972,29 @@ public class PlanController extends FurnitureController implements Controller {
    */
   public void modifySelectedLabels() {
     if (!Home.getLabelsSubList(this.home.getSelectedItems()).isEmpty()) {
-      new LabelController(this.home, this.preferences, this.viewFactory,
-          this.undoSupport).displayView(getView());
+      if (this.selectedLabelsModifier != null) {
+        this.selectedLabelsModifier.run();
+      } else {
+        createLabelController().displayView(getView());
+      }
     }
+  }
+
+  /**
+   * Returns a new controller able to edit the labels currently selected in home.
+   */
+  public LabelController createLabelController() {
+    return new LabelController(this.home, this.preferences, this.viewFactory,
+        this.undoSupport);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifySelectedLabels() modify
+   * selected labels}, in replacement of the dialog box displayed by default.
+   * @param selectedLabelsModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setSelectedLabelsModifier(Runnable selectedLabelsModifier) {
+    this.selectedLabelsModifier = selectedLabelsModifier;
   }
 
   /**
@@ -1980,20 +2003,60 @@ public class PlanController extends FurnitureController implements Controller {
    */
   public void modifySelectedPolylines() {
     if (!Home.getPolylinesSubList(this.home.getSelectedItems()).isEmpty()) {
-      new PolylineController(this.home, this.preferences, this.viewFactory,
-          this.contentManager, this.undoSupport).displayView(getView());
+      if (this.selectedPolylinesModifier != null) {
+        this.selectedPolylinesModifier.run();
+      } else {
+        createPolylineController().displayView(getView());
+      }
     }
   }
 
   /**
-   * Controls the modification of the selected labels.
+   * Returns a new controller able to edit the polylines currently selected in home.
+   */
+  public PolylineController createPolylineController() {
+    return new PolylineController(this.home, this.preferences, this.viewFactory,
+        this.contentManager, this.undoSupport);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifySelectedPolylines() modify
+   * selected polylines}, in replacement of the dialog box displayed by default.
+   * @param selectedPolylinesModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setSelectedPolylinesModifier(Runnable selectedPolylinesModifier) {
+    this.selectedPolylinesModifier = selectedPolylinesModifier;
+  }
+
+  /**
+   * Controls the modification of the selected dimension lines.
    * @since 7.2
    */
   public void modifySelectedDimensionLines() {
     if (!Home.getDimensionLinesSubList(this.home.getSelectedItems()).isEmpty()) {
-      new DimensionLineController(this.home, this.preferences, this.viewFactory,
-          this.undoSupport).displayView(getView());
+      if (this.selectedDimensionLinesModifier != null) {
+        this.selectedDimensionLinesModifier.run();
+      } else {
+        createDimensionLineController().displayView(getView());
+      }
     }
+  }
+
+  /**
+   * Returns a new controller able to edit the dimension lines currently selected in home.
+   */
+  public DimensionLineController createDimensionLineController() {
+    return new DimensionLineController(this.home, this.preferences, this.viewFactory,
+        this.undoSupport);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifySelectedDimensionLines() modify
+   * selected dimension lines}, in replacement of the dialog box displayed by default.
+   * @param selectedDimensionLinesModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setSelectedDimensionLinesModifier(Runnable selectedDimensionLinesModifier) {
+    this.selectedDimensionLinesModifier = selectedDimensionLinesModifier;
   }
 
   /**

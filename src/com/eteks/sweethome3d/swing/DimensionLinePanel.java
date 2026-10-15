@@ -503,6 +503,8 @@ public class DimensionLinePanel extends JPanel implements DialogView {
         ? GridBagConstraints.LINE_END
         : GridBagConstraints.LINE_START;
     int standardGap = Math.round(5 * SwingTools.getResolutionScale());
+    // Reduce the preferred width of spinners which fill the available width
+    int spinnerPadX = -Math.round(25 * SwingTools.getResolutionScale());
     // First row
     final JPanel startPointPanel = SwingTools.createTitledPanel(
         preferences.getLocalizedString(DimensionLinePanel.class, "startPointPanel.title"));
@@ -511,19 +513,20 @@ public class DimensionLinePanel extends JPanel implements DialogView {
         GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
     startPointPanel.add(this.xStartSpinner, new GridBagConstraints(
         1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 5, 0));
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
     startPointPanel.add(this.yStartLabel, new GridBagConstraints(
         2, 0, 1, 1, 0, 0, labelAlignment,
-        GridBagConstraints.NONE, new Insets(0, 2 * standardGap, 0, standardGap), 0, 0));
+        GridBagConstraints.NONE, new Insets(0, standardGap, 0, standardGap), 0, 0));
     startPointPanel.add(this.yStartSpinner, new GridBagConstraints(
         3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 5, 0));
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
+    // Place long labels at the left of the last column to keep the panel narrow
     startPointPanel.add(this.elevationStartLabel, new GridBagConstraints(
-        0, 1, 1, 1, 0, 0, labelAlignment,
+        0, 1, 3, 1, 0, 0, GridBagConstraints.LINE_END,
         GridBagConstraints.NONE, new Insets(standardGap, 0, 0, standardGap), 0, 0));
     startPointPanel.add(this.elevationStartSpinner, new GridBagConstraints(
-        1, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), 5, 0));
+        3, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), spinnerPadX, 0));
     Insets rowInsets;
     if (OperatingSystem.isMacOSXLeopardOrSuperior()) {
       // User smaller insets for Mac OS X 10.5
@@ -532,7 +535,7 @@ public class DimensionLinePanel extends JPanel implements DialogView {
       rowInsets = new Insets(0, 0, standardGap, 0);
     }
     add(startPointPanel, new GridBagConstraints(
-        0, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
     // Second row
@@ -543,27 +546,27 @@ public class DimensionLinePanel extends JPanel implements DialogView {
         GridBagConstraints.NONE, new Insets(0, 0, 0, standardGap), 0, 0));
     endPointPanel.add(this.xEndSpinner, new GridBagConstraints(
         1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 5, 0));
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
     endPointPanel.add(this.yEndLabel, new GridBagConstraints(
         2, 0, 1, 1, 0, 0, GridBagConstraints.LINE_END,
-        GridBagConstraints.NONE, new Insets(0, 2 * standardGap, 0, standardGap), 0, 0));
+        GridBagConstraints.NONE, new Insets(0, standardGap, 0, standardGap), 0, 0));
     endPointPanel.add(this.yEndSpinner, new GridBagConstraints(
         3, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 5, 0));
+        GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), spinnerPadX, 0));
     // Add distance label and spinner at second row of endPointPanel
     endPointPanel.add(this.distanceToEndPointLabel, new GridBagConstraints(
         0, 1, 3, 1, 0, 0, GridBagConstraints.LINE_END,
         GridBagConstraints.NONE, new Insets(standardGap, 0, 0, standardGap), 0, 0));
     endPointPanel.add(this.distanceToEndPointSpinner, new GridBagConstraints(
         3, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), 0, 0));
+        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), spinnerPadX, 0));
     // Add offset label and spinner at third row of endPointPanel
     endPointPanel.add(this.offsetLabel, new GridBagConstraints(
-        2, 2, 1, 1, 0, 0, labelAlignment,
+        0, 2, 3, 1, 0, 0, GridBagConstraints.LINE_END,
         GridBagConstraints.NONE, new Insets(standardGap, 0, 0, standardGap), 0, 0));
     endPointPanel.add(this.offsetSpinner, new GridBagConstraints(
         3, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), 0, 0));
+        GridBagConstraints.HORIZONTAL, new Insets(standardGap, 0, 0, 0), spinnerPadX, 0));
     // Add orientation radio buttons at fourth row of endPointPanel
     endPointPanel.add(new JSeparator(), new GridBagConstraints(
         0, 3, 4, 1, 0, 0, GridBagConstraints.CENTER,
@@ -575,7 +578,7 @@ public class DimensionLinePanel extends JPanel implements DialogView {
         2, 4, 2, 1, 0, 0, GridBagConstraints.CENTER,
         GridBagConstraints.NONE, new Insets(3, 2 * standardGap, 0, 0), 0, 0));
     add(endPointPanel, new GridBagConstraints(
-        0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 1, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
     // Third row
@@ -594,8 +597,8 @@ public class DimensionLinePanel extends JPanel implements DialogView {
         3, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     add(stylePanel, new GridBagConstraints(
-        0, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
-        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+        0, 2, 1, 1, 1, 0, GridBagConstraints.LINE_START,
+        GridBagConstraints.HORIZONTAL, rowInsets, 0, 0));
 
     // Fourth row
     JPanel rendering3DPanel = SwingTools.createTitledPanel(
@@ -613,8 +616,12 @@ public class DimensionLinePanel extends JPanel implements DialogView {
         2, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.NONE, new Insets(0, 0, standardGap, 0), 0, 0));
     add(rendering3DPanel, new GridBagConstraints(
-        0, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+        0, 3, 1, 1, 1, 0, GridBagConstraints.LINE_START,
         GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
+    // Keep panels at the top when more height is available
+    add(new JLabel(), new GridBagConstraints(
+        0, 4, 1, 1, 1, 1, GridBagConstraints.CENTER,
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
 
     PropertyChangeListener distanceListener = new PropertyChangeListener() {
         public void propertyChange(PropertyChangeEvent ev) {
