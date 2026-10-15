@@ -550,6 +550,8 @@ public class HomePane extends JRootPane implements HomeView {
           homeController3D, "displayAllLevels");
       createToggleAction(ActionType.DISPLAY_SELECTED_LEVEL, !allLevelsVisible, displayLevelGroup, preferences,
           homeController3D, "displaySelectedLevel");
+      createToggleAction(ActionType.TOGGLE_SEE_THROUGH_WALLS, home.getEnvironment().getWallsAlpha() > 0, null, preferences,
+          homeController3D, "toggleSeeThroughWalls");
       createAction(ActionType.MODIFY_3D_ATTRIBUTES, preferences, homeController3D, "modifyAttributes");
       createAction(ActionType.CREATE_PHOTO, preferences, controller, "createPhoto");
       createAction(ActionType.CREATE_PHOTOS_AT_POINTS_OF_VIEW, preferences, controller, "createPhotos");
@@ -799,6 +801,14 @@ public class HomePane extends JRootPane implements HomeView {
             boolean allLevelsVisible = home.getEnvironment().isAllLevelsVisible();
             setToggleButtonModelSelected(ActionType.DISPLAY_ALL_LEVELS, allLevelsVisible);
             setToggleButtonModelSelected(ActionType.DISPLAY_SELECTED_LEVEL, !allLevelsVisible);
+          }
+        });
+    home.getEnvironment().addPropertyChangeListener(HomeEnvironment.Property.WALLS_ALPHA,
+        new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            if (getActionMap().get(ActionType.TOGGLE_SEE_THROUGH_WALLS) != null) {
+              setToggleButtonModelSelected(ActionType.TOGGLE_SEE_THROUGH_WALLS, home.getEnvironment().getWallsAlpha() > 0);
+            }
           }
         });
   }
@@ -1312,6 +1322,7 @@ public class HomePane extends JRootPane implements HomeView {
     }
     addToggleActionToMenu(ActionType.DISPLAY_ALL_LEVELS, true, preview3DMenu);
     addToggleActionToMenu(ActionType.DISPLAY_SELECTED_LEVEL, true, preview3DMenu);
+    addToggleActionToMenu(ActionType.TOGGLE_SEE_THROUGH_WALLS, false, preview3DMenu);
     addActionToMenu(ActionType.MODIFY_3D_ATTRIBUTES, preview3DMenu);
     preview3DMenu.addSeparator();
     addActionToMenu(ActionType.CREATE_PHOTO, preview3DMenu);
@@ -2631,6 +2642,7 @@ public class HomePane extends JRootPane implements HomeView {
         {ActionType.DISTRIBUTE_FURNITURE_HORIZONTALLY, ActionType.DISTRIBUTE_FURNITURE_VERTICALLY}});
 
     toolBar.addSeparator();
+    addToggleActionToToolBar(ActionType.TOGGLE_SEE_THROUGH_WALLS, toolBar);
     addActionToToolBar(ActionType.CREATE_PHOTO, toolBar);
     addActionToToolBar(ActionType.CREATE_VIDEO, toolBar);
     toolBar.addSeparator();
@@ -3677,6 +3689,7 @@ public class HomePane extends JRootPane implements HomeView {
       }
       addToggleActionToPopupMenu(ActionType.DISPLAY_ALL_LEVELS, true, view3DPopup);
       addToggleActionToPopupMenu(ActionType.DISPLAY_SELECTED_LEVEL, true, view3DPopup);
+      addToggleActionToPopupMenu(ActionType.TOGGLE_SEE_THROUGH_WALLS, false, view3DPopup);
       addActionToPopupMenu(ActionType.MODIFY_3D_ATTRIBUTES, view3DPopup);
       view3DPopup.addSeparator();
       addActionToPopupMenu(ActionType.CREATE_PHOTO, view3DPopup);

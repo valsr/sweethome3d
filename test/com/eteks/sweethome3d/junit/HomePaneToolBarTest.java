@@ -26,6 +26,7 @@ import java.util.Locale;
 
 import javax.swing.AbstractButton;
 import javax.swing.Action;
+import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
@@ -44,8 +45,10 @@ import junit.framework.TestCase;
  * Tests the tool bar displayed by {@link com.eteks.sweethome3d.swing.HomePane home pane}.
  */
 public class HomePaneToolBarTest extends TestCase {
-  private HomePane homePane;
-  private JToolBar toolBar;
+  private Home           home;
+  private HomeController homeController;
+  private HomePane       homePane;
+  private JToolBar       toolBar;
 
   @Override
   protected void setUp() throws Exception {
@@ -56,8 +59,9 @@ public class HomePaneToolBarTest extends TestCase {
           // Ignore the requests to save preferences
         }
       };
-    HomeController homeController = new HomeController(new Home(), preferences, new SwingViewFactory());
-    this.homePane = (HomePane)homeController.getView();
+    this.home = new Home();
+    this.homeController = new HomeController(this.home, preferences, new SwingViewFactory());
+    this.homePane = (HomePane)this.homeController.getView();
     this.toolBar = SwingTools.findChildren(this.homePane, JToolBar.class).get(0);
   }
 
@@ -101,7 +105,52 @@ public class HomePaneToolBarTest extends TestCase {
       assertTrue(actionType + " missing or misplaced", index > previousIndex);
       previousIndex = index;
     }
-    assertTrue(previousIndex < indexOf(toolBarActions, HomeView.ActionType.CREATE_PHOTO));
+    int seeThroughWallsIndex = indexOf(toolBarActions, HomeView.ActionType.TOGGLE_SEE_THROUGH_WALLS);
+    assertTrue(previousIndex < seeThroughWallsIndex);
+    assertTrue(seeThroughWallsIndex < indexOf(toolBarActions, HomeView.ActionType.CREATE_PHOTO));
+  }
+
+  private JToggleButton getSeeThroughWallsButton() {
+    Object description = this.homePane.getActionMap().get(HomeView.ActionType.TOGGLE_SEE_THROUGH_WALLS)
+        .getValue(Action.SHORT_DESCRIPTION);
+    for (JToggleButton button : SwingTools.findChildren(this.toolBar, JToggleButton.class)) {
+      if (description.equals(button.getAction().getValue(Action.SHORT_DESCRIPTION))) {
+        return button;
+      }
+    }
+    fail("No see-through walls button");
+    return null;
+  }
+
+  public void testSeeThroughWallsButtonTogglesWallsTransparency() {
+    JToggleButton button = getSeeThroughWallsButton();
+    assertTrue(button.isEnabled());
+    assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+    assertFalse(button.isSelected());
+
+    button.doClick();
+    assertEquals(0.5f, this.home.getEnvironment().getWallsAlpha());
+    assertTrue(button.isSelected());
+    button.doClick();
+    assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+    assertFalse(button.isSelected());
+
+    this.homeController.undo();
+    assertEquals(0.5f, this.home.getEnvironment().getWallsAlpha());
+    assertTrue(button.isSelected());
+    this.homeController.redo();
+    assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+  }
+
+  public void testSeeThroughWallsButtonRestoresLastTransparency() {
+    JToggleButton button = getSeeThroughWallsButton();
+    // Simulate a transparency chosen in 3D attributes dialog
+    this.home.getEnvironment().setWallsAlpha(0.8f);
+    assertTrue(button.isSelected());
+    button.doClick();
+    assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+    button.doClick();
+    assertEquals(0.8f, this.home.getEnvironment().getWallsAlpha());
   }
 
   public void testToolBarButtonsHaveIconsAndFollowActionState() {
