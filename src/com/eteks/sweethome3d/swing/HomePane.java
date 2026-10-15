@@ -2620,6 +2620,17 @@ public class HomePane extends JRootPane implements HomeView {
     }
 
     toolBar.addSeparator();
+    addActionGroupsToToolBar(toolBar, new ActionType [][] {
+        {ActionType.FLIP_HORIZONTALLY, ActionType.FLIP_VERTICALLY},
+        {ActionType.GROUP_FURNITURE, ActionType.UNGROUP_FURNITURE},
+        {ActionType.ALIGN_FURNITURE_ON_TOP, ActionType.ALIGN_FURNITURE_ON_BOTTOM,
+         ActionType.ALIGN_FURNITURE_ON_LEFT, ActionType.ALIGN_FURNITURE_ON_RIGHT},
+        {ActionType.ALIGN_FURNITURE_ON_FRONT_SIDE, ActionType.ALIGN_FURNITURE_ON_BACK_SIDE,
+         ActionType.ALIGN_FURNITURE_ON_LEFT_SIDE, ActionType.ALIGN_FURNITURE_ON_RIGHT_SIDE},
+        {ActionType.ALIGN_FURNITURE_SIDE_BY_SIDE},
+        {ActionType.DISTRIBUTE_FURNITURE_HORIZONTALLY, ActionType.DISTRIBUTE_FURNITURE_VERTICALLY}});
+
+    toolBar.addSeparator();
     addActionToToolBar(ActionType.CREATE_PHOTO, toolBar);
     addActionToToolBar(ActionType.CREATE_VIDEO, toolBar);
     toolBar.addSeparator();
@@ -2654,6 +2665,23 @@ public class HomePane extends JRootPane implements HomeView {
     }
 
     return toolBar;
+  }
+
+  /**
+   * Adds to tool bar the buttons matching the given groups of actions,
+   * with a small space between groups.
+   */
+  private void addActionGroupsToToolBar(JToolBar toolBar, ActionType [][] actionGroups) {
+    int previousCount = toolBar.getComponentCount();
+    for (ActionType [] actionGroup : actionGroups) {
+      if (previousCount != toolBar.getComponentCount()) {
+        toolBar.add(Box.createRigidArea(new Dimension(2, 2)));
+      }
+      previousCount = toolBar.getComponentCount();
+      for (ActionType actionType : actionGroup) {
+        addActionToToolBar(actionType, toolBar);
+      }
+    }
   }
 
   /**

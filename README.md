@@ -55,6 +55,8 @@ build and run on current Java.
   The position and the color of the selected guides are edited in the properties section
   of the primary side bar. Guides are neither printed nor exported, and are saved in
   `guideline` elements, which the original program ignores.
+- **Arrangement tool bar buttons.** The tool bar proposes the actions which flip the
+  selection, group or ungroup furniture, and align or distribute furniture.
 - **Light color and power.** A light can be given a color or a color temperature that
   replaces the color of its sources, and its power can be entered in percentage or in
   lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,
