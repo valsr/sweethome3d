@@ -468,4 +468,23 @@ public class FurnitureTableGroupingTest extends TestCase {
     this.table.setSize(this.table.getPreferredSize());
     assertEquals("Wrong printed row count", expandedLineCount, countPrintedGridLines());
   }
+
+  public void testPrintKeepsSelection() throws Exception {
+    toggleRow(this.table, this.level1);
+    this.home.setSelectedItems(Arrays.asList(this.desk));
+    this.table.setSize(this.table.getPreferredSize());
+    countPrintedGridLines();
+    assertEquals(Arrays.asList(this.desk), this.home.getSelectedItems());
+    assertTrue(this.table.isRowSelected(rowOf(this.desk)));
+  }
+
+  public void testSelectionKeptAfterExpandingFromPlanSelection() {
+    toggleRow(this.table, bucket(this.chair));
+    // Selecting a piece in a collapsed header expands it while table selection is updated
+    this.home.setSelectedItems(Arrays.asList(this.chair));
+    // A later change of row count must keep selection
+    toggleRow(this.table, this.level1);
+    assertEquals(Arrays.asList(this.chair), this.home.getSelectedItems());
+    assertTrue(this.table.isRowSelected(rowOf(this.chair)));
+  }
 }

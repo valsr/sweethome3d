@@ -153,6 +153,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
   private ListSelectionListener  tableSelectionListener;
   private boolean                selectionByUser;
   private boolean                selectionToggling;
+  private boolean                updatingTableSelection;
   private int                    furnitureInformationRow;
   private Popup                  furnitureInformationPopup;
   private AWTEventListener       informationPopupRemovalListener;
@@ -306,7 +307,26 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
    */
   private void updateTableSelectedFurniture(Home home) {
     ListSelectionModel selectionModel = getSelectionModel();
-    selectionModel.removeListSelectionListener(this.tableSelectionListener);
+    // Expanding headers may update table selection again, so remove and add listener only once
+    boolean nestedUpdate = this.updatingTableSelection;
+    if (!nestedUpdate) {
+      selectionModel.removeListSelectionListener(this.tableSelectionListener);
+      this.updatingTableSelection = true;
+    }
+    try {
+      updateTableSelectedRows(home);
+    } finally {
+      if (!nestedUpdate) {
+        this.updatingTableSelection = false;
+        selectionModel.addListSelectionListener(this.tableSelectionListener);
+      }
+    }
+  }
+
+  /**
+   * Selects the rows matching selected items in <code>home</code>.
+   */
+  private void updateTableSelectedRows(Home home) {
 
     FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
     List<Selectable> selectedItems = home.getSelectedItems();
@@ -393,7 +413,6 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     if (!this.selectionByUser && minIndex != Integer.MIN_VALUE) {
       makeRowsVisible(minIndex, maxIndex);
     }
-    selectionModel.addListSelectionListener(this.tableSelectionListener);
   }
 
   /**
@@ -1408,7 +1427,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
    */
   @Override
   public void tableChanged(TableModelEvent ev) {
-    if (this.tableSelectionListener == null) {
+    if (this.tableSelectionListener == null
+        || this.updatingTableSelection) {
+      // Table selection will be updated by updateTableSelectedFurniture
       super.tableChanged(ev);
     } else {
       ListSelectionModel selectionModel = getSelectionModel();
