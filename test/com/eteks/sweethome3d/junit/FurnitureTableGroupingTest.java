@@ -342,4 +342,43 @@ public class FurnitureTableGroupingTest extends TestCase {
     assertFalse("Kitchen not collapsed", this.table.isRowExpanded(rowOf(bucket(this.chair))));
     assertEquals(Arrays.asList(this.desk), this.home.getSelectedItems());
   }
+
+  private static void assertSameElements(List<?> expected, List<?> actual) {
+    assertEquals(actual.toString(), expected.size(), actual.size());
+    assertTrue(actual.toString(), actual.containsAll(expected));
+  }
+
+  public void testSelectingBucketHeaderSelectsItsPieces() {
+    HomePieceOfFurniture stool = createPiece("Stool", 20, 20, this.level0);
+    int kitchenRow = rowOf(bucket(this.chair));
+    this.table.setRowSelectionInterval(kitchenRow, kitchenRow);
+    assertSameElements(Arrays.asList(this.chair, stool), this.home.getSelectedItems());
+    assertTrue(this.table.isRowSelected(rowOf(this.chair)));
+    assertTrue(this.table.isRowSelected(rowOf(stool)));
+  }
+
+  public void testSelectingLevelHeaderSelectsAllLevelPieces() {
+    this.table.setRowSelectionInterval(0, 0);
+    assertSameElements(Arrays.asList(this.chair, this.desk, this.door, this.lamp), this.home.getSelectedItems());
+  }
+
+  public void testSelectingCollapsedHeaderKeepsItCollapsed() {
+    HomePieceOfFurniture stool = createPiece("Stool", 20, 20, this.level0);
+    toggleRow(this.table, bucket(this.chair));
+    int kitchenRow = rowOf(bucket(this.chair));
+    this.table.setRowSelectionInterval(kitchenRow, kitchenRow);
+    assertSameElements(Arrays.asList(this.chair, stool), this.home.getSelectedItems());
+    kitchenRow = rowOf(bucket(this.chair));
+    assertFalse("Kitchen expanded", this.table.isRowExpanded(kitchenRow));
+    assertTrue("Kitchen row not selected", this.table.isRowSelected(kitchenRow));
+  }
+
+  public void testHeaderAddsToSelectionWithCtrl() {
+    HomePieceOfFurniture stool = createPiece("Stool", 20, 20, this.level0);
+    int lampRow = rowOf(this.lamp);
+    this.table.setRowSelectionInterval(lampRow, lampRow);
+    int kitchenRow = rowOf(bucket(this.chair));
+    this.table.addRowSelectionInterval(kitchenRow, kitchenRow);
+    assertSameElements(Arrays.asList(this.lamp, this.chair, stool), this.home.getSelectedItems());
+  }
 }
