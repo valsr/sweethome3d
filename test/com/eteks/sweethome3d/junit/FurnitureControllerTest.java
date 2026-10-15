@@ -53,4 +53,17 @@ public class FurnitureControllerTest extends TestCase {
     assertTrue("Furniture not grouped", controller.isFurnitureGroupedByLevelAndRoom());
     assertEquals(2, changeCount [0]);
   }
+
+  public void testSetFurnitureGroupedByLevelAndRoom() {
+    Home home = new Home();
+    FurnitureController controller = new FurnitureController(home, new DefaultUserPreferences(), null);
+    controller.setFurnitureGroupedByLevelAndRoom(true);
+    assertNull("Property set without change", home.getProperty(FurnitureController.FURNITURE_GROUPED_PROPERTY));
+    controller.setFurnitureGroupedByLevelAndRoom(false);
+    assertFalse(controller.isFurnitureGroupedByLevelAndRoom());
+    controller.setFurnitureGroupedByLevelAndRoom(false);
+    assertFalse(controller.isFurnitureGroupedByLevelAndRoom());
+    controller.setFurnitureGroupedByLevelAndRoom(true);
+    assertTrue(controller.isFurnitureGroupedByLevelAndRoom());
+  }
 }

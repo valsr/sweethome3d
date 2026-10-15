@@ -417,8 +417,7 @@ public class HomePane extends JRootPane implements HomeView {
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.PRICE_VALUE_ADDED_TAX_INCLUDED.name());
     createAction(ActionType.SORT_HOME_FURNITURE_BY_DESCENDING_ORDER, preferences,
         furnitureController, "toggleFurnitureSortOrder");
-    createToggleAction(ActionType.TOGGLE_FURNITURE_GROUPING, furnitureController.isFurnitureGroupedByLevelAndRoom(), null,
-        preferences, furnitureController, "toggleFurnitureGrouping");
+    createFurnitureGroupingAction(preferences, furnitureController);
     createAction(ActionType.DISPLAY_HOME_FURNITURE_CATALOG_ID, preferences,
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.CATALOG_ID.name());
     createAction(ActionType.DISPLAY_HOME_FURNITURE_NAME, preferences,
@@ -610,6 +609,25 @@ public class HomePane extends JRootPane implements HomeView {
     } catch (NoSuchMethodException ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  /**
+   * Creates the action that groups furniture list by level and room.
+   * As its toggle model is shared by several menu items which all notify the action,
+   * the action applies the selected state of the model rather than toggling grouping.
+   */
+  private void createFurnitureGroupingAction(UserPreferences preferences,
+                                             final FurnitureController furnitureController) {
+    final JToggleButton.ToggleButtonModel toggleButtonModel = new JToggleButton.ToggleButtonModel();
+    toggleButtonModel.setSelected(furnitureController.isFurnitureGroupedByLevelAndRoom());
+    ResourceAction action = new ResourceAction(preferences, HomePane.class, ActionType.TOGGLE_FURNITURE_GROUPING.name()) {
+        @Override
+        public void actionPerformed(ActionEvent ev) {
+          furnitureController.setFurnitureGroupedByLevelAndRoom(toggleButtonModel.isSelected());
+        }
+      };
+    action.putValue(ResourceAction.TOGGLE_BUTTON_MODEL, toggleButtonModel);
+    getActionMap().put(ActionType.TOGGLE_FURNITURE_GROUPING, action);
   }
 
   /**

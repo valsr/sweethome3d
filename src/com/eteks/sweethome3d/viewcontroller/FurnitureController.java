@@ -673,6 +673,15 @@ public class FurnitureController implements Controller {
   }
 
   /**
+   * Sets whether home furniture is listed by level and room.
+   */
+  public void setFurnitureGroupedByLevelAndRoom(boolean grouped) {
+    if (grouped != isFurnitureGroupedByLevelAndRoom()) {
+      this.home.setProperty(FURNITURE_GROUPED_PROPERTY, String.valueOf(grouped));
+    }
+  }
+
+  /**
    * Toggles the grouping of home furniture by level and room.
    */
   public void toggleFurnitureGrouping() {
