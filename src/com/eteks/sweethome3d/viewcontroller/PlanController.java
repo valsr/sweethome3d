@@ -137,6 +137,8 @@ public class PlanController extends FurnitureController implements Controller {
   private Runnable                    selectedDimensionLinesModifier;
   private Runnable                    selectedGuidelinesModifier;
   private Selectable                  itemSelectedBeforeCycle;
+  private boolean                     magnetismForced;
+  private boolean                     magnetismToggled;
   private final PropertyChangeSupport propertyChangeSupport;
   private PlanView                    planView;
   private SelectionListener           selectionListener;
@@ -404,7 +406,38 @@ public class PlanController extends FurnitureController implements Controller {
    * @param magnetismToggled if <code>true</code> then magnetism feature is toggled.
    */
   public void toggleMagnetism(boolean magnetismToggled) {
-    this.state.toggleMagnetism(magnetismToggled);
+    this.magnetismToggled = magnetismToggled;
+    this.state.toggleMagnetism(getEffectiveMagnetismToggle(magnetismToggled));
+  }
+
+  /**
+   * Forces temporarily magnetism on, whatever magnetism feature of user preferences
+   * and its {@linkplain #toggleMagnetism(boolean) toggle}.
+   * @param magnetismForced if <code>true</code> then magnetism is active
+   *          until this method is called again with <code>false</code>.
+   */
+  public void setMagnetismForced(boolean magnetismForced) {
+    if (magnetismForced != this.magnetismForced) {
+      this.magnetismForced = magnetismForced;
+      this.state.toggleMagnetism(getEffectiveMagnetismToggle(this.magnetismToggled));
+    }
+  }
+
+  /**
+   * Returns <code>true</code> if magnetism is temporarily forced on.
+   */
+  public boolean isMagnetismForced() {
+    return this.magnetismForced;
+  }
+
+  /**
+   * Returns the toggle to apply to the magnetism of user preferences,
+   * taking into account whether magnetism is forced.
+   */
+  private boolean getEffectiveMagnetismToggle(boolean magnetismToggled) {
+    return this.magnetismForced
+        ? !this.preferences.isMagnetismEnabled()
+        : magnetismToggled;
   }
 
   /**
@@ -856,7 +889,7 @@ public class PlanController extends FurnitureController implements Controller {
    * @since 4.0
    */
   protected boolean wasMagnetismToggledLastMousePress() {
-    return this.magnetismToggledLastMousePress;
+    return getEffectiveMagnetismToggle(this.magnetismToggledLastMousePress);
   }
 
   /**
@@ -10413,7 +10446,9 @@ public class PlanController extends FurnitureController implements Controller {
       this.guidelineInHome = !this.newGuideline;
       this.mouseMoved = false;
       this.magnetismEnabled = preferences.isMagnetismEnabled()
-          ^ (!this.newGuideline && wasMagnetismToggledLastMousePress());
+          ^ (this.newGuideline
+                ? getEffectiveMagnetismToggle(false)
+                : wasMagnetismToggledLastMousePress());
       if (this.guidelineInHome) {
         selectItem(this.guideline);
       }

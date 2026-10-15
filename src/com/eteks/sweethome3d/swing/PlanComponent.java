@@ -226,7 +226,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
   private enum ActionType {DELETE_SELECTION, ESCAPE,
       MOVE_SELECTION_LEFT, MOVE_SELECTION_UP, MOVE_SELECTION_DOWN, MOVE_SELECTION_RIGHT,
       MOVE_SELECTION_FAST_LEFT, MOVE_SELECTION_FAST_UP, MOVE_SELECTION_FAST_DOWN, MOVE_SELECTION_FAST_RIGHT,
-      TOGGLE_MAGNETISM_ON, TOGGLE_MAGNETISM_OFF,
+      TOGGLE_MAGNETISM_ON, TOGGLE_MAGNETISM_OFF, FORCE_MAGNETISM_ON, FORCE_MAGNETISM_OFF,
       ACTIVATE_ALIGNMENT, DEACTIVATE_ALIGNMENT,
       ACTIVATE_DUPLICATION, DEACTIVATE_DUPLICATION,
       ACTIVATE_EDITIION, DEACTIVATE_EDITIION}
@@ -1498,6 +1498,8 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
         @Override
         public void focusLost(FocusEvent ev) {
           controller.escape();
+          // Release forced magnetism in case S key is released out of this component
+          controller.setMagnetismForced(false);
 
           // Restore Alt release event behavior
           if (windowsAltPostProcessor != null) {
@@ -1633,6 +1635,11 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
       inputMap.put(KeyStroke.getKeyStroke("control alt shift  ENTER"), ActionType.ACTIVATE_EDITIION);
     }
 
+    // Magnetism forced on while S key is held
+    inputMap.put(KeyStroke.getKeyStroke("pressed S"), ActionType.FORCE_MAGNETISM_ON);
+    inputMap.put(KeyStroke.getKeyStroke("released S"), ActionType.FORCE_MAGNETISM_OFF);
+    inputMap.put(KeyStroke.getKeyStroke("shift pressed S"), ActionType.FORCE_MAGNETISM_ON);
+    inputMap.put(KeyStroke.getKeyStroke("shift released S"), ActionType.FORCE_MAGNETISM_OFF);
     inputMap.put(KeyStroke.getKeyStroke("shift pressed SHIFT"), ActionType.ACTIVATE_ALIGNMENT);
     inputMap.put(KeyStroke.getKeyStroke("released SHIFT"), ActionType.DEACTIVATE_ALIGNMENT);
     if (OperatingSystem.isWindows()) {
@@ -1726,6 +1733,18 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
         controller.toggleMagnetism(this.toggle);
       }
     }
+    // Forced magnetism action
+    class SetMagnetismForcedAction extends AbstractAction {
+      private final boolean magnetismForced;
+
+      public SetMagnetismForcedAction(boolean magnetismForced) {
+        this.magnetismForced = magnetismForced;
+      }
+
+      public void actionPerformed(ActionEvent ev) {
+        controller.setMagnetismForced(this.magnetismForced);
+      }
+    }
     // Alignment action
     class SetAlignmentActivatedAction extends AbstractAction {
       private final boolean alignmentActivated;
@@ -1775,6 +1794,8 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
     actionMap.put(ActionType.MOVE_SELECTION_FAST_RIGHT, new MoveSelectionAction(10, 0));
     actionMap.put(ActionType.TOGGLE_MAGNETISM_ON, new ToggleMagnetismAction(true));
     actionMap.put(ActionType.TOGGLE_MAGNETISM_OFF, new ToggleMagnetismAction(false));
+    actionMap.put(ActionType.FORCE_MAGNETISM_ON, new SetMagnetismForcedAction(true));
+    actionMap.put(ActionType.FORCE_MAGNETISM_OFF, new SetMagnetismForcedAction(false));
     actionMap.put(ActionType.ACTIVATE_ALIGNMENT, new SetAlignmentActivatedAction(true));
     actionMap.put(ActionType.DEACTIVATE_ALIGNMENT, new SetAlignmentActivatedAction(false));
     actionMap.put(ActionType.ACTIVATE_DUPLICATION, new SetDuplicationActivatedAction(true));

@@ -318,6 +318,51 @@ public class GuidelineTest extends TestCase {
     assertEquals(0f, wall.getYEnd());
   }
 
+  public void testForcedMagnetismSnapsWhenMagnetismIsDisabled() {
+    addGuideline(Guideline.Orientation.VERTICAL, 300);
+    assertFalse(this.preferences.isMagnetismEnabled());
+    // Hold magnetism key before drawing
+    this.planController.setMagnetismForced(true);
+    this.planController.setMode(PlanController.Mode.WALL_CREATION);
+    this.planController.moveMouse(0, 0);
+    this.planController.pressMouse(0, 0, 1, false, false);
+    this.planController.releaseMouse(0, 0);
+    this.planController.moveMouse(304, 2);
+    this.planController.pressMouse(304, 2, 2, false, false);
+    this.planController.releaseMouse(304, 2);
+    Wall wall = this.home.getWalls().iterator().next();
+    assertEquals(300f, wall.getXEnd());
+    this.planController.setMagnetismForced(false);
+    assertFalse("Preferences shouldn't change", this.preferences.isMagnetismEnabled());
+  }
+
+  public void testForcedMagnetismAppliesToCurrentMove() {
+    Wall wall = new Wall(0, 0, 0, 400, 10, 250);
+    this.home.addWall(wall);
+    addGuideline(Guideline.Orientation.VERTICAL, 200);
+    this.home.setSelectedItems(Arrays.asList(new Selectable [] {wall}));
+    this.planController.pressMouse(0, 100, 1, false, false);
+    this.planController.moveMouse(207, 100);
+    assertEquals("No magnetism", 207f, wall.getXStart());
+    // Press magnetism key during move
+    this.planController.setMagnetismForced(true);
+    this.planController.moveMouse(207, 100);
+    assertEquals(205f, wall.getXStart());
+    this.planController.setMagnetismForced(false);
+    this.planController.moveMouse(208, 100);
+    assertEquals(208f, wall.getXStart());
+    this.planController.releaseMouse(208, 100);
+  }
+
+  public void testForcedMagnetismAppliesToGuidelineDraggedFromRuler() {
+    this.home.addWall(new Wall(0, 0, 400, 0, 10, 250));
+    this.planController.setMagnetismForced(true);
+    this.planController.startGuidelineCreation(Guideline.Orientation.HORIZONTAL);
+    this.planController.moveMouse(50, 6);
+    this.planController.releaseMouse(50, 6);
+    assertEquals(5f, this.home.getGuidelines().get(0).getPosition());
+  }
+
   public void testMovedItemsAreMagnetizedToGuideline() {
     this.preferences.setMagnetismEnabled(true);
     Wall wall = new Wall(0, 0, 0, 400, 10, 250);

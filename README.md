@@ -63,6 +63,10 @@ build and run on current Java.
 - **See-through walls.** A toggle button of the tool bar, also in the *3D view* menu and
   the 3D view contextual menu, displays walls see-through or solid in the 3D view. Walls
   made see-through again get back the transparency they had, 50% by default.
+- **Magnetism and walls shortcuts.** *Ctrl+G* (*Cmd+G* under macOS) enables or disables
+  magnetism, also proposed in the *Plan* menu and the plan contextual menu, and holding
+  the *S* key in the plan forces magnetism on while drawing or moving items, whatever its
+  setting. *Ctrl+T* (*Cmd+T*) displays walls see-through or solid in the 3D view.
 - **Light color and power.** A light can be given a color or a color temperature that
   replaces the color of its sources, and its power can be entered in percentage or in
   lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,

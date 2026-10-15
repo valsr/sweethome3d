@@ -1274,6 +1274,10 @@ public class HomePane extends JRootPane implements HomeView {
     if (lockUnlockBasePlanMenuItem != null) {
       planMenu.add(lockUnlockBasePlanMenuItem);
     }
+    JMenuItem enableDisableMagnetismMenuItem = createEnableDisableMagnetismMenuItem(preferences, false);
+    if (enableDisableMagnetismMenuItem != null) {
+      planMenu.add(enableDisableMagnetismMenuItem);
+    }
     addActionToMenu(ActionType.FLIP_HORIZONTALLY, planMenu);
     addActionToMenu(ActionType.FLIP_VERTICALLY, planMenu);
     addActionToMenu(ActionType.MODIFY_COMPASS, planMenu);
@@ -1944,16 +1948,52 @@ public class HomePane extends JRootPane implements HomeView {
         && disableMagnetismAction.getValue(Action.NAME) != null
         && enableMagnetismAction.getValue(Action.NAME) != null) {
       final JButton enableDisableMagnetismButton = new JButton(
-          new ResourceAction.ToolBarAction(preferences.isMagnetismEnabled()
-              ? disableMagnetismAction
-              : enableMagnetismAction));
+          createEnableDisableMagnetismAction(this, preferences, MagnetismChangeListener.TOOL_BAR));
       // Add a listener to preferences on magnestismEnabled property change to
       // switch action according to magnestismEnabled change
       preferences.addPropertyChangeListener(UserPreferences.Property.MAGNETISM_ENABLED,
-          new MagnetismChangeListener(this, enableDisableMagnetismButton));
+          new MagnetismChangeListener(this, enableDisableMagnetismButton, MagnetismChangeListener.TOOL_BAR));
       return enableDisableMagnetismButton;
     } else {
       return null;
+    }
+  }
+
+  /**
+   * Returns Enable / Disable magnetism menu item.
+   */
+  private JMenuItem createEnableDisableMagnetismMenuItem(UserPreferences preferences, boolean popup) {
+    ActionMap actionMap = getActionMap();
+    Action disableMagnetismAction = actionMap.get(ActionType.DISABLE_MAGNETISM);
+    Action enableMagnetismAction = actionMap.get(ActionType.ENABLE_MAGNETISM);
+    if (disableMagnetismAction != null
+        && disableMagnetismAction.getValue(Action.NAME) != null
+        && enableMagnetismAction.getValue(Action.NAME) != null) {
+      int target = popup ? MagnetismChangeListener.POPUP_MENU : MagnetismChangeListener.MENU;
+      JMenuItem enableDisableMagnetismMenuItem = new JMenuItem(
+          createEnableDisableMagnetismAction(this, preferences, target));
+      preferences.addPropertyChangeListener(UserPreferences.Property.MAGNETISM_ENABLED,
+          new MagnetismChangeListener(this, enableDisableMagnetismMenuItem, target));
+      return enableDisableMagnetismMenuItem;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the action active on Enable / Disable magnetism button or menu item.
+   */
+  private static Action createEnableDisableMagnetismAction(HomePane homePane, UserPreferences preferences, int target) {
+    Action action = homePane.getActionMap().get(preferences.isMagnetismEnabled()
+        ? ActionType.DISABLE_MAGNETISM
+        : ActionType.ENABLE_MAGNETISM);
+    switch (target) {
+      case MagnetismChangeListener.TOOL_BAR :
+        return new ResourceAction.ToolBarAction(action);
+      case MagnetismChangeListener.POPUP_MENU :
+        return new ResourceAction.PopupMenuItemAction(action);
+      default :
+        return new ResourceAction.MenuItemAction(action);
     }
   }
 
@@ -1962,27 +2002,31 @@ public class HomePane extends JRootPane implements HomeView {
    * strong link between preferences and this component.
    */
   private static class MagnetismChangeListener implements PropertyChangeListener {
-    private WeakReference<HomePane> homePane;
-    private WeakReference<JButton>  enableDisableMagnetismButton;
+    static final int TOOL_BAR   = 0;
+    static final int MENU       = 1;
+    static final int POPUP_MENU = 2;
 
-    public MagnetismChangeListener(HomePane homePane, JButton enableDisableMagnetismButton) {
-      this.enableDisableMagnetismButton = new WeakReference<JButton>(enableDisableMagnetismButton);
+    private WeakReference<HomePane>       homePane;
+    private WeakReference<AbstractButton> enableDisableMagnetismButton;
+    private int                           target;
+
+    public MagnetismChangeListener(HomePane homePane, AbstractButton enableDisableMagnetismButton, int target) {
+      this.enableDisableMagnetismButton = new WeakReference<AbstractButton>(enableDisableMagnetismButton);
       this.homePane = new WeakReference<HomePane>(homePane);
+      this.target = target;
     }
 
     public void propertyChange(PropertyChangeEvent ev) {
       // If home pane was garbage collected, remove this listener from preferences
       HomePane homePane = this.homePane.get();
-      JButton enableDisableMagnetismButton = this.enableDisableMagnetismButton.get();
+      AbstractButton enableDisableMagnetismButton = this.enableDisableMagnetismButton.get();
       UserPreferences preferences = (UserPreferences)ev.getSource();
       UserPreferences.Property property = UserPreferences.Property.valueOf(ev.getPropertyName());
       if (homePane == null || enableDisableMagnetismButton == null) {
         preferences.removePropertyChangeListener(property, this);
       } else {
         enableDisableMagnetismButton.setAction(
-            new ResourceAction.ToolBarAction(preferences.isMagnetismEnabled()
-                ? homePane.getActionMap().get(ActionType.DISABLE_MAGNETISM)
-                : homePane.getActionMap().get(ActionType.ENABLE_MAGNETISM)));
+            createEnableDisableMagnetismAction(homePane, preferences, this.target));
       }
     }
   }
@@ -3529,6 +3573,10 @@ public class HomePane extends JRootPane implements HomeView {
       JMenuItem lockUnlockBasePlanMenuItem = createLockUnlockBasePlanMenuItem(home, true);
       if (lockUnlockBasePlanMenuItem != null) {
         planViewPopup.add(lockUnlockBasePlanMenuItem);
+      }
+      JMenuItem enableDisableMagnetismMenuItem = createEnableDisableMagnetismMenuItem(preferences, true);
+      if (enableDisableMagnetismMenuItem != null) {
+        planViewPopup.add(enableDisableMagnetismMenuItem);
       }
       addActionToPopupMenu(ActionType.FLIP_HORIZONTALLY, planViewPopup);
       addActionToPopupMenu(ActionType.FLIP_VERTICALLY, planViewPopup);

@@ -26,7 +26,12 @@ import java.util.Locale;
 
 import javax.swing.AbstractButton;
 import javax.swing.Action;
+import javax.swing.InputMap;
+import javax.swing.JComponent;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JToggleButton;
+import javax.swing.KeyStroke;
 import javax.swing.JToolBar;
 
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
@@ -34,9 +39,12 @@ import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.RecorderException;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.swing.HomePane;
+import com.eteks.sweethome3d.swing.PlanComponent;
 import com.eteks.sweethome3d.swing.SwingTools;
 import com.eteks.sweethome3d.swing.SwingViewFactory;
+import com.eteks.sweethome3d.tools.OperatingSystem;
 import com.eteks.sweethome3d.viewcontroller.HomeController;
+import com.eteks.sweethome3d.viewcontroller.PlanController;
 import com.eteks.sweethome3d.viewcontroller.HomeView;
 
 import junit.framework.TestCase;
@@ -45,6 +53,7 @@ import junit.framework.TestCase;
  * Tests the tool bar displayed by {@link com.eteks.sweethome3d.swing.HomePane home pane}.
  */
 public class HomePaneToolBarTest extends TestCase {
+  private UserPreferences preferences;
   private Home           home;
   private HomeController homeController;
   private HomePane       homePane;
@@ -53,7 +62,7 @@ public class HomePaneToolBarTest extends TestCase {
   @Override
   protected void setUp() throws Exception {
     Locale.setDefault(Locale.US);
-    UserPreferences preferences = new DefaultUserPreferences() {
+    UserPreferences preferences = this.preferences = new DefaultUserPreferences() {
         @Override
         public void write() throws RecorderException {
           // Ignore the requests to save preferences
@@ -140,6 +149,59 @@ public class HomePaneToolBarTest extends TestCase {
     assertTrue(button.isSelected());
     this.homeController.redo();
     assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+  }
+
+  /**
+   * Returns the menu bar item with the given accelerator.
+   */
+  private JMenuItem getMenuItem(String accelerator) {
+    KeyStroke keyStroke = KeyStroke.getKeyStroke(accelerator);
+    JMenuItem foundItem = null;
+    JMenuBar menuBar = this.homePane.getJMenuBar();
+    for (int i = 0; i < menuBar.getMenuCount(); i++) {
+      for (JMenuItem item : SwingTools.findChildren(menuBar.getMenu(i).getPopupMenu(), JMenuItem.class)) {
+        if (keyStroke.equals(item.getAccelerator())) {
+          assertNull("Accelerator " + accelerator + " used twice", foundItem);
+          foundItem = item;
+        }
+      }
+    }
+    assertNotNull("No menu item with accelerator " + accelerator, foundItem);
+    return foundItem;
+  }
+
+  public void testMagnetismIsToggledWithShortcut() {
+    String shortcut = OperatingSystem.isMacOSX() ? "meta G" : "control G";
+    this.preferences.setMagnetismEnabled(true);
+    assertEquals("Disable magnetism", getMenuItem(shortcut).getText());
+    getMenuItem(shortcut).doClick();
+    assertFalse(this.preferences.isMagnetismEnabled());
+    // Menu item should propose the opposite action with the same shortcut
+    assertEquals("Enable magnetism", getMenuItem(shortcut).getText());
+    getMenuItem(shortcut).doClick();
+    assertTrue(this.preferences.isMagnetismEnabled());
+  }
+
+  public void testSeeThroughWallsAreToggledWithShortcut() {
+    JMenuItem seeThroughWallsItem = getMenuItem(OperatingSystem.isMacOSX() ? "meta T" : "control T");
+    seeThroughWallsItem.doClick();
+    assertEquals(0.5f, this.home.getEnvironment().getWallsAlpha());
+    seeThroughWallsItem.doClick();
+    assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+  }
+
+  public void testMagnetismIsForcedWhileSKeyIsHeld() {
+    PlanComponent planComponent = SwingTools.findChildren(this.homePane, PlanComponent.class).get(0);
+    InputMap inputMap = planComponent.getInputMap(JComponent.WHEN_FOCUSED);
+    PlanController planController = this.homeController.getPlanController();
+    planComponent.getActionMap().get(inputMap.get(KeyStroke.getKeyStroke("pressed S"))).actionPerformed(null);
+    assertTrue(planController.isMagnetismForced());
+    planComponent.getActionMap().get(inputMap.get(KeyStroke.getKeyStroke("released S"))).actionPerformed(null);
+    assertFalse(planController.isMagnetismForced());
+    planComponent.getActionMap().get(inputMap.get(KeyStroke.getKeyStroke("shift pressed S"))).actionPerformed(null);
+    assertTrue(planController.isMagnetismForced());
+    planComponent.getActionMap().get(inputMap.get(KeyStroke.getKeyStroke("shift released S"))).actionPerformed(null);
+    assertFalse(planController.isMagnetismForced());
   }
 
   public void testSeeThroughWallsButtonRestoresLastTransparency() {
