@@ -286,6 +286,7 @@ public class HomePane extends JRootPane implements HomeView {
     initActions(preferences);
     createTransferHandlers(home, controller);
     addLevelVisibilityListener(home);
+    addFurnitureGroupingListener(home);
     addUserPreferencesListener(preferences);
     addPlanControllerListener(controller.getPlanController());
     addFocusListener();
@@ -416,6 +417,8 @@ public class HomePane extends JRootPane implements HomeView {
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.PRICE_VALUE_ADDED_TAX_INCLUDED.name());
     createAction(ActionType.SORT_HOME_FURNITURE_BY_DESCENDING_ORDER, preferences,
         furnitureController, "toggleFurnitureSortOrder");
+    createStateToggleAction(ActionType.TOGGLE_FURNITURE_GROUPING, furnitureController.isFurnitureGroupedByLevelAndRoom(),
+        preferences, furnitureController, "setFurnitureGroupedByLevelAndRoom");
     createAction(ActionType.DISPLAY_HOME_FURNITURE_CATALOG_ID, preferences,
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.CATALOG_ID.name());
     createAction(ActionType.DISPLAY_HOME_FURNITURE_NAME, preferences,
@@ -550,8 +553,8 @@ public class HomePane extends JRootPane implements HomeView {
           homeController3D, "displayAllLevels");
       createToggleAction(ActionType.DISPLAY_SELECTED_LEVEL, !allLevelsVisible, displayLevelGroup, preferences,
           homeController3D, "displaySelectedLevel");
-      createToggleAction(ActionType.TOGGLE_SEE_THROUGH_WALLS, home.getEnvironment().getWallsAlpha() > 0, null, preferences,
-          homeController3D, "toggleSeeThroughWalls");
+      createStateToggleAction(ActionType.TOGGLE_SEE_THROUGH_WALLS, home.getEnvironment().getWallsAlpha() > 0, preferences,
+          homeController3D, "setSeeThroughWalls");
       createAction(ActionType.MODIFY_3D_ATTRIBUTES, preferences, homeController3D, "modifyAttributes");
       createAction(ActionType.CREATE_PHOTO, preferences, controller, "createPhoto");
       createAction(ActionType.CREATE_PHOTOS_AT_POINTS_OF_VIEW, preferences, controller, "createPhotos");
@@ -607,6 +610,46 @@ public class HomePane extends JRootPane implements HomeView {
     } catch (NoSuchMethodException ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  /**
+   * Returns a new action associated with a <code>ToggleButtonModel</code> instance set as selected or not,
+   * which calls the given <code>setter</code> of <code>controller</code> with the selected state of the model.
+   * As the toggle model is shared by the tool bar button and the menu items, which all notify the action
+   * of a click, the action applies the selected state of the model rather than toggling a state
+   * as many times as there are buttons.
+   */
+  private Action createStateToggleAction(ActionType actionType,
+                                         boolean selected,
+                                         UserPreferences preferences,
+                                         final Object controller,
+                                         String setter) {
+    final Method setterMethod;
+    try {
+      setterMethod = controller.getClass().getMethod(setter, boolean.class);
+    } catch (NoSuchMethodException ex) {
+      throw new RuntimeException(ex);
+    }
+    final JToggleButton.ToggleButtonModel toggleButtonModel = new JToggleButton.ToggleButtonModel();
+    toggleButtonModel.setSelected(selected);
+    ResourceAction action = new ResourceAction(preferences, HomePane.class, actionType.name()) {
+        @Override
+        public void actionPerformed(ActionEvent ev) {
+          try {
+            setterMethod.invoke(controller, toggleButtonModel.isSelected());
+          } catch (IllegalAccessException ex) {
+            throw new RuntimeException(ex);
+          } catch (InvocationTargetException ex) {
+            if (ex.getCause() instanceof RuntimeException) {
+              throw (RuntimeException)ex.getCause();
+            }
+            throw new RuntimeException(ex.getCause());
+          }
+        }
+      };
+    action.putValue(ResourceAction.TOGGLE_BUTTON_MODEL, toggleButtonModel);
+    getActionMap().put(actionType, action);
+    return action;
   }
 
   /**
@@ -787,6 +830,21 @@ public class HomePane extends JRootPane implements HomeView {
   private void setToggleButtonModelSelected(ActionType actionType, boolean selected) {
     ((JToggleButton.ToggleButtonModel)getActionMap().get(actionType).getValue(ResourceAction.TOGGLE_BUTTON_MODEL)).
         setSelected(selected);
+  }
+
+  /**
+   * Adds listener to <code>home</code> to update Group by level and room toggle model.
+   */
+  private void addFurnitureGroupingListener(final Home home) {
+    home.addPropertyChangeListener(FurnitureController.FURNITURE_GROUPED_PROPERTY,
+        new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            if (getActionMap().get(ActionType.TOGGLE_FURNITURE_GROUPING) != null) {
+              setToggleButtonModelSelected(ActionType.TOGGLE_FURNITURE_GROUPING,
+                  !"false".equals(home.getProperty(FurnitureController.FURNITURE_GROUPED_PROPERTY)));
+            }
+          }
+        });
   }
 
   /**
@@ -1257,6 +1315,7 @@ public class HomePane extends JRootPane implements HomeView {
     furnitureMenu.addSeparator();
     furnitureMenu.add(createFurnitureSortMenu(home, preferences));
     furnitureMenu.add(createFurnitureDisplayPropertyMenu(home, preferences));
+    addToggleActionToMenu(ActionType.TOGGLE_FURNITURE_GROUPING, false, furnitureMenu);
     furnitureMenu.addSeparator();
     addActionToMenu(ActionType.EXPORT_TO_CSV, furnitureMenu);
 
@@ -3311,6 +3370,7 @@ public class HomePane extends JRootPane implements HomeView {
       furnitureViewPopup.addSeparator();
       furnitureViewPopup.add(createFurnitureSortMenu(home, preferences));
       furnitureViewPopup.add(createFurnitureDisplayPropertyMenu(home, preferences));
+      addToggleActionToPopupMenu(ActionType.TOGGLE_FURNITURE_GROUPING, false, furnitureViewPopup);
       furnitureViewPopup.addSeparator();
       addActionToPopupMenu(ActionType.EXPORT_TO_CSV, furnitureViewPopup);
       SwingTools.hideDisabledMenuItems(furnitureViewPopup);

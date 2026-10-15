@@ -67,6 +67,14 @@ build and run on current Java.
   magnetism, also proposed in the *Plan* menu and the plan contextual menu, and holding
   the *S* key in the plan forces magnetism on while drawing or moving items, whatever its
   setting. *Ctrl+T* (*Cmd+T*) displays walls see-through or solid in the 3D view.
+- **Furniture list grouped by level and room.** The furniture list shows each level,
+  then the rooms of that level, with their furniture under them. Doors and windows are
+  listed under a *Doors & windows* header, and furniture whose center is in no room under
+  a *No room* header. A click on the arrow of a header collapses or expands it, and a click
+  elsewhere on a header selects all its furniture. The *Group by level and room* item of
+  the *Furniture* menu and the furniture list contextual menu switches back to a flat list.
+  Collapsed headers are printed expanded, CSV export stays flat, and the grouping choice
+  and the collapsed headers are saved as home properties, which the original program ignores.
 - **Light color and power.** A light can be given a color or a color temperature that
   replaces the color of its sources, and its power can be entered in percentage or in
   lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,

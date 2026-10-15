@@ -23,6 +23,7 @@ import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Graphics;
@@ -75,6 +76,7 @@ import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.Icon;
+import javax.swing.DefaultListSelectionModel;
 import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
@@ -100,6 +102,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableColumnModelEvent;
 import javax.swing.event.TableColumnModelListener;
+import javax.swing.event.TableModelEvent;
 import javax.swing.event.TreeModelEvent;
 import javax.swing.event.TreeModelListener;
 import javax.swing.plaf.synth.SynthLookAndFeel;
@@ -126,6 +129,7 @@ import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.HomeTexture;
 import com.eteks.sweethome3d.model.LengthUnit;
 import com.eteks.sweethome3d.model.Level;
+import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.ObjectProperty;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.SelectionEvent;
@@ -134,6 +138,8 @@ import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.tools.OperatingSystem;
 import com.eteks.sweethome3d.tools.ResourceURLContent;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
+import com.eteks.sweethome3d.viewcontroller.FurnitureRoomResolver;
+import com.eteks.sweethome3d.viewcontroller.FurnitureRoomResolver.Bucket;
 import com.eteks.sweethome3d.viewcontroller.FurnitureView;
 
 /**
@@ -148,6 +154,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
   private ListSelectionListener  tableSelectionListener;
   private boolean                selectionByUser;
   private boolean                selectionToggling;
+  private boolean                updatingTableSelection;
   private int                    furnitureInformationRow;
   private Popup                  furnitureInformationPopup;
   private AWTEventListener       informationPopupRemovalListener;
@@ -237,11 +244,17 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
         @Override
         public void mousePressed(MouseEvent ev) {
           selectionToggling = (ev.getModifiers() & getToolkit().getMenuShortcutKeyMask()) != 0;
+          if (SwingUtilities.isLeftMouseButton(ev)
+              && isHeaderExpandIcon(ev.getPoint())) {
+            // Toggle header expanded state without changing selection
+            toggleRowExpandedState(rowAtPoint(ev.getPoint()));
+            ev.consume();
+          }
         }
 
         @Override
         public void mouseReleased(MouseEvent ev) {
-          mousePressed(ev);
+          selectionToggling = (ev.getModifiers() & getToolkit().getMenuShortcutKeyMask()) != 0;
         }
       });
     for (MouseListener mouseListener : mouseListeners) {
@@ -257,8 +270,22 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
           List<HomePieceOfFurniture> ignoredGroupsFurniture = new ArrayList<HomePieceOfFurniture>();
           TableModel tableModel = getModel();
           for (int index : selectedRows) {
-            HomePieceOfFurniture piece = (HomePieceOfFurniture)tableModel.getValueAt(index, 0);
-            if (!ignoredGroupsFurniture.contains(piece)) {
+            Object row = tableModel.getValueAt(index, 0);
+            if (!(row instanceof HomePieceOfFurniture)) {
+              // Select all the furniture listed under a level or room header
+              for (HomePieceOfFurniture piece : ((FurnitureTreeTableModel)tableModel).getPiecesUnderHeader(index)) {
+                if (!selectedFurniture.contains(piece)) {
+                  selectedFurniture.add(piece);
+                  if (piece instanceof HomeFurnitureGroup) {
+                    ignoredGroupsFurniture.addAll(((HomeFurnitureGroup)piece).getAllFurniture());
+                  }
+                }
+              }
+              continue;
+            }
+            HomePieceOfFurniture piece = (HomePieceOfFurniture)row;
+            if (!ignoredGroupsFurniture.contains(piece)
+                && !selectedFurniture.contains(piece)) {
               // Add to selectedFurniture table model value that stores piece
               selectedFurniture.add(piece);
               if (piece instanceof HomeFurnitureGroup) {
@@ -280,14 +307,48 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
    * Updates selected furniture in table from selected items in <code>home</code>.
    */
   private void updateTableSelectedFurniture(Home home) {
+    updateTableSelectedFurniture(home, true);
+  }
+
+  /**
+   * Updates selected furniture in table from selected items in <code>home</code>,
+   * expanding the groups and headers of selected furniture if <code>expandPaths</code> is <code>true</code>
+   * and selection wasn't changed in this table.
+   */
+  private void updateTableSelectedFurniture(Home home, boolean expandPaths) {
     ListSelectionModel selectionModel = getSelectionModel();
-    selectionModel.removeListSelectionListener(this.tableSelectionListener);
+    // Expanding headers may update table selection again, so remove and add listener only once
+    boolean nestedUpdate = this.updatingTableSelection;
+    if (!nestedUpdate) {
+      selectionModel.removeListSelectionListener(this.tableSelectionListener);
+      this.updatingTableSelection = true;
+    }
+    try {
+      updateTableSelectedRows(home, expandPaths);
+    } finally {
+      if (!nestedUpdate) {
+        this.updatingTableSelection = false;
+        selectionModel.addListSelectionListener(this.tableSelectionListener);
+      }
+    }
+  }
+
+  /**
+   * Selects the rows matching selected items in <code>home</code>.
+   */
+  private void updateTableSelectedRows(Home home, boolean expandPaths) {
+    int anchorRow = getSelectionModel().getAnchorSelectionIndex();
+    int leadRow = getSelectionModel().getLeadSelectionIndex();
+    boolean selectionRewritten = false;
 
     FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
     List<Selectable> selectedItems = home.getSelectedItems();
-    for (Selectable item : selectedItems) {
-      if (item instanceof HomePieceOfFurniture) {
-        tableModel.expandPathToPieceOfFurniture((HomePieceOfFurniture)item);
+    if (expandPaths
+        && !this.selectionByUser) {
+      for (Selectable item : selectedItems) {
+        if (item instanceof HomePieceOfFurniture) {
+          tableModel.expandPathToPieceOfFurniture((HomePieceOfFurniture)item);
+        }
       }
     }
 
@@ -311,13 +372,28 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             List<HomePieceOfFurniture> groupFurniture = ((HomeFurnitureGroup)piece).getAllFurniture();
             for (rowIndex++;
                  rowIndex < tableModel.getRowCount()
-                 && groupFurniture.contains((HomePieceOfFurniture)tableModel.getValueAt(rowIndex, 0));
+                 && groupFurniture.contains(tableModel.getValueAt(rowIndex, 0));
                  rowIndex++) {
               furnitureIndices [selectedFurnitureCount++] = rowIndex;
               minIndex = Math.min(minIndex, rowIndex);
               maxIndex = Math.max(maxIndex, rowIndex);
             }
           }
+        }
+      }
+    }
+
+    // Select collapsed headers and headers selected by user when all the furniture listed under them is selected
+    for (int rowIndex = 0, n = tableModel.getRowCount(); rowIndex < n; rowIndex++) {
+      if (!tableModel.isPieceRow(rowIndex)
+          && (!tableModel.isRowExpanded(rowIndex)
+              || this.selectionByUser && isRowSelected(rowIndex))) {
+        List<HomePieceOfFurniture> headerFurniture = tableModel.getPiecesUnderHeader(rowIndex);
+        if (!headerFurniture.isEmpty()
+            && selectedItems.containsAll(headerFurniture)) {
+          furnitureIndices [selectedFurnitureCount++] = rowIndex;
+          minIndex = Math.min(minIndex, rowIndex);
+          maxIndex = Math.max(maxIndex, rowIndex);
         }
       }
     }
@@ -334,6 +410,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
         || !Arrays.equals(getSelectedRows(), furnitureIndices)) {
       deleteInformationPopup();
       // Update table selection if it differs from selected furniture
+      selectionRewritten = true;
       clearSelection();
       for (int min = 0; min < furnitureIndices.length; ) {
         // Search the interval of following indices
@@ -349,10 +426,23 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
       }
     }
 
+    if (selectionRewritten
+        && this.selectionByUser
+        && leadRow >= 0
+        && leadRow < getRowCount()
+        && isRowSelected(leadRow)
+        && getSelectionModel() instanceof DefaultListSelectionModel) {
+      // Keep the anchor and lead rows chosen by the user, even if they're headers
+      DefaultListSelectionModel selectionModel = (DefaultListSelectionModel)getSelectionModel();
+      if (anchorRow >= 0 && anchorRow < getRowCount()) {
+        selectionModel.setAnchorSelectionIndex(anchorRow);
+      }
+      selectionModel.moveLeadSelectionIndex(leadRow);
+    }
+
     if (!this.selectionByUser && minIndex != Integer.MIN_VALUE) {
       makeRowsVisible(minIndex, maxIndex);
     }
-    selectionModel.addListSelectionListener(this.tableSelectionListener);
   }
 
   /**
@@ -368,7 +458,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
               FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
               for (String row : expandedRows.split(",")) {
                 int rowIndex = Integer.parseInt(row);
-                if (rowIndex < tableModel.getRowCount() && !tableModel.isRowExpanded(rowIndex)) {
+                if (rowIndex < tableModel.getRowCount()
+                    && tableModel.getValueAt(rowIndex, 0) instanceof HomeFurnitureGroup
+                    && !tableModel.isRowExpanded(rowIndex)) {
                   tableModel.toggleRowExpandedState(rowIndex);
                 }
               }
@@ -392,7 +484,8 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
     StringBuilder rows = new StringBuilder();
     for (int row = 0, n = tableModel.getRowCount(); row < n; row++) {
-      if (tableModel.isRowExpanded(row)) {
+      if (tableModel.getValueAt(row, 0) instanceof HomeFurnitureGroup
+          && tableModel.isRowExpanded(row)) {
         if (rows.length() != 0) {
           rows.append(',');
         }
@@ -459,6 +552,24 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
   }
 
   /**
+   * Returns <code>true</code> if the given point is on the expand icon of a level or room header.
+   */
+  private boolean isHeaderExpandIcon(Point point) {
+    int row = rowAtPoint(point);
+    int column = columnAtPoint(point);
+    if (row >= 0
+        && column >= 0
+        && !isPieceRow(row)
+        && getColumnModel().getColumn(column).getIdentifier() == HomePieceOfFurniture.SortableProperty.NAME) {
+      TableCellRenderer cellRenderer = getCellRenderer(row, column);
+      if (cellRenderer instanceof TreeTableNameCellRenderer) {
+        return ((TreeTableNameCellRenderer)cellRenderer).getExpandedStateBounds(this, row, column).contains(point);
+      }
+    }
+    return false;
+  }
+
+  /**
    * Adds a double click mouse listener to modify selected furniture.
    */
   private void addMouseListener(final Home home, final FurnitureController controller) {
@@ -473,7 +584,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
           if (column >= 0
               && row >= 0) {
             Object columnId = getColumnModel().getColumn(column).getIdentifier();
-            if (columnId == HomePieceOfFurniture.SortableProperty.VISIBLE) {
+            if (!isPieceRow(row)) {
+              // Header rows
+            } else if (columnId == HomePieceOfFurniture.SortableProperty.VISIBLE) {
               Component visibilityComponent = getCellRenderer(row, column).
                   getTableCellRendererComponent(FurnitureTable.this, getValueAt(row, column), false, false, row, column);
               if (visibilityComponent.isEnabled()) {
@@ -518,7 +631,8 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
               tableModel.toggleRowExpandedState(row);
               controller.setSelectedFurniture(Arrays.asList(new HomePieceOfFurniture [] {
                   (HomePieceOfFurniture)tableModel.getValueAt(row, 0)}));
-            } else if (ev.getClickCount() == 2) {
+            } else if (ev.getClickCount() == 2
+                       && isPieceRow(row)) {
               deleteInformationPopup();
               controller.modifySelectedFurniture();
             }
@@ -686,7 +800,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
         public void propertyChange(PropertyChangeEvent ev) {
           ((FurnitureTreeTableModel)getModel()).filterAndSortFurniture();
           // Update selected rows
-          updateTableSelectedFurniture(home);
+          updateTableSelectedFurniture(home, false);
           storeExpandedRows(home, controller);
           getTableHeader().repaint();
           setDragEnabled(reorderingEnabled && home.getFurnitureSortedPropertyName() == null && hasFocus());
@@ -698,10 +812,19 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     final PropertyChangeListener changeListener =
       new PropertyChangeListener () {
         public void propertyChange(PropertyChangeEvent ev) {
+          FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
+          if (ev != null
+              && !tableModel.isRebuildNeeded(ev.getSource(), ev.getPropertyName())) {
+            // Furniture listed by level and room keeps the same rows
+            if (tableModel.getRowCount() > 0) {
+              tableModel.fireTableRowsUpdated(0, tableModel.getRowCount() - 1);
+            }
+            return;
+          }
           // As furniture properties values change may alter sort order and filter, update the whole table
-          ((FurnitureTreeTableModel)getModel()).filterAndSortFurniture();
+          tableModel.filterAndSortFurniture();
           // Update selected rows
-          updateTableSelectedFurniture(home);
+          updateTableSelectedFurniture(home, false);
           storeExpandedRows(home, controller);
         }
       };
@@ -733,6 +856,31 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
           }
         }
       });
+    // Add listeners to rooms to update furniture grouped by room
+    final PropertyChangeListener roomChangeListener = new PropertyChangeListener () {
+        public void propertyChange(PropertyChangeEvent ev) {
+          String propertyName = ev.getPropertyName();
+          if (Room.Property.NAME.name().equals(propertyName)
+              || Room.Property.POINTS.name().equals(propertyName)
+              || Room.Property.LEVEL.name().equals(propertyName)) {
+            changeListener.propertyChange(ev);
+          }
+        }
+      };
+    for (Room room : home.getRooms()) {
+      room.addPropertyChangeListener(roomChangeListener);
+    }
+    home.addRoomsListener(new CollectionListener<Room>() {
+        public void collectionChanged(CollectionEvent<Room> ev) {
+          if (ev.getType() == CollectionEvent.Type.ADD) {
+            ev.getItem().addPropertyChangeListener(roomChangeListener);
+          } else {
+            ev.getItem().removePropertyChangeListener(roomChangeListener);
+          }
+          changeListener.propertyChange(null);
+        }
+      });
+    home.addPropertyChangeListener(FurnitureController.FURNITURE_GROUPED_PROPERTY, changeListener);
     // Add listeners to levels to update furniture when levels change
     for (Level level : home.getLevels()) {
       level.addPropertyChangeListener(changeListener);
@@ -939,6 +1087,12 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     if (EventQueue.isDispatchThread()) {
       TableColumnModel oldColumnModel = getColumnModel();
       Color oldGridColor = getGridColor();
+      // Print all the furniture listed under collapsed headers
+      FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
+      tableModel.setAllHeadersExpanded(true);
+      // Ensure table height matches expanded rows since layout is updated later
+      Dimension oldSize = getSize();
+      setSize(oldSize.width, getRowCount() * getRowHeight());
       setColumnModel(printableColumnModel);
       if (OperatingSystem.isWindows()) {
         // Add 3 pixels to columns to get a correct rendering
@@ -948,11 +1102,15 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
       }
       setGridColor(gridColor);
       Printable printable = getPrintable(PrintMode.FIT_WIDTH, null, null);
-      int pageExists = printable.print(g, pageFormat, pageIndex);
-      // Restore column model and grid color to their previous values
-      setColumnModel(oldColumnModel);
-      setGridColor(oldGridColor);
-      return pageExists;
+      try {
+        return printable.print(g, pageFormat, pageIndex);
+      } finally {
+        // Restore column model, grid color and headers to their previous values
+        setColumnModel(oldColumnModel);
+        setGridColor(oldGridColor);
+        tableModel.setAllHeadersExpanded(false);
+        setSize(oldSize);
+      }
     } else {
       // Print synchronously table in Event Dispatch Thread
       // The best solution should be to be able to print out of Event Dispatch Thread
@@ -1031,8 +1189,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
   public void exportToCSV(Writer writer, char fieldSeparator) throws IOException {
     TableColumnModel columnModel = getExportColumnModel();
     exportHeaderToCSV(writer, columnModel, fieldSeparator);
-    for (int row = 0, n = getRowCount(); row < n; row++) {
-      exportRowToCSV(writer, row, columnModel, fieldSeparator);
+    // Export furniture as if it wasn't grouped by level and room
+    for (HomePieceOfFurniture piece : ((FurnitureTreeTableModel)getModel()).getFlatFurniture()) {
+      exportRowToCSV(writer, piece, -1, columnModel, fieldSeparator);
     }
   }
 
@@ -1080,11 +1239,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     writer.write(System.getProperty("line.separator"));
   }
 
-  private void exportRowToCSV(Writer writer, int rowIndex,
+  private void exportRowToCSV(Writer writer, HomePieceOfFurniture exportedPiece, int rowIndex,
                               TableColumnModel columnModel,
                               char fieldSeparator) throws IOException {
-    TableModel model = getModel();
-    HomePieceOfFurniture exportedPiece = (HomePieceOfFurniture)model.getValueAt(rowIndex, 0);
     // Force format for sizes to always display decimals
     Format lengthFormat;
     if (this.preferences.getLengthUnit().isMetric()
@@ -1231,7 +1388,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             writer.write(text);
           }
         } else {
-          writer.write(String.valueOf(model.getValueAt(rowIndex, columnIndex)));
+          writer.write(String.valueOf(exportedPiece));
         }
       }
     }
@@ -1257,13 +1414,76 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     TableColumnModel columnModel = getExportColumnModel();
     try {
       exportHeaderToCSV(writer, columnModel, '\t');
+      FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
       for (int row : getSelectedRows()) {
-        exportRowToCSV(writer, row, columnModel, '\t');
+        if (tableModel.isPieceRow(row)) {
+          exportRowToCSV(writer, (HomePieceOfFurniture)tableModel.getValueAt(row, 0), row, columnModel, '\t');
+        } else {
+          // Selected collapsed header
+          for (HomePieceOfFurniture piece : tableModel.getPiecesUnderHeader(row)) {
+            exportRowToCSV(writer, piece, -1, columnModel, '\t');
+          }
+        }
       }
     } catch (IOException ex) {
       // May not happen since there's no IO write
     }
     return writer.toString();
+  }
+
+  /**
+   * Returns <code>true</code> if the given <code>row</code> displays a piece of furniture
+   * and not a level or room header.
+   */
+  public boolean isPieceRow(int row) {
+    return ((FurnitureTreeTableModel)getModel()).isPieceRow(row);
+  }
+
+  /**
+   * Returns <code>true</code> if the furniture group or the header at the given <code>row</code> is expanded.
+   */
+  public boolean isRowExpanded(int row) {
+    return ((FurnitureTreeTableModel)getModel()).isRowExpanded(row);
+  }
+
+  /**
+   * Toggles the expanded state of the furniture group or the header at the given <code>row</code>,
+   * keeping selected furniture unchanged.
+   */
+  public void toggleRowExpandedState(int row) {
+    boolean selectionByUser = this.selectionByUser;
+    // Avoid expanding again the toggled row if it contains selected furniture
+    this.selectionByUser = true;
+    try {
+      ((FurnitureTreeTableModel)getModel()).toggleRowExpandedState(row);
+    } finally {
+      this.selectionByUser = selectionByUser;
+    }
+  }
+
+  /**
+   * Keeps home selection unchanged when rows change.
+   */
+  @Override
+  public void tableChanged(TableModelEvent ev) {
+    if (this.tableSelectionListener == null
+        || this.updatingTableSelection) {
+      // Table selection will be updated by updateTableSelectedFurniture
+      super.tableChanged(ev);
+    } else {
+      ListSelectionModel selectionModel = getSelectionModel();
+      selectionModel.removeListSelectionListener(this.tableSelectionListener);
+      super.tableChanged(ev);
+      selectionModel.addListSelectionListener(this.tableSelectionListener);
+      // Restore table selection from home without expanding or scrolling rows
+      boolean selectionByUser = this.selectionByUser;
+      this.selectionByUser = true;
+      try {
+        updateTableSelectedFurniture(((FurnitureTreeTableModel)getModel()).home, false);
+      } finally {
+        this.selectionByUser = selectionByUser;
+      }
+    }
   }
 
   /**
@@ -1593,12 +1813,36 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
      */
     private TableCellRenderer getColumnRenderer(final Object property,
                                                 final UserPreferences preferences) {
+      if (property == HomePieceOfFurniture.SortableProperty.NAME) {
+        // Name renderer displays level and room headers too
+        return new TreeTableNameCellRenderer(preferences);
+      } else {
+        final TableCellRenderer pieceRenderer = getPieceColumnRenderer(property, preferences);
+        final DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer();
+        return new TableCellRenderer() {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                                                           boolean hasFocus, int row, int column) {
+              if (value == null
+                  || value instanceof HomePieceOfFurniture) {
+                return pieceRenderer.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+              } else {
+                // Display nothing in level and room header rows
+                return headerRenderer.getTableCellRendererComponent(table, null, isSelected, hasFocus, row, column);
+              }
+            }
+          };
+      }
+    }
+
+    /**
+     * Returns the renderer of the given column for rows displaying pieces.
+     */
+    private TableCellRenderer getPieceColumnRenderer(final Object property,
+                                                     final UserPreferences preferences) {
       if (property instanceof HomePieceOfFurniture.SortableProperty) {
         switch ((HomePieceOfFurniture.SortableProperty)property) {
           case CATALOG_ID :
             return getCatalogIdRenderer();
-          case NAME :
-            return getNameWithIconRenderer();
           case DESCRIPTION :
             return getDescriptionRenderer();
           case CREATOR :
@@ -1812,13 +2056,6 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             return component;
           }
         };
-    }
-
-    /**
-     * Returns a renderer that displays the name of a piece of furniture with its icon ahead.
-     */
-    private TableCellRenderer getNameWithIconRenderer() {
-      return new TreeTableNameCellRenderer();
     }
 
     /**
@@ -2296,9 +2533,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
                     value != null  ? ((HomePieceOfFurniture)value).isVisible()  : null,
                     isSelected, hasFocus, row, column);
                 if (value != null) {
-                  // Enable component only for root children to avoid the complexity of managing partially visible groups
+                  // Enable component only for home furniture to avoid the complexity of managing partially visible groups
                   FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)table.getModel();
-                  component.setEnabled(tableModel.getIndexOfChild(tableModel.getRoot(), value) != -1);
+                  component.setEnabled(tableModel.home.getFurniture().contains(value));
                 }
                 return component;
               }
@@ -2361,6 +2598,11 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     private PanelWithInformationIcon noGroupRendererComponent;
     private DefaultTableCellRenderer nameRendererLabel;
     private Font                     defaultFont;
+    private final UserPreferences    preferences;
+
+    public TreeTableNameCellRenderer(UserPreferences preferences) {
+      this.preferences = preferences;
+    }
 
     public Component getTableCellRendererComponent(JTable table,
          Object value, boolean isSelected, boolean hasFocus,
@@ -2368,11 +2610,15 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
       if (this.defaultFont == null) {
         this.defaultFont = table.getFont();
       }
-      HomePieceOfFurniture piece = (HomePieceOfFurniture)value;
+      HomePieceOfFurniture piece = value instanceof HomePieceOfFurniture
+          ? (HomePieceOfFurniture)value
+          : null;
       boolean containsGroup = false;
-      if (piece != null) {
+      if (value != null) {
         for (int i = 0; i < table.getRowCount(); i++) {
-          if (table.getValueAt(i, 0) instanceof HomeFurnitureGroup) {
+          Object rowValue = table.getValueAt(i, 0);
+          if (rowValue instanceof HomeFurnitureGroup
+              || !(rowValue instanceof HomePieceOfFurniture)) {
             containsGroup = true;
             break;
           }
@@ -2385,7 +2631,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
           this.groupRendererComponent.add(this.nameRendererTree, BorderLayout.CENTER);
         }
 
-        this.groupRendererComponent.setInformationIconVisible(piece.getInformation() != null);
+        this.groupRendererComponent.setInformationIconVisible(piece != null && piece.getInformation() != null);
         this.groupRendererComponent.setFont(this.defaultFont);
         if (isSelected) {
           this.nameRendererTree.setSelectionRow(row);
@@ -2445,6 +2691,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
                 HomePieceOfFurniture piece = (HomePieceOfFurniture)value;
                 // Don't use hasFocus in the overridden implementation to avoid focus ring
                 super.getTreeCellRendererComponent(tree, piece.getName(), isSelected, expanded, leaf, row, false);
+                setFont(table.getFont());
                 Content iconContent;
                 if (piece instanceof HomeFurnitureGroup) {
                   iconContent = GROUP_ICON_CONTENT;
@@ -2453,6 +2700,16 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
                 }
                 setIcon(IconManager.getInstance().getIcon(iconContent, table.getRowHeight() - table.getRowMargin(), table));
                 setHorizontalAlignment(LEFT); // Required for correct display in right to left orientation
+                setBackgroundSelectionColor(table.getSelectionBackground());
+                setBackgroundNonSelectionColor(table.getBackground());
+                setTextSelectionColor(table.getSelectionForeground());
+                setTextNonSelectionColor(table.getForeground());
+              } else if (value instanceof Level
+                         || value instanceof Bucket) {
+                super.getTreeCellRendererComponent(tree, getHeaderText(value), isSelected, expanded, leaf, row, false);
+                setFont(table.getFont().deriveFont(Font.BOLD));
+                setIcon(null);
+                setHorizontalAlignment(LEFT);
                 setBackgroundSelectionColor(table.getSelectionBackground());
                 setBackgroundNonSelectionColor(table.getBackground());
                 setTextSelectionColor(table.getSelectionForeground());
@@ -2529,9 +2786,31 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
       }
     }
 
+    /**
+     * Returns the text displayed for a level or a room header.
+     */
+    private String getHeaderText(Object header) {
+      if (header instanceof Level) {
+        return ((Level)header).getName();
+      } else {
+        Bucket bucket = (Bucket)header;
+        switch (bucket.getKind()) {
+          case ROOM :
+            String name = bucket.getRoom().getName();
+            return name != null && name.trim().length() > 0
+                ? name
+                : this.preferences.getLocalizedString(FurnitureTable.class, "unnamedRoomHeader");
+          case DOORS_AND_WINDOWS :
+            return this.preferences.getLocalizedString(FurnitureTable.class, "doorsAndWindowsHeader");
+          default :
+            return this.preferences.getLocalizedString(FurnitureTable.class, "noRoomHeader");
+        }
+      }
+    }
+
     private void updateExpandedRows(FurnitureTreeTableModel tableTreeModel) {
       for (int row = 0; row < tableTreeModel.getRowCount(); row++) {
-        if (tableTreeModel.getValueAt(row, 0) instanceof HomeFurnitureGroup) {
+        if (!tableTreeModel.isLeaf(tableTreeModel.getValueAt(row, 0))) {
           if (tableTreeModel.isRowExpanded(row)) {
             TreePath pathForRow = this.nameRendererTree.getPathForRow(row);
             if (this.nameRendererTree.isCollapsed(pathForRow)) {
@@ -2634,19 +2913,29 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
    * Model used by this table.
    */
   private static class FurnitureTreeTableModel extends AbstractTableModel implements TreeModel {
+    private static final String COLLAPSED_HEADERS_VISUAL_PROPERTY = "com.eteks.sweethome3d.SweetHome3D.CollapsedFurnitureHeaders";
+
     private Home                                    home;
-    private List<HomePieceOfFurniture>              filteredAndSortedFurniture;
+    private List<Object>                            rows;
+    private boolean                                 grouped;
+    private Map<Bucket, List<HomePieceOfFurniture>> bucketFurniture;
+    private Map<HomePieceOfFurniture, Bucket>       pieceBuckets;
+    private List<Bucket>                            sortedBuckets;
     private FurnitureFilter                         furnitureFilter;
     private Set<HomeFurnitureGroup>                 expandedGroups;
     private List<TreeModelListener>                 treeModelListeners;
-    private Map<Object, List<HomePieceOfFurniture>> childFurnitureCache;
+    private Map<Object, List<?>>                    childFurnitureCache;
     private boolean                                 containsNotViewableFurniture;
+    private Set<Object>                             collapsedHeaders;
+    private boolean                                 allHeadersExpanded;
 
     public FurnitureTreeTableModel(Home home) {
       this.home = home;
       this.expandedGroups = new HashSet<HomeFurnitureGroup>();
+      this.collapsedHeaders = new HashSet<Object>();
+      readCollapsedHeaders();
       this.treeModelListeners = new ArrayList<TreeModelListener>();
-      this.childFurnitureCache = new HashMap<Object, List<HomePieceOfFurniture>>();
+      this.childFurnitureCache = new HashMap<Object, List<?>>();
       addHomeListener(home);
       filterAndSortFurniture();
     }
@@ -2658,21 +2947,24 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             int pieceIndex = ev.getIndex();
             switch (ev.getType()) {
               case ADD :
-                if (!expandedGroups.isEmpty()
+                if (grouped
+                    || isGroupingEnabled()
+                    || !expandedGroups.isEmpty()
                     || containsNotViewableFurniture
                     || pieceIndex < 0) {
                   filterAndSortFurniture();
                 } else {
                   int insertionIndex = getPieceOfFurnitureInsertionIndex(piece, home, pieceIndex);
                   if (insertionIndex != -1) {
-                    filteredAndSortedFurniture.add(insertionIndex, piece);
+                    rows.add(insertionIndex, piece);
                     fireTableRowsInserted(insertionIndex, insertionIndex);
                     fireTreeModelChanged();
                   }
                 }
                 break;
               case DELETE :
-                if (furnitureFilter != null
+                if (grouped
+                    || furnitureFilter != null
                     || pieceIndex < 0) {
                   filterAndSortFurniture();
                 } else {
@@ -2681,7 +2973,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
                     if (expandedGroups.contains(piece)) {
                       filterAndSortFurniture();
                     } else {
-                      filteredAndSortedFurniture.remove(deletionIndex);
+                      rows.remove(deletionIndex);
                       fireTableRowsDeleted(deletionIndex, deletionIndex);
                       fireTreeModelChanged();
                     }
@@ -2709,7 +3001,7 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
               return -1;
             } else if (home.getFurnitureSortedPropertyName() == null) {
               if (homePieceIndex == 0
-                  || filteredAndSortedFurniture.size() == 0) {
+                  || rows.size() == 0) {
                 return 0;
               } else {
                 // Find the index of the previous piece included in filteredAndSortedFurniture
@@ -2724,7 +3016,9 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             }
 
             // Default case when piece is included and furniture is  sorted
-            int sortedIndex = Collections.binarySearch(filteredAndSortedFurniture, piece, getFurnitureComparator(home));
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            List<HomePieceOfFurniture> rowFurniture = (List)rows;
+            int sortedIndex = Collections.binarySearch(rowFurniture, piece, getFurnitureComparator(home));
             if (sortedIndex >= 0) {
               return sortedIndex;
             } else {
@@ -2751,6 +3045,8 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
             if (!home.getFurnitureVisiblePropertyNames().contains(HomePieceOfFurniture.SortableProperty.NAME.name())) {
               expandedGroups.clear();
               filterAndSortFurniture();
+            } else if (grouped != isGroupingEnabled()) {
+              filterAndSortFurniture();
             }
           }
         });
@@ -2768,27 +3064,125 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
     }
 
     public int getRowCount() {
-      return this.filteredAndSortedFurniture.size();
+      return this.rows.size();
     }
 
     public Object getValueAt(int rowIndex, int columnIndex) {
-      // Always return piece itself, the real property displayed at screen is chosen by renderer
-      return this.filteredAndSortedFurniture.get(rowIndex);
+      // Always return piece or header itself, the real property displayed at screen is chosen by renderer
+      return this.rows.get(rowIndex);
+    }
+
+    /**
+     * Returns <code>true</code> if the given row displays a piece of furniture
+     * and not a level or room header.
+     */
+    public boolean isPieceRow(int rowIndex) {
+      return this.rows.get(rowIndex) instanceof HomePieceOfFurniture;
+    }
+
+    /**
+     * Returns <code>false</code> if furniture is grouped and the change of the given property
+     * of a piece can't change the rows of this model.
+     */
+    public boolean isRebuildNeeded(Object source, String propertyName) {
+      if (!this.grouped
+          || !(source instanceof HomePieceOfFurniture)
+          || this.furnitureFilter != null) {
+        return true;
+      }
+      String sortedPropertyName = this.home.getFurnitureSortedPropertyName();
+      if (sortedPropertyName != null) {
+        // Rebuild if the changed property may be the sorted one
+        boolean pieceProperty = false;
+        for (HomePieceOfFurniture.Property property : HomePieceOfFurniture.Property.values()) {
+          if (property.name().equals(sortedPropertyName)) {
+            pieceProperty = true;
+            break;
+          }
+        }
+        if (!pieceProperty
+            || sortedPropertyName.equals(propertyName)) {
+          return true;
+        }
+      }
+      HomePieceOfFurniture piece = (HomePieceOfFurniture)source;
+      Bucket bucket = this.pieceBuckets.get(piece);
+      if (bucket == null) {
+        // Rebuild for pieces not listed at top level except for pieces in listed groups
+        for (HomePieceOfFurniture listedPiece : this.pieceBuckets.keySet()) {
+          if (listedPiece instanceof HomeFurnitureGroup
+              && ((HomeFurnitureGroup)listedPiece).getAllFurniture().contains(piece)) {
+            return false;
+          }
+        }
+        return true;
+      } else {
+        return !bucket.equals(FurnitureRoomResolver.resolve(this.home, Arrays.asList(piece)).get(piece));
+      }
+    }
+
+    /**
+     * Returns the furniture that would be listed if it wasn't grouped by level and room.
+     */
+    public List<HomePieceOfFurniture> getFlatFurniture() {
+      return getFilteredAndSortedFurniture(this.home.getFurniture(), true);
+    }
+
+    /**
+     * Sets whether all level and room headers should be temporarily expanded,
+     * without changing their stored collapsed state.
+     */
+    public void setAllHeadersExpanded(boolean allHeadersExpanded) {
+      if (this.allHeadersExpanded != allHeadersExpanded) {
+        this.allHeadersExpanded = allHeadersExpanded;
+        if (this.grouped && !this.collapsedHeaders.isEmpty()) {
+          filterAndSortFurniture();
+        }
+      }
+    }
+
+    /**
+     * Returns the furniture listed under the level or room header at the given row,
+     * including the furniture hidden by collapsed headers.
+     */
+    public List<HomePieceOfFurniture> getPiecesUnderHeader(int rowIndex) {
+      Object header = this.rows.get(rowIndex);
+      List<HomePieceOfFurniture> furniture = new ArrayList<HomePieceOfFurniture>();
+      if (header instanceof Bucket) {
+        furniture.addAll(this.bucketFurniture.get(header));
+      } else if (header instanceof Level) {
+        for (Bucket bucket : this.sortedBuckets) {
+          if (bucket.getLevel() == header) {
+            furniture.addAll(this.bucketFurniture.get(bucket));
+          }
+        }
+      }
+      return furniture;
     }
 
     /**
      * Returns the index of <code>piece</code> in furniture table, or -1 if it is excluded by filter.
      */
     public int getPieceOfFurnitureIndex(HomePieceOfFurniture piece) {
-      return this.filteredAndSortedFurniture.indexOf(piece);
+      return this.rows.indexOf(piece);
+    }
+
+    /**
+     * Returns <code>true</code> if furniture should be grouped by level and room.
+     */
+    private boolean isGroupingEnabled() {
+      return !"false".equals(this.home.getProperty(FurnitureController.FURNITURE_GROUPED_PROPERTY))
+          && this.home.getFurnitureVisiblePropertyNames().contains(HomePieceOfFurniture.SortableProperty.NAME.name())
+          && (this.home.getLevels().size() > 0
+              || this.home.getRooms().size() > 0);
     }
 
     /**
      * Filters and sorts <code>home</code> furniture.
      */
     public void filterAndSortFurniture() {
-      int previousRowCount = this.filteredAndSortedFurniture != null
-          ? this.filteredAndSortedFurniture.size()
+      int previousRowCount = this.rows != null
+          ? this.rows.size()
           : 0;
       List<HomePieceOfFurniture> furniture = this.home.getFurniture();
       // Search if home furniture contains some not viewable furniture (no need to explore
@@ -2802,13 +3196,175 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
         }
       }
       this.containsNotViewableFurniture = containsNotViewableFurniture;
-      this.filteredAndSortedFurniture = getFilteredAndSortedFurniture(furniture, true);
-      if (previousRowCount != this.filteredAndSortedFurniture.size()) {
+      this.grouped = isGroupingEnabled();
+      if (this.grouped) {
+        purgeCollapsedHeaders();
+        this.rows = getGroupedRows();
+      } else {
+        this.bucketFurniture = null;
+        this.sortedBuckets = null;
+        this.pieceBuckets = null;
+        this.rows = new ArrayList<Object>(getFilteredAndSortedFurniture(furniture, true));
+      }
+      if (previousRowCount != this.rows.size()) {
         fireTableDataChanged();
       } else {
         fireTableRowsUpdated(0, getRowCount() - 1);
       }
       fireTreeModelChanged();
+    }
+
+    /**
+     * Reads collapsed level and room headers from home.
+     */
+    private void readCollapsedHeaders() {
+      String collapsedHeaders = this.home.getProperty(COLLAPSED_HEADERS_VISUAL_PROPERTY);
+      if (collapsedHeaders != null) {
+        for (String header : collapsedHeaders.split(",")) {
+          if (header.length() < 2 || header.charAt(1) != ':') {
+            continue;
+          }
+          String id = header.substring(2);
+          Level level = null;
+          for (Level homeLevel : this.home.getLevels()) {
+            if (homeLevel.getId().equals(id)) {
+              level = homeLevel;
+              break;
+            }
+          }
+          switch (header.charAt(0)) {
+            case 'L' :
+              if (level != null) {
+                this.collapsedHeaders.add(level);
+              }
+              break;
+            case 'R' :
+              for (Room room : this.home.getRooms()) {
+                if (room.getId().equals(id)) {
+                  this.collapsedHeaders.add(new Bucket(room.getLevel(), Bucket.Kind.ROOM, room));
+                  break;
+                }
+              }
+              break;
+            case 'D' :
+            case 'N' :
+              if (level != null || id.length() == 0) {
+                this.collapsedHeaders.add(new Bucket(level,
+                    header.charAt(0) == 'D' ? Bucket.Kind.DOORS_AND_WINDOWS : Bucket.Kind.NO_ROOM, null));
+              }
+              break;
+          }
+        }
+      }
+    }
+
+    /**
+     * Stores collapsed level and room headers in home.
+     */
+    private void storeCollapsedHeaders() {
+      StringBuilder collapsedHeaders = new StringBuilder();
+      for (Object header : this.collapsedHeaders) {
+        if (collapsedHeaders.length() > 0) {
+          collapsedHeaders.append(',');
+        }
+        if (header instanceof Level) {
+          collapsedHeaders.append("L:").append(((Level)header).getId());
+        } else {
+          Bucket bucket = (Bucket)header;
+          switch (bucket.getKind()) {
+            case ROOM :
+              collapsedHeaders.append("R:").append(bucket.getRoom().getId());
+              break;
+            case DOORS_AND_WINDOWS :
+              collapsedHeaders.append("D:");
+              break;
+            default :
+              collapsedHeaders.append("N:");
+              break;
+          }
+          if (bucket.getKind() != Bucket.Kind.ROOM
+              && bucket.getLevel() != null) {
+            collapsedHeaders.append(bucket.getLevel().getId());
+          }
+        }
+      }
+      String oldValue = this.home.getProperty(COLLAPSED_HEADERS_VISUAL_PROPERTY);
+      if ((oldValue != null || collapsedHeaders.length() > 0)
+          && !collapsedHeaders.toString().equals(oldValue)) {
+        this.home.setProperty(COLLAPSED_HEADERS_VISUAL_PROPERTY, collapsedHeaders.toString());
+      }
+    }
+
+    /**
+     * Removes the collapsed headers matching levels or rooms that don't exist anymore.
+     */
+    private void purgeCollapsedHeaders() {
+      List<Level> levels = this.home.getLevels();
+      List<Room> rooms = this.home.getRooms();
+      boolean purged = false;
+      for (Iterator<Object> it = this.collapsedHeaders.iterator(); it.hasNext(); ) {
+        Object header = it.next();
+        Level level = header instanceof Level
+            ? (Level)header
+            : ((Bucket)header).getLevel();
+        Room room = header instanceof Bucket
+            ? ((Bucket)header).getRoom()
+            : null;
+        if ((level != null && !levels.contains(level))
+            || (room != null && (!rooms.contains(room) || room.getLevel() != level))) {
+          it.remove();
+          purged = true;
+        }
+      }
+      if (purged) {
+        storeCollapsedHeaders();
+      }
+    }
+
+    /**
+     * Returns the rows of home furniture grouped by level and room.
+     */
+    private List<Object> getGroupedRows() {
+      List<HomePieceOfFurniture> furniture = getFilteredAndSortedFurniture(this.home.getFurniture(), false);
+      Map<Bucket, List<HomePieceOfFurniture>> bucketFurniture = new HashMap<Bucket, List<HomePieceOfFurniture>>();
+      this.pieceBuckets = FurnitureRoomResolver.resolve(this.home, furniture);
+      for (Map.Entry<HomePieceOfFurniture, Bucket> entry : this.pieceBuckets.entrySet()) {
+        List<HomePieceOfFurniture> pieces = bucketFurniture.get(entry.getValue());
+        if (pieces == null) {
+          pieces = new ArrayList<HomePieceOfFurniture>();
+          bucketFurniture.put(entry.getValue(), pieces);
+        }
+        pieces.add(entry.getKey());
+      }
+      this.bucketFurniture = bucketFurniture;
+      this.sortedBuckets = FurnitureRoomResolver.sortBuckets(this.home, bucketFurniture.keySet());
+
+      List<Object> rows = new ArrayList<Object>();
+      Level rowLevel = null;
+      boolean levelCollapsed = false;
+      for (Bucket bucket : this.sortedBuckets) {
+        if (bucket.getLevel() != null
+            && bucket.getLevel() != rowLevel) {
+          rowLevel = bucket.getLevel();
+          rows.add(rowLevel);
+          levelCollapsed = !this.allHeadersExpanded && this.collapsedHeaders.contains(rowLevel);
+        }
+        if (levelCollapsed) {
+          continue;
+        }
+        rows.add(bucket);
+        if (!this.allHeadersExpanded && this.collapsedHeaders.contains(bucket)) {
+          continue;
+        }
+        for (HomePieceOfFurniture piece : bucketFurniture.get(bucket)) {
+          rows.add(piece);
+          if (piece instanceof HomeFurnitureGroup
+              && this.expandedGroups.contains(piece)) {
+            rows.addAll(getFilteredAndSortedFurniture(((HomeFurnitureGroup)piece).getFurniture(), true));
+          }
+        }
+      }
+      return rows;
     }
 
     /**
@@ -2979,38 +3535,67 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
      * Returns the child piece at the given <code>index</code>.
      */
     public Object getChild(Object parent, int index) {
-      return getChildFurniture(parent).get(index);
+      return getChildren(parent).get(index);
     }
 
     /**
      * Returns the count of child pieces.
      */
     public int getChildCount(Object parent) {
-      return getChildFurniture(parent).size();
+      return getChildren(parent).size();
     }
 
     /**
      * Returns the index of a child.
      */
     public int getIndexOfChild(Object parent, Object child) {
-      return getChildFurniture(parent).indexOf(child);
+      return getChildren(parent).indexOf(child);
     }
 
     /**
-     * Returns the displayed child pieces of the given <code>parent</code>.
+     * Returns the displayed children of the given <code>parent</code>.
      */
-    private List<HomePieceOfFurniture> getChildFurniture(Object parent) {
-      List<HomePieceOfFurniture> furniture = this.childFurnitureCache.get(parent);
-      if (furniture == null) {
-        if (parent instanceof HomeFurnitureGroup) {
-          furniture = ((HomeFurnitureGroup)parent).getFurniture();
+    private List<?> getChildren(Object parent) {
+      List<?> children = this.childFurnitureCache.get(parent);
+      if (children == null) {
+        if (this.grouped
+            && !(parent instanceof HomePieceOfFurniture)) {
+          children = getHeaderChildren(parent);
         } else {
-          furniture = this.home.getFurniture();
+          List<HomePieceOfFurniture> furniture;
+          if (parent instanceof HomeFurnitureGroup) {
+            furniture = ((HomeFurnitureGroup)parent).getFurniture();
+          } else {
+            furniture = this.home.getFurniture();
+          }
+          children = getFilteredAndSortedFurniture(furniture, false);
         }
-        furniture = getFilteredAndSortedFurniture(furniture, false);
-        this.childFurnitureCache.put(parent, furniture);
+        this.childFurnitureCache.put(parent, children);
       }
-      return furniture;
+      return children;
+    }
+
+    /**
+     * Returns the children of home, of a level header or of a bucket header when furniture is grouped.
+     */
+    private List<Object> getHeaderChildren(Object parent) {
+      List<Object> children = new ArrayList<Object>();
+      if (parent instanceof Bucket) {
+        children.addAll(this.bucketFurniture.get(parent));
+      } else {
+        for (Bucket bucket : this.sortedBuckets) {
+          if (parent instanceof Level) {
+            if (bucket.getLevel() == parent) {
+              children.add(bucket);
+            }
+          } else if (bucket.getLevel() == null) {
+            children.add(bucket);
+          } else if (!children.contains(bucket.getLevel())) {
+            children.add(bucket.getLevel());
+          }
+        }
+      }
+      return children;
     }
 
     /**
@@ -3044,15 +3629,26 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
      * Returns <code>true</code> if the furniture group at the given row should be expanded.
      */
     public boolean isRowExpanded(int rowIndex) {
-      return this.expandedGroups.contains(this.filteredAndSortedFurniture.get(rowIndex));
+      Object row = this.rows.get(rowIndex);
+      if (row instanceof HomePieceOfFurniture) {
+        return this.expandedGroups.contains(row);
+      } else {
+        return this.allHeadersExpanded || !this.collapsedHeaders.contains(row);
+      }
     }
 
     /**
      * Toggles the expanded state of the furniture group at the given row.
      */
     public void toggleRowExpandedState(int rowIndex) {
-      HomePieceOfFurniture piece = this.filteredAndSortedFurniture.get(rowIndex);
-      if (piece instanceof HomeFurnitureGroup) {
+      Object piece = this.rows.get(rowIndex);
+      if (!(piece instanceof HomePieceOfFurniture)) {
+        if (!this.collapsedHeaders.remove(piece)) {
+          this.collapsedHeaders.add(piece);
+        }
+        storeCollapsedHeaders();
+        filterAndSortFurniture();
+      } else if (piece instanceof HomeFurnitureGroup) {
         if (this.expandedGroups.contains(piece)) {
           this.expandedGroups.remove((HomeFurnitureGroup)piece);
         } else {
@@ -3067,6 +3663,28 @@ public class FurnitureTable extends JTable implements FurnitureView, Printable {
      */
     public void expandPathToPieceOfFurniture(HomePieceOfFurniture piece) {
       List<HomePieceOfFurniture> furniture = this.home.getFurniture();
+      if (this.grouped
+          && !this.collapsedHeaders.isEmpty()) {
+        // Expand level and room headers of the piece
+        HomePieceOfFurniture topLevelPiece = null;
+        for (HomePieceOfFurniture homePiece : furniture) {
+          if (homePiece == piece
+              || (homePiece instanceof HomeFurnitureGroup
+                  && ((HomeFurnitureGroup)homePiece).getAllFurniture().contains(piece))) {
+            topLevelPiece = homePiece;
+            break;
+          }
+        }
+        if (topLevelPiece != null) {
+          Bucket bucket = FurnitureRoomResolver.resolve(this.home, Arrays.asList(topLevelPiece)).get(topLevelPiece);
+          boolean bucketExpanded = this.collapsedHeaders.remove(bucket);
+          boolean levelExpanded = bucket.getLevel() != null && this.collapsedHeaders.remove(bucket.getLevel());
+          if (bucketExpanded || levelExpanded) {
+            storeCollapsedHeaders();
+            filterAndSortFurniture();
+          }
+        }
+      }
       if (furniture.contains(piece)) {
         return;
       }

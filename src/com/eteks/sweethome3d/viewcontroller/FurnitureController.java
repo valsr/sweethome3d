@@ -60,6 +60,11 @@ import com.eteks.sweethome3d.model.UserPreferences;
  * @author Emmanuel Puybaret
  */
 public class FurnitureController implements Controller {
+  /**
+   * The name of the home property storing whether furniture list is grouped by level and room.
+   */
+  public static final String FURNITURE_GROUPED_PROPERTY = "com.eteks.sweethome3d.SweetHome3D.FurnitureGroupedByLevelAndRoom";
+
   private final Home                home;
   private final UserPreferences     preferences;
   private final ViewFactory         viewFactory;
@@ -658,6 +663,29 @@ public class FurnitureController implements Controller {
    */
   public void toggleFurnitureSortOrder() {
     this.home.setFurnitureDescendingSorted(!this.home.isFurnitureDescendingSorted());
+  }
+
+  /**
+   * Returns <code>true</code> if home furniture is listed by level and room.
+   */
+  public boolean isFurnitureGroupedByLevelAndRoom() {
+    return !"false".equals(this.home.getProperty(FURNITURE_GROUPED_PROPERTY));
+  }
+
+  /**
+   * Sets whether home furniture is listed by level and room.
+   */
+  public void setFurnitureGroupedByLevelAndRoom(boolean grouped) {
+    if (grouped != isFurnitureGroupedByLevelAndRoom()) {
+      this.home.setProperty(FURNITURE_GROUPED_PROPERTY, String.valueOf(grouped));
+    }
+  }
+
+  /**
+   * Toggles the grouping of home furniture by level and room.
+   */
+  public void toggleFurnitureGrouping() {
+    this.home.setProperty(FURNITURE_GROUPED_PROPERTY, String.valueOf(!isFurnitureGroupedByLevelAndRoom()));
   }
 
    /**

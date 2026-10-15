@@ -217,6 +217,8 @@ public class FurnitureTransferHandler extends LocatedTransferHandler {
         if ((Boolean)dropLocation.getClass().getMethod("isInsertRow").invoke(dropLocation)) {
           int row = (Integer)dropLocation.getClass().getMethod("getRow").invoke(dropLocation);
           TableModel tableModel = ((JTable)destination).getModel();
+          // Ignore level and room headers displayed when furniture is grouped
+          row = getPieceOfFurnitureRow(tableModel, row);
           if (row != -1
               && row < tableModel.getRowCount()) {
             HomePieceOfFurniture piece = (HomePieceOfFurniture)tableModel.getValueAt(row, 0);
@@ -224,7 +226,8 @@ public class FurnitureTransferHandler extends LocatedTransferHandler {
               // Search first piece which is not copied
               while (this.copiedFurniture.contains(piece)
                      || isPieceOfFurnitureChild(piece, this.copiedFurniture)) {
-                if (++row < tableModel.getRowCount()) {
+                row = getPieceOfFurnitureRow(tableModel, row + 1);
+                if (row != -1) {
                   piece = (HomePieceOfFurniture)tableModel.getValueAt(row, 0);
                 } else {
                   piece = null;
@@ -257,6 +260,20 @@ public class FurnitureTransferHandler extends LocatedTransferHandler {
       }
     }
     return null;
+  }
+
+  /**
+   * Returns the first row from the given <code>row</code> displaying a piece of furniture, or -1 if none.
+   */
+  private int getPieceOfFurnitureRow(TableModel tableModel, int row) {
+    if (row >= 0) {
+      for (int rowCount = tableModel.getRowCount(); row < rowCount; row++) {
+        if (tableModel.getValueAt(row, 0) instanceof HomePieceOfFurniture) {
+          return row;
+        }
+      }
+    }
+    return -1;
   }
 
   /**

@@ -290,8 +290,20 @@ public class HomeController3D implements Controller {
    * See-through walls get back the transparency they had when they were last made solid.
    */
   public void toggleSeeThroughWalls() {
+    setSeeThroughWalls(this.home.getEnvironment().getWallsAlpha() == 0);
+  }
+
+  /**
+   * Displays walls see-through in the 3D view if <code>seeThrough</code> is <code>true</code>, or solid otherwise.
+   * See-through walls get back the transparency they had when they were last made solid.
+   * Nothing happens if walls are already displayed as requested.
+   */
+  public void setSeeThroughWalls(boolean seeThrough) {
     HomeEnvironment environment = this.home.getEnvironment();
     float oldWallsAlpha = environment.getWallsAlpha();
+    if (seeThrough == (oldWallsAlpha > 0)) {
+      return;
+    }
     float newWallsAlpha;
     if (oldWallsAlpha == 0) {
       newWallsAlpha = this.seeThroughWallsAlpha;

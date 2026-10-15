@@ -36,6 +36,7 @@ import javax.swing.JToolBar;
 
 import com.eteks.sweethome3d.io.DefaultUserPreferences;
 import com.eteks.sweethome3d.model.Home;
+import com.eteks.sweethome3d.model.HomeEnvironment;
 import com.eteks.sweethome3d.model.RecorderException;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.swing.HomePane;
@@ -149,6 +150,24 @@ public class HomePaneToolBarTest extends TestCase {
     assertTrue(button.isSelected());
     this.homeController.redo();
     assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+  }
+
+  public void testSeeThroughWallsControlsChangeTransparencyOnce() {
+    final int [] changeCount = {0};
+    this.home.getEnvironment().addPropertyChangeListener(HomeEnvironment.Property.WALLS_ALPHA,
+        new java.beans.PropertyChangeListener() {
+          public void propertyChange(java.beans.PropertyChangeEvent ev) {
+            changeCount [0]++;
+          }
+        });
+    getSeeThroughWallsButton().doClick();
+    assertEquals("Walls transparency changed more than once by a click", 1, changeCount [0]);
+    assertEquals(0.5f, this.home.getEnvironment().getWallsAlpha());
+
+    // A single undo restores solid walls and nothing else remains to undo
+    this.homeController.undo();
+    assertEquals(0f, this.home.getEnvironment().getWallsAlpha());
+    assertFalse(this.homePane.getActionMap().get(HomeView.ActionType.UNDO).isEnabled());
   }
 
   /**
