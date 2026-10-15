@@ -57,6 +57,9 @@ build and run on current Java.
   `guideline` elements, which the original program ignores.
 - **Arrangement tool bar buttons.** The tool bar proposes the actions which flip the
   selection, group or ungroup furniture, and align or distribute furniture.
+- **Selection cycle.** Clicking again on the selected item in the plan selects the next
+  item under the cursor, to reach the furniture, walls and rooms stacked at the same place.
+  A double click still modifies the item selected before its first click.
 - **Light color and power.** A light can be given a color or a color temperature that
   replaces the color of its sources, and its power can be entered in percentage or in
   lumens (100% = 800 lm) up to 10,000 lm. These settings are saved in the `lightColor`,

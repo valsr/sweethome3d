@@ -136,6 +136,7 @@ public class PlanController extends FurnitureController implements Controller {
   private Runnable                    selectedPolylinesModifier;
   private Runnable                    selectedDimensionLinesModifier;
   private Runnable                    selectedGuidelinesModifier;
+  private Selectable                  itemSelectedBeforeCycle;
   private final PropertyChangeSupport propertyChangeSupport;
   private PlanView                    planView;
   private SelectionListener           selectionListener;
@@ -9867,6 +9868,7 @@ public class PlanController extends FurnitureController implements Controller {
     public void pressMouse(float x, float y, int clickCount,
                            boolean shiftDown, boolean duplicationActivated) {
       if (clickCount == 1) {
+        itemSelectedBeforeCycle = null;
         if (getPointerTypeLastMousePress() == View.PointerType.TOUCH) {
           moveMouse(x, y); // Update cursor
         }
@@ -9947,6 +9949,11 @@ public class PlanController extends FurnitureController implements Controller {
           }
         }
       } else if (clickCount == 2) {
+        if (itemSelectedBeforeCycle != null) {
+          // Cancel the selection cycle done by the first click of the double click
+          selectItem(itemSelectedBeforeCycle);
+          itemSelectedBeforeCycle = null;
+        }
         Selectable item = getSelectableItemAt(x, y);
         // If shift isn't pressed, and an item is under cursor position
         if (!shiftDown && item != null) {
@@ -10181,6 +10188,21 @@ public class PlanController extends FurnitureController implements Controller {
             || !Collections.disjoint(home.getSelectedItems(), this.oldSelection)) {
           Selectable itemUnderCursor = getSelectableItemAt(x, y, false);
           if (itemUnderCursor != null) {
+            List<Selectable> selectedItems = home.getSelectedItems();
+            if (getPointerTypeLastMousePress() != View.PointerType.TOUCH
+                && selectedItems.size() == 1) {
+              // When the user clicks again on the selected item,
+              // cycle through the items under cursor position in the order of their priority
+              List<Selectable> itemsUnderCursor = getSelectableItemsAt(x, y);
+              int selectedItemIndex = itemsUnderCursor.indexOf(selectedItems.get(0));
+              // Ignore cycle when the item under cursor is a piece of the selected group
+              if (selectedItemIndex >= 0
+                  && itemsUnderCursor.size() > 1
+                  && itemsUnderCursor.contains(itemUnderCursor)) {
+                itemSelectedBeforeCycle = selectedItems.get(0);
+                itemUnderCursor = itemsUnderCursor.get((selectedItemIndex + 1) % itemsUnderCursor.size());
+              }
+            }
             // Select only the item under cursor position
             selectItem(itemUnderCursor);
           } else {
