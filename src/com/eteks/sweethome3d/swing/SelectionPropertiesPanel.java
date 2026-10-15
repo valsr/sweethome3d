@@ -37,6 +37,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.text.JTextComponent;
 
 import com.eteks.sweethome3d.model.DimensionLine;
+import com.eteks.sweethome3d.model.Guideline;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomeObject;
 import com.eteks.sweethome3d.model.Label;
@@ -51,6 +52,7 @@ import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.viewcontroller.BaseboardChoiceController;
 import com.eteks.sweethome3d.viewcontroller.DimensionLineController;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
+import com.eteks.sweethome3d.viewcontroller.GuidelineController;
 import com.eteks.sweethome3d.viewcontroller.HomeFurnitureController;
 import com.eteks.sweethome3d.viewcontroller.LabelController;
 import com.eteks.sweethome3d.viewcontroller.ModelMaterialsController;
@@ -63,7 +65,7 @@ import com.eteks.sweethome3d.viewcontroller.WallController;
 
 /**
  * A panel which edits the properties of the furniture, the rooms, the walls, the observer camera,
- * the texts, the polylines or the dimension lines selected in a home without dialog box. Each change of the user is applied immediately to the selected objects, and
+ * the texts, the polylines, the dimension lines or the guidelines selected in a home without dialog box. Each change of the user is applied immediately to the selected objects, and
  * successive changes of the same property may be undone at once. Nothing is edited when the
  * selection is empty or contains objects of different kinds.
  */
@@ -203,6 +205,16 @@ public class SelectionPropertiesPanel extends JPanel {
   }
 
   /**
+   * Returns the controller of the guidelines currently edited by this panel,
+   * or <code>null</code> if no guideline is edited.
+   */
+  public GuidelineController getGuidelineController() {
+    return this.editor instanceof GuidelinesEditor
+        ? ((GuidelinesEditor)this.editor).controller
+        : null;
+  }
+
+  /**
    * Returns <code>true</code> if this panel is kept up to date with the selected objects.
    */
   public boolean isActive() {
@@ -267,6 +279,7 @@ public class SelectionPropertiesPanel extends JPanel {
       objectsOfEachKind.add(Home.getLabelsSubList(selectedItems));
       objectsOfEachKind.add(Home.getPolylinesSubList(selectedItems));
       objectsOfEachKind.add(Home.getDimensionLinesSubList(selectedItems));
+      objectsOfEachKind.add(Home.getGuidelinesSubList(selectedItems));
       if (selectedItems.contains(this.home.getObserverCamera())) {
         objectsOfEachKind.add(Collections.singletonList(this.home.getObserverCamera()));
       }
@@ -325,6 +338,8 @@ public class SelectionPropertiesPanel extends JPanel {
           this.editor = new PolylinesEditor();
         } else if (selectedObjects.get(0) instanceof DimensionLine) {
           this.editor = new DimensionLinesEditor();
+        } else if (selectedObjects.get(0) instanceof Guideline) {
+          this.editor = new GuidelinesEditor();
         } else {
           this.editor = new FurnitureEditor();
         }
@@ -664,6 +679,36 @@ public class SelectionPropertiesPanel extends JPanel {
           this.controller.addPropertyChangeListener(property, createModificationListener(property));
         }
       }
+    }
+  }
+
+  /**
+   * The editor of selected guidelines.
+   */
+  private class GuidelinesEditor extends Editor {
+    private final GuidelineController controller = planController.createGuidelineController();
+
+    @Override
+    public Object getView() {
+      return this.controller.getView();
+    }
+
+    @Override
+    public void refresh() {
+      this.controller.updateProperties();
+    }
+
+    @Override
+    public void modify(Object mergeKey) {
+      this.controller.modifyGuidelines(mergeKey);
+    }
+
+    @Override
+    public void addModificationListeners() {
+      this.controller.addPropertyChangeListener(GuidelineController.Property.POSITION,
+          createModificationListener(GuidelineController.Property.POSITION));
+      this.controller.addPropertyChangeListener(GuidelineController.Property.COLOR,
+          createModificationListener(GuidelineController.Property.COLOR));
     }
   }
 

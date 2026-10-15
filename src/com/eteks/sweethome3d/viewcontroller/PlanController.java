@@ -55,6 +55,7 @@ import com.eteks.sweethome3d.model.CollectionListener;
 import com.eteks.sweethome3d.model.Compass;
 import com.eteks.sweethome3d.model.DimensionLine;
 import com.eteks.sweethome3d.model.Elevatable;
+import com.eteks.sweethome3d.model.Guideline;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomeDoorOrWindow;
 import com.eteks.sweethome3d.model.HomeFurnitureGroup;
@@ -121,6 +122,7 @@ public class PlanController extends FurnitureController implements Controller {
   private static final int PIXEL_MARGIN           = 4;
   private static final int INDICATOR_PIXEL_MARGIN = 5;
   private static final int WALL_ENDS_PIXEL_MARGIN = 2;
+  private static final int GUIDELINE_PIXEL_MARGIN = 6;
 
   private final Home                  home;
   private final UserPreferences       preferences;
@@ -133,6 +135,7 @@ public class PlanController extends FurnitureController implements Controller {
   private Runnable                    selectedLabelsModifier;
   private Runnable                    selectedPolylinesModifier;
   private Runnable                    selectedDimensionLinesModifier;
+  private Runnable                    selectedGuidelinesModifier;
   private final PropertyChangeSupport propertyChangeSupport;
   private PlanView                    planView;
   private SelectionListener           selectionListener;
@@ -142,6 +145,7 @@ public class PlanController extends FurnitureController implements Controller {
   private final ControllerState       selectionState;
   private final ControllerState       rectangleSelectionState;
   private final ControllerState       selectionMoveState;
+  private final GuidelineDragState    guidelineDragState;
   private final ControllerState       panningState;
   private final ControllerState       dragAndDropState;
   private final ControllerState       wallCreationState;
@@ -227,6 +231,7 @@ public class PlanController extends FurnitureController implements Controller {
     // Initialize states
     this.selectionState = new SelectionState();
     this.selectionMoveState = new SelectionMoveState();
+    this.guidelineDragState = new GuidelineDragState();
     this.rectangleSelectionState = new RectangleSelectionState();
     this.panningState = new PanningState();
     this.dragAndDropState = new DragAndDropState();
@@ -914,6 +919,8 @@ public class PlanController extends FurnitureController implements Controller {
         modifyCompass();
       } else if (item instanceof ObserverCamera) {
         modifyObserverCamera();
+      } else if (item instanceof Guideline) {
+        modifySelectedGuidelines();
       }
     }
   }
@@ -1013,7 +1020,8 @@ public class PlanController extends FurnitureController implements Controller {
     if (item instanceof HomePieceOfFurniture) {
       return isPieceOfFurniturePartOfBasePlan((HomePieceOfFurniture)item);
     } else {
-      return !(item instanceof ObserverCamera);
+      // Guidelines are never part of base plan to let the user move them at any time
+      return !(item instanceof ObserverCamera || item instanceof Guideline);
     }
   }
 
@@ -1136,7 +1144,9 @@ public class PlanController extends FurnitureController implements Controller {
   }
 
   private void flipSelectedItems(boolean horizontally) {
-    List<Selectable> selectedItems = this.home.getSelectedItems();
+    List<Selectable> selectedItems = new ArrayList<Selectable>(this.home.getSelectedItems());
+    // Don't flip guidelines which cross the whole plan
+    selectedItems.removeAll(Home.getGuidelinesSubList(selectedItems));
     if (!selectedItems.isEmpty()) {
       Selectable [] flippedItems = selectedItems.toArray(new Selectable [selectedItems.size()]);
       // Compute text base offsets to avoid using plan view during undo / redo
@@ -2057,6 +2067,155 @@ public class PlanController extends FurnitureController implements Controller {
    */
   public void setSelectedDimensionLinesModifier(Runnable selectedDimensionLinesModifier) {
     this.selectedDimensionLinesModifier = selectedDimensionLinesModifier;
+  }
+
+  /**
+   * Controls the modification of the selected guidelines.
+   */
+  public void modifySelectedGuidelines() {
+    if (!Home.getGuidelinesSubList(this.home.getSelectedItems()).isEmpty()) {
+      if (this.selectedGuidelinesModifier != null) {
+        this.selectedGuidelinesModifier.run();
+      } else {
+        createGuidelineController().displayView(getView());
+      }
+    }
+  }
+
+  /**
+   * Returns a new controller able to edit the guidelines currently selected in home.
+   */
+  public GuidelineController createGuidelineController() {
+    return new GuidelineController(this.home, this.preferences, this.viewFactory, this.undoSupport);
+  }
+
+  /**
+   * Sets the object run when the user requests to {@linkplain #modifySelectedGuidelines() modify
+   * selected guidelines}, in replacement of the dialog box displayed by default.
+   * @param selectedGuidelinesModifier the object to run or <code>null</code> to display the default dialog box
+   */
+  public void setSelectedGuidelinesModifier(Runnable selectedGuidelinesModifier) {
+    this.selectedGuidelinesModifier = selectedGuidelinesModifier;
+  }
+
+  /**
+   * Starts the creation of a guideline of the given <code>orientation</code>, which will follow
+   * the next mouse moves until the mouse is released. This method should be called when the user
+   * starts to drag a guideline from a ruler. The guideline is added to home only if it's released
+   * in the visible area of the plan.
+   */
+  public void startGuidelineCreation(Guideline.Orientation orientation) {
+    // Accept to create a guideline only when no other item is being modified
+    if (this.state instanceof AbstractModeChangeState) {
+      this.guidelineDragState.setGuideline(new Guideline(orientation, 0), true, this.state);
+      setState(this.guidelineDragState);
+    }
+  }
+
+  /**
+   * Returns the guideline at (<code>x</code>, <code>y</code>) point, or <code>null</code>.
+   */
+  private Guideline getGuidelineAt(float x, float y) {
+    float margin = getSelectionMargin();
+    List<Guideline> guidelines = this.home.getGuidelines();
+    // Give priority to the last added guideline
+    for (int i = guidelines.size() - 1; i >= 0; i--) {
+      if (guidelines.get(i).containsPoint(x, y, margin)) {
+        return guidelines.get(i);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns the position close to the given <code>position</code> of a moved <code>guideline</code>
+   * under magnetism, either the coordinate of a close point of the items displayed at the selected level,
+   * or a rounded value.
+   */
+  private float getMagnetizedGuidelinePosition(Guideline guideline, float position) {
+    float margin = GUIDELINE_PIXEL_MARGIN / getScale();
+    boolean horizontal = guideline.getOrientation() == Guideline.Orientation.HORIZONTAL;
+    Float magnetizedPosition = null;
+    for (Selectable item : getVisibleItemsAtSelectedLevel()) {
+      for (float [] point : item.getPoints()) {
+        float coordinate = horizontal ? point [1] : point [0];
+        float delta = Math.abs(coordinate - position);
+        if (delta <= margin
+            && (magnetizedPosition == null
+                || delta < Math.abs(magnetizedPosition - position))) {
+          magnetizedPosition = coordinate;
+        }
+      }
+    }
+    return magnetizedPosition != null
+        ? magnetizedPosition
+        : this.preferences.getLengthUnit().getMagnetizedLength(position, getView().getPixelLength());
+  }
+
+  /**
+   * Returns the given abscissa moved on the closest vertical guideline if it's close enough to it.
+   */
+  private float getXMagnetizedToGuidelines(float x) {
+    return getMagnetizedToGuidelines(Guideline.Orientation.VERTICAL, x);
+  }
+
+  /**
+   * Returns the given ordinate moved on the closest horizontal guideline if it's close enough to it.
+   */
+  private float getYMagnetizedToGuidelines(float y) {
+    return getMagnetizedToGuidelines(Guideline.Orientation.HORIZONTAL, y);
+  }
+
+  private float getMagnetizedToGuidelines(Guideline.Orientation orientation, float coordinate) {
+    float margin = GUIDELINE_PIXEL_MARGIN / getScale();
+    Float magnetizedCoordinate = null;
+    for (Guideline guideline : this.home.getGuidelines()) {
+      float delta = Math.abs(guideline.getPosition() - coordinate);
+      if (guideline.getOrientation() == orientation
+          && delta <= margin
+          && (magnetizedCoordinate == null
+              || delta < Math.abs(magnetizedCoordinate - coordinate))) {
+        magnetizedCoordinate = guideline.getPosition();
+      }
+    }
+    return magnetizedCoordinate != null
+        ? magnetizedCoordinate
+        : coordinate;
+  }
+
+  /**
+   * Returns the move of (<code>dx</code>, <code>dy</code>) applied to the given <code>items</code>,
+   * adjusted so that their point which is the closest to a guideline is moved on it.
+   */
+  private float [] getMoveMagnetizedToGuidelines(List<? extends Selectable> items, float dx, float dy) {
+    float margin = GUIDELINE_PIXEL_MARGIN / getScale();
+    Float xCorrection = null;
+    Float yCorrection = null;
+    List<Guideline> guidelines = this.home.getGuidelines();
+    if (!guidelines.isEmpty()
+        && Home.getGuidelinesSubList(items).isEmpty()) {
+      for (Selectable item : items) {
+        for (float [] point : item.getPoints()) {
+          for (Guideline guideline : guidelines) {
+            if (guideline.getOrientation() == Guideline.Orientation.VERTICAL) {
+              float correction = guideline.getPosition() - (point [0] + dx);
+              if (Math.abs(correction) <= margin
+                  && (xCorrection == null || Math.abs(correction) < Math.abs(xCorrection))) {
+                xCorrection = correction;
+              }
+            } else {
+              float correction = guideline.getPosition() - (point [1] + dy);
+              if (Math.abs(correction) <= margin
+                  && (yCorrection == null || Math.abs(correction) < Math.abs(yCorrection))) {
+                yCorrection = correction;
+              }
+            }
+          }
+        }
+      }
+    }
+    return new float [] {xCorrection != null ? dx + xCorrection : dx,
+                         yCorrection != null ? dy + yCorrection : dy};
   }
 
   /**
@@ -5164,6 +5323,33 @@ public class PlanController extends FurnitureController implements Controller {
   private List<Selectable> getSelectableItemsAt(float x, float y,
                                                 boolean stopAtFirstItem,
                                                 boolean ignoreGroupsFurniture) {
+    List<Selectable> items = getSelectableItemsExceptGuidelinesAt(x, y, stopAtFirstItem, ignoreGroupsFurniture);
+    // Search guidelines at last because they cross the whole plan
+    if (items.isEmpty() || !stopAtFirstItem) {
+      Guideline guideline = getGuidelineAt(x, y);
+      if (guideline != null) {
+        items = new ArrayList<Selectable>(items);
+        if (stopAtFirstItem) {
+          items.add(guideline);
+        } else {
+          float margin = getSelectionMargin();
+          for (Guideline homeGuideline : this.home.getGuidelines()) {
+            if (homeGuideline.containsPoint(x, y, margin)) {
+              items.add(homeGuideline);
+            }
+          }
+        }
+      }
+    }
+    return items;
+  }
+
+  /**
+   * Returns the selectable items at (<code>x</code>, <code>y</code>) point, except guidelines.
+   */
+  private List<Selectable> getSelectableItemsExceptGuidelinesAt(float x, float y,
+                                                                boolean stopAtFirstItem,
+                                                                boolean ignoreGroupsFurniture) {
     List<Selectable> items = new ArrayList<Selectable>();
     float margin = getSelectionMargin();
     float textMargin = margin / 2;
@@ -5883,6 +6069,11 @@ public class PlanController extends FurnitureController implements Controller {
       postDeleteItems(deletedOtherItems, this.home.isBasePlanLocked(), this.home.isAllLevelsSelection());
       // Then delete items from plan
       doDeleteItems(deletedOtherItems);
+      for (Guideline guideline : Home.getGuidelinesSubList(deletedItems)) {
+        this.undoSupport.postEdit(new GuidelineUndoableEdit(this.home, this.preferences,
+            guideline, guideline.getPosition(), null, "undoDeleteGuidelineName"));
+        this.home.deleteGuideline(guideline);
+      }
       this.home.addSelectionListener(this.selectionListener);
 
       this.undoSupport.postEdit(new ItemsDeletionEndUndoableEdit(this, this.home));
@@ -6099,6 +6290,8 @@ public class PlanController extends FurnitureController implements Controller {
         home.deletePolyline((Polyline)item);
       } else if (item instanceof Label) {
         home.deleteLabel((Label)item);
+      } else if (item instanceof Guideline) {
+        home.deleteGuideline((Guideline)item);
       } else if (item instanceof HomePieceOfFurniture) {
         home.deletePieceOfFurniture((HomePieceOfFurniture)item);
       }
@@ -9660,8 +9853,9 @@ public class PlanController extends FurnitureController implements Controller {
       } else if (getResizedCompassAt(x, y) != null) {
         getView().setCursor(PlanView.CursorType.RESIZE);
       } else {
-        // If a selected item is under cursor position
-        if (isItemSelectedAt(x, y)) {
+        // If a selected item or a guideline is under cursor position
+        if (isItemSelectedAt(x, y)
+            || getGuidelineAt(x, y) != null) {
           getView().setCursor(PlanView.CursorType.MOVE);
         } else {
           getView().setCursor(PlanView.CursorType.SELECTION);
@@ -9736,6 +9930,10 @@ public class PlanController extends FurnitureController implements Controller {
           setState(getCompassRotationState());
         } else if (getResizedCompassAt(x, y) != null) {
           setState(getCompassResizeState());
+        } else if (!shiftDown
+            && getSelectableItemAt(x, y) instanceof Guideline) {
+          guidelineDragState.setGuideline((Guideline)getSelectableItemAt(x, y), false, this);
+          setState(guidelineDragState);
         } else {
           // If shift isn't pressed, and an item is under cursor position
           if (!shiftDown
@@ -9924,6 +10122,11 @@ public class PlanController extends FurnitureController implements Controller {
             if (referencePiece == null) {
               adjustPieceOfFurnitureInShelfBox(this.movedPieceOfFurniture, false);
             }
+            if (magnetWall == null
+                && referencePiece == null) {
+              float [] move = getMoveMagnetizedToGuidelines(Arrays.asList(this.movedPieceOfFurniture), 0, 0);
+              this.movedPieceOfFurniture.move(move [0], move [1]);
+            }
             if (feedbackDisplayed && magnetWall != null) {
               getView().setDimensionLinesFeedback(getDimensionLinesAlongWall(this.movedPieceOfFurniture, magnetWall));
             } else {
@@ -9931,6 +10134,12 @@ public class PlanController extends FurnitureController implements Controller {
             }
           }
         } else {
+          if (this.magnetismEnabled && !this.alignmentActivated) {
+            float [] move = getMoveMagnetizedToGuidelines(this.movedItems,
+                x - this.xLastMouseMove, y - this.yLastMouseMove);
+            x = this.xLastMouseMove + move [0];
+            y = this.yLastMouseMove + move [1];
+          }
           moveItems(this.movedItems, x - this.xLastMouseMove, y - this.yLastMouseMove);
         }
 
@@ -10136,6 +10345,185 @@ public class PlanController extends FurnitureController implements Controller {
       this.movedItems = null;
       this.duplicatedItems = null;
       this.movedPieceOfFurniture = null;
+    }
+  }
+
+  /**
+   * Guideline drag state. This state manages the move of a guideline with the mouse,
+   * and the creation of a guideline dragged from a ruler. A guideline dragged out of
+   * the visible area of the plan, for example back to a ruler, is deleted.
+   */
+  private class GuidelineDragState extends ControllerState {
+    private ControllerState  returnState;
+    private Guideline        guideline;
+    private boolean          newGuideline;
+    private float            oldPosition;
+    private boolean          guidelineInHome;
+    private List<Selectable> oldSelection;
+    private boolean          magnetismEnabled;
+    private boolean          mouseMoved;
+    private float            xLastMouseMove;
+    private float            yLastMouseMove;
+
+    /**
+     * Sets the guideline managed by this state and the state set once the guideline is released.
+     */
+    public void setGuideline(Guideline guideline, boolean newGuideline, ControllerState returnState) {
+      this.guideline = guideline;
+      this.newGuideline = newGuideline;
+      this.returnState = returnState;
+    }
+
+    @Override
+    public Mode getMode() {
+      return this.returnState.getMode();
+    }
+
+    @Override
+    public boolean isModificationState() {
+      return true;
+    }
+
+    @Override
+    public void enter() {
+      this.oldSelection = home.getSelectedItems();
+      this.oldPosition = this.guideline.getPosition();
+      this.guidelineInHome = !this.newGuideline;
+      this.mouseMoved = false;
+      this.magnetismEnabled = preferences.isMagnetismEnabled()
+          ^ (!this.newGuideline && wasMagnetismToggledLastMousePress());
+      if (this.guidelineInHome) {
+        selectItem(this.guideline);
+      }
+      getView().setCursor(PlanView.CursorType.MOVE);
+    }
+
+    @Override
+    public void moveMouse(float x, float y) {
+      this.mouseMoved = true;
+      this.xLastMouseMove = x;
+      this.yLastMouseMove = y;
+      PlanView planView = getView();
+      if (planView.isPointVisible(x, y)) {
+        float position = this.guideline.getOrientation() == Guideline.Orientation.HORIZONTAL  ? y  : x;
+        if (this.magnetismEnabled) {
+          position = getMagnetizedGuidelinePosition(this.guideline, position);
+        }
+        this.guideline.setPosition(position);
+        if (!this.guidelineInHome) {
+          home.addGuideline(this.guideline);
+          this.guidelineInHome = true;
+          selectItem(this.guideline);
+        }
+        if (feedbackDisplayed) {
+          planView.setToolTipFeedback(preferences.getLengthUnit().getFormatWithUnit().format(position), x, y);
+        }
+      } else {
+        // Remove guideline from home while it's out of the plan
+        if (this.guidelineInHome) {
+          home.deleteGuideline(this.guideline);
+          this.guidelineInHome = false;
+        }
+        planView.deleteToolTipFeedback();
+      }
+    }
+
+    @Override
+    public void releaseMouse(float x, float y) {
+      if (this.newGuideline) {
+        if (this.guidelineInHome) {
+          undoSupport.postEdit(new GuidelineUndoableEdit(home, preferences,
+              this.guideline, null, this.guideline.getPosition(), "undoAddGuidelineName"));
+        }
+      } else if (!this.guidelineInHome) {
+        undoSupport.postEdit(new GuidelineUndoableEdit(home, preferences,
+            this.guideline, this.oldPosition, null, "undoDeleteGuidelineName"));
+        // Restore old position to be able to undo deletion
+        this.guideline.setPosition(this.oldPosition);
+      } else if (this.guideline.getPosition() != this.oldPosition) {
+        undoSupport.postEdit(new GuidelineUndoableEdit(home, preferences,
+            this.guideline, this.oldPosition, this.guideline.getPosition(), "undoMoveGuidelineName"));
+      }
+      setState(this.returnState);
+    }
+
+    @Override
+    public void escape() {
+      if (this.newGuideline) {
+        if (this.guidelineInHome) {
+          home.deleteGuideline(this.guideline);
+        }
+      } else {
+        this.guideline.setPosition(this.oldPosition);
+        if (!this.guidelineInHome) {
+          home.addGuideline(this.guideline);
+        }
+      }
+      selectItems(this.oldSelection);
+      setState(this.returnState);
+    }
+
+    @Override
+    public void toggleMagnetism(boolean magnetismToggled) {
+      this.magnetismEnabled = preferences.isMagnetismEnabled() ^ magnetismToggled;
+      if (this.mouseMoved) {
+        moveMouse(this.xLastMouseMove, this.yLastMouseMove);
+      }
+    }
+
+    @Override
+    public void exit() {
+      getView().deleteFeedback();
+      this.guideline = null;
+      this.oldSelection = null;
+    }
+  }
+
+  /**
+   * Undoable edit for the addition, the move or the deletion of a guideline.
+   */
+  private static class GuidelineUndoableEdit extends LocalizedUndoableEdit {
+    private final Home      home;
+    private final Guideline guideline;
+    private final Float     oldPosition;
+    private final Float     newPosition;
+
+    /**
+     * Creates an edit of the given <code>guideline</code>.
+     * @param oldPosition the position of the guideline before the edit or <code>null</code> if it wasn't in home
+     * @param newPosition the position of the guideline after the edit or <code>null</code> if it's not in home anymore
+     */
+    public GuidelineUndoableEdit(Home home, UserPreferences preferences, Guideline guideline,
+                                 Float oldPosition, Float newPosition, String presentationNameKey) {
+      super(preferences, PlanController.class, presentationNameKey);
+      this.home = home;
+      this.guideline = guideline;
+      this.oldPosition = oldPosition;
+      this.newPosition = newPosition;
+    }
+
+    @Override
+    public void undo() throws CannotUndoException {
+      super.undo();
+      updateGuideline(this.oldPosition);
+    }
+
+    @Override
+    public void redo() throws CannotRedoException {
+      super.redo();
+      updateGuideline(this.newPosition);
+    }
+
+    private void updateGuideline(Float position) {
+      if (position == null) {
+        this.home.deleteGuideline(this.guideline);
+      } else {
+        this.guideline.setPosition(position);
+        if (!this.home.getGuidelines().contains(this.guideline)) {
+          this.home.addGuideline(this.guideline);
+        }
+        this.home.setSelectedItems(Arrays.asList(new Selectable [] {this.guideline}));
+      }
     }
   }
 
@@ -10479,8 +10867,8 @@ public class PlanController extends FurnitureController implements Controller {
     public void moveMouse(float x, float y) {
       if (this.magnetismEnabled) {
         WallPointWithAngleMagnetism point = new WallPointWithAngleMagnetism(null, x, y, x, y);
-        x = point.getX();
-        y = point.getY();
+        x = getXMagnetizedToGuidelines(point.getX());
+        y = getYMagnetizedToGuidelines(point.getY());
       }
       if (feedbackDisplayed) {
         getView().setAlignmentFeedback(Wall.class, null, x, y, false);
@@ -10772,8 +11160,8 @@ public class PlanController extends FurnitureController implements Controller {
           this.yStart = this.wallStartAtStart.getYStart();
         } else if (this.magnetismEnabled) {
           WallPointWithAngleMagnetism point = new WallPointWithAngleMagnetism(null, this.xStart, this.yStart, this.xStart, this.yStart);
-          this.xStart = point.getX();
-          this.yStart = point.getY();
+          this.xStart = getXMagnetizedToGuidelines(point.getX());
+          this.yStart = getYMagnetizedToGuidelines(point.getY());
         }
       }
       this.newWall = null;
@@ -10802,8 +11190,8 @@ public class PlanController extends FurnitureController implements Controller {
         yEnd = point.getY();
       } else if (this.magnetismEnabled) {
         WallPointWithAngleMagnetism point = new WallPointWithAngleMagnetism(this.newWall, this.xStart, this.yStart, x, y);
-        xEnd = point.getX();
-        yEnd = point.getY();
+        xEnd = getXMagnetizedToGuidelines(point.getX());
+        yEnd = getYMagnetizedToGuidelines(point.getY());
       } else {
         xEnd = x;
         yEnd = y;
@@ -11376,8 +11764,8 @@ public class PlanController extends FurnitureController implements Controller {
       } else if (this.magnetismEnabled) {
         WallPointWithAngleMagnetism point = new WallPointWithAngleMagnetism(this.selectedWall,
             opositeEndX, opositeEndY, newX, newY);
-        newX = point.getX();
-        newY = point.getY();
+        newX = getXMagnetizedToGuidelines(point.getX());
+        newY = getYMagnetizedToGuidelines(point.getY());
       }
       moveWallPoint(this.selectedWall, newX, newY, this.startPoint);
 
@@ -12986,6 +13374,10 @@ public class PlanController extends FurnitureController implements Controller {
               preferences.getLengthUnit(), planView.getPixelLength());
           newX = point.getX();
           newY = point.getY();
+          if (!this.alignmentActivated) {
+            newX = getXMagnetizedToGuidelines(newX);
+            newY = getYMagnetizedToGuidelines(newY);
+          }
         } else {
           newX = x;
           newY = y;
@@ -13410,6 +13802,10 @@ public class PlanController extends FurnitureController implements Controller {
                 preferences.getLengthUnit(), planView.getPixelLength());
             xNewStartPoint = point.getX();
             yNewStartPoint = point.getY();
+            if (!this.alignmentActivated) {
+              xNewStartPoint = getXMagnetizedToGuidelines(xNewStartPoint);
+              yNewStartPoint = getYMagnetizedToGuidelines(yNewStartPoint);
+            }
           }
 
           moveDimensionLinePoint(this.selectedDimensionLine, xNewStartPoint, yNewStartPoint, this.editingStartPoint);
@@ -13452,6 +13848,10 @@ public class PlanController extends FurnitureController implements Controller {
                 preferences.getLengthUnit(), planView.getPixelLength());
             xNewEndPoint = point.getX();
             yNewEndPoint = point.getY();
+            if (!this.alignmentActivated) {
+              xNewEndPoint = getXMagnetizedToGuidelines(xNewEndPoint);
+              yNewEndPoint = getYMagnetizedToGuidelines(yNewEndPoint);
+            }
           }
 
           moveDimensionLinePoint(this.selectedDimensionLine, xNewEndPoint, yNewEndPoint, this.editingStartPoint);
@@ -13919,8 +14319,8 @@ public class PlanController extends FurnitureController implements Controller {
         } else {
           RoomPointWithAngleMagnetism pointWithAngleMagnetism = new RoomPointWithAngleMagnetism(null, -1,
               getXLastMouseMove(), getYLastMouseMove(), getXLastMouseMove(), getYLastMouseMove());
-          getView().setAlignmentFeedback(Room.class, null, pointWithAngleMagnetism.getX(),
-              pointWithAngleMagnetism.getY(), point.isMagnetized());
+          getView().setAlignmentFeedback(Room.class, null, getXMagnetizedToGuidelines(pointWithAngleMagnetism.getX()),
+              getYMagnetizedToGuidelines(pointWithAngleMagnetism.getY()), point.isMagnetized());
         }
       } else {
         getView().setAlignmentFeedback(Room.class, null, x, y, false);
@@ -14181,8 +14581,8 @@ public class PlanController extends FurnitureController implements Controller {
         } else {
           RoomPointWithAngleMagnetism pointWithAngleMagnetism = new RoomPointWithAngleMagnetism(null, -1,
               getXLastMouseMove(), getYLastMouseMove(), getXLastMouseMove(), getYLastMouseMove());
-          this.xPreviousPoint = pointWithAngleMagnetism.getX();
-          this.yPreviousPoint = pointWithAngleMagnetism.getY();
+          this.xPreviousPoint = getXMagnetizedToGuidelines(pointWithAngleMagnetism.getX());
+          this.yPreviousPoint = getYMagnetizedToGuidelines(pointWithAngleMagnetism.getY());
         }
         if (feedbackDisplayed) {
           getView().setAlignmentFeedback(Room.class, null,
@@ -14227,8 +14627,8 @@ public class PlanController extends FurnitureController implements Controller {
               : -1;
           RoomPointWithAngleMagnetism pointWithAngleMagnetism = new RoomPointWithAngleMagnetism(
               this.newRoom, editedPointIndex, this.xPreviousPoint, this.yPreviousPoint, x, y);
-          xEnd = pointWithAngleMagnetism.getX();
-          yEnd = pointWithAngleMagnetism.getY();
+          xEnd = getXMagnetizedToGuidelines(pointWithAngleMagnetism.getX());
+          yEnd = getYMagnetizedToGuidelines(pointWithAngleMagnetism.getY());
         }
       }
 
@@ -14628,8 +15028,8 @@ public class PlanController extends FurnitureController implements Controller {
           // Use magnetism if closest wall point is too far
           RoomPointWithAngleMagnetism pointWithAngleMagnetism = new RoomPointWithAngleMagnetism(
               this.selectedRoom, this.roomPointIndex, xPreviousPoint, yPreviousPoint, newX, newY);
-          newX = pointWithAngleMagnetism.getX();
-          newY = pointWithAngleMagnetism.getY();
+          newX = getXMagnetizedToGuidelines(pointWithAngleMagnetism.getX());
+          newY = getYMagnetizedToGuidelines(pointWithAngleMagnetism.getY());
         }
       }
       moveRoomPoint(this.selectedRoom, newX, newY, this.roomPointIndex);
@@ -15204,6 +15604,10 @@ public class PlanController extends FurnitureController implements Controller {
       toggleMagnetism(wasMagnetismToggledLastMousePress());
       this.xPreviousPoint = getXLastMousePress();
       this.yPreviousPoint = getYLastMousePress();
+      if (this.magnetismEnabled && !this.alignmentActivated) {
+        this.xPreviousPoint = getXMagnetizedToGuidelines(this.xPreviousPoint);
+        this.yPreviousPoint = getYMagnetizedToGuidelines(this.yPreviousPoint);
+      }
       setDuplicationActivated(wasDuplicationActivatedLastMousePress());
       deselectAll();
     }
@@ -15220,6 +15624,10 @@ public class PlanController extends FurnitureController implements Controller {
             this.xPreviousPoint, this.yPreviousPoint, x, y, preferences.getLengthUnit(), planView.getPixelLength());
         xEnd = pointWithAngleMagnetism.getX();
         yEnd = pointWithAngleMagnetism.getY();
+        if (!this.alignmentActivated) {
+          xEnd = getXMagnetizedToGuidelines(xEnd);
+          yEnd = getYMagnetizedToGuidelines(yEnd);
+        }
       }
 
       // If current polyline doesn't exist
@@ -15589,6 +15997,10 @@ public class PlanController extends FurnitureController implements Controller {
             xPreviousPoint, yPreviousPoint, newX, newY, preferences.getLengthUnit(), planView.getPixelLength());
         newX = pointWithAngleMagnetism.getX();
         newY = pointWithAngleMagnetism.getY();
+        if (!this.alignmentActivated) {
+          newX = getXMagnetizedToGuidelines(newX);
+          newY = getYMagnetizedToGuidelines(newY);
+        }
       }
       this.selectedPolyline.setPoint(newX, newY, this.polylinePointIndex);
 

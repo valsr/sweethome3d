@@ -58,6 +58,7 @@ import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.HomePrint;
 import com.eteks.sweethome3d.model.HomeShelfUnit;
 import com.eteks.sweethome3d.model.HomeTexture;
+import com.eteks.sweethome3d.model.Guideline;
 import com.eteks.sweethome3d.model.Label;
 import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.model.LightSource;
@@ -716,6 +717,10 @@ public class HomeXMLHandler extends DefaultHandler {
       if (levelId != null) {
         label.setLevel(this.levels.get(levelId));
       }
+    } else if ("guideline".equals(name)) {
+      Guideline guideline = createGuideline(name, attributesMap);
+      setGuidelineAttributes(guideline, name, attributesMap);
+      this.home.addGuideline(guideline);
     } else if ("text".equals(name)) {
       this.labelText = getCharacters();
     } else if ("textStyle".equals(name)) {
@@ -1768,6 +1773,38 @@ public class HomeXMLHandler extends DefaultHandler {
     }
     label.setColor(parseOptionalColor(attributes, "color"));
     label.setOutlineColor(parseOptionalColor(attributes, "outlineColor"));
+  }
+
+  /**
+   * Returns a new {@link Guideline} instance initialized from the given <code>attributes</code>.
+   */
+  private Guideline createGuideline(String elementName, Map<String, String> attributes) throws SAXException {
+    String id = attributes.get("id");
+    Guideline.Orientation orientation;
+    try {
+      orientation = Guideline.Orientation.valueOf(attributes.get("orientation"));
+    } catch (RuntimeException ex) {
+      throw new SAXException("Invalid guideline orientation " + attributes.get("orientation"));
+    }
+    float position = parseFloat(attributes, "position");
+    Guideline guideline = id != null
+        ? new Guideline(id, orientation, position)
+        : new Guideline(orientation, position);
+    return (Guideline)resolveObject(guideline, elementName, attributes);
+  }
+
+  /**
+   * Sets the attributes of the given <code>guideline</code>.
+   * If needed, this method should be called from {@link #endElement}.
+   */
+  protected void setGuidelineAttributes(Guideline guideline,
+                                        String elementName,
+                                        Map<String, String> attributes) throws SAXException {
+    setProperties(guideline, elementName, attributes);
+    Integer color = parseOptionalColor(attributes, "color");
+    if (color != null) {
+      guideline.setColor(color);
+    }
   }
 
   /**

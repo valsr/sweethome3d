@@ -586,6 +586,14 @@ public class MultipleLevelsPlanPanel extends JPanel implements PlanView, Printab
   }
 
   /**
+   * Returns <code>true</code> if the point at (<code>x</code>, <code>y</code>)
+   * is displayed in the visible area of the plan.
+   */
+  public boolean isPointVisible(float x, float y) {
+    return ((PlanView)this.planComponent).isPointVisible(x, y);
+  }
+
+  /**
    * Returns the scale used to display the plan displayed by this component.
    */
   public float getScale() {

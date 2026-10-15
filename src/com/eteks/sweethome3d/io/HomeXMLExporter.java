@@ -45,6 +45,7 @@ import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.HomePrint;
 import com.eteks.sweethome3d.model.HomeShelfUnit;
 import com.eteks.sweethome3d.model.HomeTexture;
+import com.eteks.sweethome3d.model.Guideline;
 import com.eteks.sweethome3d.model.Label;
 import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.model.LightSource;
@@ -173,6 +174,9 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
     }
     for (Label label : home.getLabels()) {
       writeLabel(writer, label);
+    }
+    for (Guideline guideline : home.getGuidelines()) {
+      writeGuideline(writer, guideline);
     }
   }
 
@@ -758,6 +762,26 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writeTextStyle(writer, dimensionLine.getLengthStyle(), "lengthStyle");
         }
       }.writeElement(writer, dimensionLine);
+  }
+
+  /**
+   * Writes in XML the <code>guideline</code> object with the given <code>writer</code>.
+   */
+  protected void writeGuideline(XMLWriter writer, Guideline guideline) throws IOException {
+    new ObjectXMLExporter<Guideline>() {
+        @Override
+        protected void writeAttributes(XMLWriter writer, Guideline guideline) throws IOException {
+          writer.writeAttribute("id", guideline.getId());
+          writer.writeAttribute("orientation", guideline.getOrientation().name());
+          writer.writeFloatAttribute("position", guideline.getPosition());
+          writer.writeColorAttribute("color", guideline.getColor());
+        }
+
+        @Override
+        protected void writeChildren(XMLWriter writer, Guideline guideline) throws IOException {
+          writeProperties(writer, guideline);
+        }
+      }.writeElement(writer, guideline);
   }
 
   /**

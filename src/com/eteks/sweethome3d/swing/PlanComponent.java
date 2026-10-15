@@ -188,6 +188,7 @@ import com.eteks.sweethome3d.model.HomeFurnitureGroup;
 import com.eteks.sweethome3d.model.HomeLight;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.HomeTexture;
+import com.eteks.sweethome3d.model.Guideline;
 import com.eteks.sweethome3d.model.Label;
 import com.eteks.sweethome3d.model.LengthUnit;
 import com.eteks.sweethome3d.model.Level;
@@ -274,6 +275,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
 
   private PlanRulerComponent    horizontalRuler;
   private PlanRulerComponent    verticalRuler;
+  private PlanController        controller;
 
   private final Cursor          rotationCursor;
   private final Cursor          elevationCursor;
@@ -701,6 +703,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
       // Can't access to properties
     }
     this.object3dFactory = object3dFactory;
+    this.controller = controller;
     // Set JComponent default properties
     setOpaque(true);
     // Add listeners
@@ -1030,6 +1033,26 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
         }
       });
 
+    // Add listener to repaint plan and rulers when guidelines change, without changing plan bounds
+    final PropertyChangeListener guidelineChangeListener = new PropertyChangeListener() {
+        public void propertyChange(PropertyChangeEvent ev) {
+          repaintGuidelines();
+        }
+      };
+    for (Guideline guideline : home.getGuidelines()) {
+      guideline.addPropertyChangeListener(guidelineChangeListener);
+    }
+    home.addGuidelinesListener(new CollectionListener<Guideline> () {
+        public void collectionChanged(CollectionEvent<Guideline> ev) {
+          if (ev.getType() == CollectionEvent.Type.ADD) {
+            ev.getItem().addPropertyChangeListener(guidelineChangeListener);
+          } else if (ev.getType() == CollectionEvent.Type.DELETE) {
+            ev.getItem().removePropertyChangeListener(guidelineChangeListener);
+          }
+          repaintGuidelines();
+        }
+      });
+
     // Add listener to update plan when levels change
     final PropertyChangeListener levelChangeListener = new PropertyChangeListener() {
         public void propertyChange(PropertyChangeEvent ev) {
@@ -1268,6 +1291,19 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
     int radius = convertLengthToPixel(2.3 * cameraSize) + 50;
     return new Rectangle(convertXModelToPixel(cameraLocation [0]) - radius,
         convertYModelToPixel(cameraLocation [1]) - radius, 2 * radius, 2 * radius);
+  }
+
+  /**
+   * Repaints this component and its rulers which display guidelines.
+   */
+  private void repaintGuidelines() {
+    repaint();
+    if (this.horizontalRuler != null) {
+      this.horizontalRuler.repaint();
+    }
+    if (this.verticalRuler != null) {
+      this.verticalRuler.repaint();
+    }
   }
 
   /**
@@ -3066,6 +3102,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
           1 / planScale, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_BEVEL, 0,
           new float [] {20 / planScale, 5 / planScale, 5 / planScale, 5 / planScale}, 4 / planScale);
 
+      paintGuidelines(g2D, selectedItems, selectionOutlinePaint, dimensionLinesSelectionOutlineStroke, planScale);
       paintCamera(g2D, selectedItems, selectionOutlinePaint, selectionOutlineStroke, selectionColor,
           planScale, backgroundColor, foregroundColor);
 
@@ -3251,6 +3288,42 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
    */
   protected Color getFurnitureOutlineColor() {
     return new Color((getForeground().getRGB() & 0xFFFFFF) | 0x55000000, true);
+  }
+
+  /**
+   * Paints home guidelines across the clipped area as thin lines of their color,
+   * whatever the scale of the plan.
+   */
+  private void paintGuidelines(Graphics2D g2D, List<Selectable> selectedItems,
+                               Paint selectionOutlinePaint, Stroke selectionOutlineStroke, float planScale) {
+    List<Guideline> guidelines = this.home.getGuidelines();
+    if (!guidelines.isEmpty()) {
+      Rectangle2D area = g2D.getClipBounds();
+      if (area == null) {
+        Rectangle2D planBounds = getPlanBounds();
+        area = new Rectangle2D.Double(planBounds.getMinX() - MARGIN, planBounds.getMinY() - MARGIN,
+            planBounds.getWidth() + 2 * MARGIN, planBounds.getHeight() + 2 * MARGIN);
+      }
+      Object antialiasing = g2D.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+      Stroke guidelineStroke = new BasicStroke(1 / planScale / this.resolutionScale);
+      for (Guideline guideline : guidelines) {
+        float position = guideline.getPosition();
+        Line2D line = guideline.getOrientation() == Guideline.Orientation.HORIZONTAL
+            ? new Line2D.Double(area.getMinX(), position, area.getMaxX(), position)
+            : new Line2D.Double(position, area.getMinY(), position, area.getMaxY());
+        if (selectedItems.contains(guideline)) {
+          g2D.setPaint(selectionOutlinePaint);
+          g2D.setStroke(selectionOutlineStroke);
+          g2D.draw(line);
+        }
+        // Draw guideline without antialiasing to keep it thin and sharp
+        g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        g2D.setPaint(new Color(guideline.getColor()));
+        g2D.setStroke(guidelineStroke);
+        g2D.draw(line);
+        g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, antialiasing);
+      }
+    }
   }
 
   /**
@@ -5838,13 +5911,13 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
     if (g != null) {
       setRenderingHints(g);
     }
-    if (includeCamera) {
-      return getItemsBounds(g, this.home.getSelectedItems());
-    } else {
-      List<Selectable> selectedItems = new ArrayList<Selectable>(this.home.getSelectedItems());
+    List<Selectable> selectedItems = new ArrayList<Selectable>(this.home.getSelectedItems());
+    // Ignore guidelines which cross the whole plan
+    selectedItems.removeAll(Home.getGuidelinesSubList(selectedItems));
+    if (!includeCamera) {
       selectedItems.remove(this.home.getCamera());
-      return getItemsBounds(g, selectedItems);
     }
+    return getItemsBounds(g, selectedItems);
   }
 
   /**
@@ -5854,6 +5927,16 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
   public void makePointVisible(float x, float y) {
     scrollRectToVisible(getShapePixelBounds(
         new Rectangle2D.Float(x, y, getPixelLength(), getPixelLength())));
+  }
+
+  /**
+   * Returns <code>true</code> if the point at (<code>x</code>, <code>y</code>)
+   * is displayed in the visible area of this component, or if this component isn't displayed.
+   */
+  public boolean isPointVisible(float x, float y) {
+    Rectangle visibleRectangle = getVisibleRect();
+    return visibleRectangle.isEmpty()
+        || visibleRectangle.contains(convertXModelToPixel(x), convertYModelToPixel(y));
   }
 
   /**
@@ -6510,6 +6593,45 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
         };
       PlanComponent.this.addMouseListener(mouseInputListener);
       PlanComponent.this.addMouseMotionListener(mouseInputListener);
+      if (controller != null) {
+        // Let the user drag a new guideline from this ruler
+        MouseInputListener guidelineDragListener = new MouseInputAdapter() {
+            private boolean guidelineDragged;
+
+            @Override
+            public void mousePressed(MouseEvent ev) {
+              if (PlanComponent.this.isEnabled()
+                  && SwingUtilities.isLeftMouseButton(ev)
+                  && !controller.isModificationState()) {
+                PlanComponent.this.requestFocusInWindow();
+                controller.startGuidelineCreation(orientation == SwingConstants.HORIZONTAL
+                    ? Guideline.Orientation.HORIZONTAL
+                    : Guideline.Orientation.VERTICAL);
+                this.guidelineDragged = controller.isModificationState();
+              }
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent ev) {
+              if (this.guidelineDragged) {
+                Point point = SwingUtilities.convertPoint(PlanRulerComponent.this, ev.getPoint(), PlanComponent.this);
+                controller.moveMouse(convertXPixelToModel(point.x), convertYPixelToModel(point.y));
+              }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent ev) {
+              if (this.guidelineDragged) {
+                this.guidelineDragged = false;
+                Point point = SwingUtilities.convertPoint(PlanRulerComponent.this, ev.getPoint(), PlanComponent.this);
+                controller.releaseMouse(convertXPixelToModel(point.x), convertYPixelToModel(point.y));
+              }
+            }
+          };
+        addMouseListener(guidelineDragListener);
+        addMouseMotionListener(guidelineDragListener);
+        setToolTipText(preferences.getLocalizedString(PlanComponent.class, "rulerToolTip"));
+      }
       addAncestorListener(new AncestorListener() {
           public void ancestorAdded(AncestorEvent ev) {
             removeAncestorListener(this);
@@ -6693,6 +6815,33 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
             g2D.setTransform(previousTransform);
           }
         }
+      }
+
+      // Draw a mark at the location of the guidelines perpendicular to this ruler
+      float markSize = 4 / rulerScale;
+      Guideline.Orientation markedOrientation = this.orientation == SwingConstants.HORIZONTAL
+          ? Guideline.Orientation.VERTICAL
+          : Guideline.Orientation.HORIZONTAL;
+      for (Guideline guideline : home.getGuidelines()) {
+        if (guideline.getOrientation() != markedOrientation) {
+          continue;
+        }
+        float position = guideline.getPosition();
+        GeneralPath mark = new GeneralPath();
+        if (this.orientation == SwingConstants.HORIZONTAL) {
+          mark.moveTo(position - markSize, yMax - markSize);
+          mark.lineTo(position + markSize, yMax - markSize);
+          mark.lineTo(position, yMax);
+        } else {
+          float xBase = leftToRightOriented ? xMax : xMin;
+          float xMark = leftToRightOriented ? xMax - markSize : xMin + markSize;
+          mark.moveTo(xMark, position - markSize);
+          mark.lineTo(xMark, position + markSize);
+          mark.lineTo(xBase, position);
+        }
+        mark.closePath();
+        g2D.setColor(new Color(guideline.getColor()));
+        g2D.fill(mark);
       }
 
       if (this.mouseLocation != null) {
