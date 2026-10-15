@@ -487,4 +487,92 @@ public class FurnitureTableGroupingTest extends TestCase {
     assertEquals(Arrays.asList(this.chair), this.home.getSelectedItems());
     assertTrue(this.table.isRowSelected(rowOf(this.chair)));
   }
+
+  public void testDropOnHeaderRowDropsBeforeNextPiece() throws Exception {
+    java.lang.reflect.Constructor<?> constructor = javax.swing.JTable.DropLocation.class.getDeclaredConstructor(
+        java.awt.Point.class, int.class, int.class, boolean.class, boolean.class);
+    constructor.setAccessible(true);
+    Object dropLocation = constructor.newInstance(new java.awt.Point(0, 0), 0, 0, true, false);
+    java.lang.reflect.Method setDropLocation = javax.swing.JTable.class.getDeclaredMethod("setDropLocation",
+        javax.swing.TransferHandler.DropLocation.class, Object.class, boolean.class);
+    setDropLocation.setAccessible(true);
+    setDropLocation.invoke(this.table, dropLocation, null, true);
+    com.eteks.sweethome3d.swing.FurnitureTransferHandler handler =
+        new com.eteks.sweethome3d.swing.FurnitureTransferHandler(this.home, null, null);
+    java.lang.reflect.Method getDropPiece = com.eteks.sweethome3d.swing.FurnitureTransferHandler.class.getDeclaredMethod(
+        "getDropPieceOfFurniture", JComponent.class);
+    getDropPiece.setAccessible(true);
+    assertSame(this.chair, getDropPiece.invoke(handler, this.table));
+  }
+
+  public void testVisibleCheckBoxEnabledForTopLevelPieces() {
+    this.home.setFurnitureVisibleProperties(Arrays.asList(
+        HomePieceOfFurniture.SortableProperty.NAME, HomePieceOfFurniture.SortableProperty.VISIBLE));
+    int column = this.table.getColumnModel().getColumnIndex(HomePieceOfFurniture.SortableProperty.VISIBLE);
+    int row = rowOf(this.chair);
+    java.awt.Component component = this.table.getCellRenderer(row, column).getTableCellRendererComponent(
+        this.table, this.chair, false, false, row, column);
+    assertTrue("Visible check box disabled", component.isEnabled());
+  }
+
+  private void selectAdjacentRow(String actionKey) {
+    this.table.getActionMap().get(actionKey).actionPerformed(
+        new java.awt.event.ActionEvent(this.table, java.awt.event.ActionEvent.ACTION_PERFORMED, actionKey));
+  }
+
+  public void testKeyboardUpMovesAcrossHeaders() {
+    this.home.setSelectedItems(Arrays.asList(this.desk));
+    int headerRow = rowOf(bucket(this.desk));
+    selectAdjacentRow("selectPreviousRow");
+    assertEquals(headerRow, this.table.getSelectionModel().getLeadSelectionIndex());
+    assertTrue(this.table.isRowSelected(headerRow));
+    assertEquals(Arrays.asList(this.desk), this.home.getSelectedItems());
+    selectAdjacentRow("selectPreviousRow");
+    assertEquals(Arrays.asList(this.chair), this.home.getSelectedItems());
+    assertEquals(rowOf(this.chair), this.table.getSelectionModel().getLeadSelectionIndex());
+  }
+
+  public void testKeyboardDownMovesAcrossHeaders() {
+    this.home.setSelectedItems(Arrays.asList(this.lamp));
+    selectAdjacentRow("selectNextRow");
+    assertEquals(rowOf(this.level1), this.table.getSelectionModel().getLeadSelectionIndex());
+    assertEquals(Arrays.asList(this.bed), this.home.getSelectedItems());
+    selectAdjacentRow("selectNextRow");
+    assertEquals(rowOf(bucket(this.bed)), this.table.getSelectionModel().getLeadSelectionIndex());
+    selectAdjacentRow("selectNextRow");
+    assertEquals(rowOf(this.bed), this.table.getSelectionModel().getLeadSelectionIndex());
+    assertEquals(Arrays.asList(this.bed), this.home.getSelectedItems());
+  }
+
+  public void testCollapsedHeaderStaysCollapsedOnUnrelatedChanges() {
+    this.home.setSelectedItems(Arrays.asList(this.chair));
+    toggleRow(this.table, bucket(this.chair));
+    this.bed.setName("Big bed");
+    assertFalse("Kitchen expanded after piece change", this.table.isRowExpanded(rowOf(bucket(this.chair))));
+    this.chair.setColor(0xFF0000);
+    assertFalse("Kitchen expanded after selected piece change", this.table.isRowExpanded(rowOf(bucket(this.chair))));
+    this.controller.toggleFurnitureSort(HomePieceOfFurniture.SortableProperty.NAME);
+    assertFalse("Kitchen expanded after sort", this.table.isRowExpanded(rowOf(bucket(this.chair))));
+    assertEquals(Arrays.asList(this.chair), this.home.getSelectedItems());
+  }
+
+  public void testMovingPieceInsideItsRoomDoesntRebuildRows() {
+    final int [] structureChanges = {0};
+    ((javax.swing.tree.TreeModel)this.table.getModel()).addTreeModelListener(new javax.swing.event.TreeModelListener() {
+        public void treeStructureChanged(javax.swing.event.TreeModelEvent ev) {
+          structureChanges [0]++;
+        }
+        public void treeNodesRemoved(javax.swing.event.TreeModelEvent ev) {}
+        public void treeNodesInserted(javax.swing.event.TreeModelEvent ev) {}
+        public void treeNodesChanged(javax.swing.event.TreeModelEvent ev) {}
+      });
+    this.home.setSelectedItems(Arrays.asList(this.chair));
+    this.chair.setX(60);
+    this.chair.setY(40);
+    assertEquals("Rows rebuilt", 0, structureChanges [0]);
+    assertTrue(this.table.isRowSelected(rowOf(this.chair)));
+    this.chair.setX(250);
+    assertTrue("Rows not rebuilt", structureChanges [0] > 0);
+    assertEquals(bucket(this.desk), getRows(this.table).get(rowOf(this.chair) - 1));
+  }
 }
