@@ -269,6 +269,7 @@ public class HomeController implements Controller {
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_PRICE_VALUE_ADDED_TAX_INCLUDED, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_DESCENDING_ORDER,
         this.home.getFurnitureSortedPropertyName() != null);
+    homeView.setEnabled(HomeView.ActionType.TOGGLE_FURNITURE_GROUPING, true);
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_CATALOG_ID, true);
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_NAME, true);
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_DESCRIPTION, true);

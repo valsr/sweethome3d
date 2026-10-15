@@ -286,6 +286,7 @@ public class HomePane extends JRootPane implements HomeView {
     initActions(preferences);
     createTransferHandlers(home, controller);
     addLevelVisibilityListener(home);
+    addFurnitureGroupingListener(home);
     addUserPreferencesListener(preferences);
     addPlanControllerListener(controller.getPlanController());
     addFocusListener();
@@ -416,6 +417,8 @@ public class HomePane extends JRootPane implements HomeView {
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.PRICE_VALUE_ADDED_TAX_INCLUDED.name());
     createAction(ActionType.SORT_HOME_FURNITURE_BY_DESCENDING_ORDER, preferences,
         furnitureController, "toggleFurnitureSortOrder");
+    createToggleAction(ActionType.TOGGLE_FURNITURE_GROUPING, furnitureController.isFurnitureGroupedByLevelAndRoom(), null,
+        preferences, furnitureController, "toggleFurnitureGrouping");
     createAction(ActionType.DISPLAY_HOME_FURNITURE_CATALOG_ID, preferences,
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.CATALOG_ID.name());
     createAction(ActionType.DISPLAY_HOME_FURNITURE_NAME, preferences,
@@ -787,6 +790,21 @@ public class HomePane extends JRootPane implements HomeView {
   private void setToggleButtonModelSelected(ActionType actionType, boolean selected) {
     ((JToggleButton.ToggleButtonModel)getActionMap().get(actionType).getValue(ResourceAction.TOGGLE_BUTTON_MODEL)).
         setSelected(selected);
+  }
+
+  /**
+   * Adds listener to <code>home</code> to update Group by level and room toggle model.
+   */
+  private void addFurnitureGroupingListener(final Home home) {
+    home.addPropertyChangeListener(FurnitureController.FURNITURE_GROUPED_PROPERTY,
+        new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            if (getActionMap().get(ActionType.TOGGLE_FURNITURE_GROUPING) != null) {
+              setToggleButtonModelSelected(ActionType.TOGGLE_FURNITURE_GROUPING,
+                  !"false".equals(home.getProperty(FurnitureController.FURNITURE_GROUPED_PROPERTY)));
+            }
+          }
+        });
   }
 
   /**
@@ -1257,6 +1275,7 @@ public class HomePane extends JRootPane implements HomeView {
     furnitureMenu.addSeparator();
     furnitureMenu.add(createFurnitureSortMenu(home, preferences));
     furnitureMenu.add(createFurnitureDisplayPropertyMenu(home, preferences));
+    addToggleActionToMenu(ActionType.TOGGLE_FURNITURE_GROUPING, false, furnitureMenu);
     furnitureMenu.addSeparator();
     addActionToMenu(ActionType.EXPORT_TO_CSV, furnitureMenu);
 
@@ -3311,6 +3330,7 @@ public class HomePane extends JRootPane implements HomeView {
       furnitureViewPopup.addSeparator();
       furnitureViewPopup.add(createFurnitureSortMenu(home, preferences));
       furnitureViewPopup.add(createFurnitureDisplayPropertyMenu(home, preferences));
+      addToggleActionToPopupMenu(ActionType.TOGGLE_FURNITURE_GROUPING, false, furnitureViewPopup);
       furnitureViewPopup.addSeparator();
       addActionToPopupMenu(ActionType.EXPORT_TO_CSV, furnitureViewPopup);
       SwingTools.hideDisabledMenuItems(furnitureViewPopup);
