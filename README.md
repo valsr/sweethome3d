@@ -112,7 +112,7 @@ Optional System properties:
 | `com.eteks.sweethome3d.j3d.blenderExecutable` | `blender` | Blender executable |
 | `com.eteks.sweethome3d.j3d.BlenderRenderer.lowQuality.samples` | 64 | Samples per pixel at the third quality level |
 | `com.eteks.sweethome3d.j3d.BlenderRenderer.highQuality.samples` | 256 | Samples per pixel at the fourth quality level |
-| `com.eteks.sweethome3d.j3d.BlenderRenderer.lowQuality.hiddenItemsBlockLight`, `...highQuality.hiddenItemsBlockLight` | `false` | What ceilings and levels hidden in the 3D view block without being seen, to view a floor from above lit as if the home was more complete: `sun` for the direct light of the sun only, `all` for all light (rooms without window nor lamp are then dark) |
+| `com.eteks.sweethome3d.j3d.BlenderRenderer.lowQuality.hiddenItemsBlockLight`, `...highQuality.hiddenItemsBlockLight` | `false` | What the ceilings hidden at the selected level block without being seen, to view a floor from above lit as if it was closed by its ceilings (hidden levels block nothing, so the sun still lights the ground and the floors under it): `sun` for the direct light of the sun only, `all` for all light (rooms without window nor lamp are then dark) |
 | `com.eteks.sweethome3d.j3d.BlenderRenderer.lowQuality.exposure`, `...highQuality.exposure` | 0 | Exposure of the image in stops, each one doubling its brightness and a negative value darkening it. A view from inside a room lit by its windows is closer to a photo around 2 |
 
 Light and sky intensities are constants at the top of

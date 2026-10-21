@@ -30,7 +30,6 @@ import com.eteks.sweethome3d.model.CatalogTexture;
 import com.eteks.sweethome3d.model.HomeTexture;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.Room;
-import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.model.HomeLight;
 import com.eteks.sweethome3d.model.HomeMaterial;
@@ -133,7 +132,7 @@ public class BlenderSceneExporterTest extends TestCase {
         BlenderTestCheck.equal(0.5f, material.get("power"), "emissive material power");
       }
     }
-    // Hidden ceilings and levels are written apart to block light when asked, and only then
+    // Hidden ceilings of the selected level are written apart to block light when asked, and only then
     {
       Object3DBranchFactory factory = new Object3DBranchFactory();
       Home twoLevelHome = BlenderTestHomes.createTwoLevelHome();
@@ -150,10 +149,10 @@ public class BlenderSceneExporterTest extends TestCase {
       scene = BlenderSceneExporter.export(twoLevelHome, factory, folder, "all");
       BlenderTestCheck.equal("occluders.obj", scene.get("occluders"), "occluders file name");
       BlenderTestCheck.equal("all", scene.get("occludersBlock"), "occluders block all light");
-      BlenderTestCheck.equal(6, countOccluders(occludersFile), "ground ceiling, 4 upper walls and upper room block light");
+      BlenderTestCheck.equal(1, countOccluders(occludersFile), "only the hidden ceiling of the selected level blocks light");
       BlenderTestCheck.equal("sun", BlenderSceneExporter.export(twoLevelHome, factory, folder, "sun").get("occludersBlock"),
           "occluders block the sun only");
-      BlenderTestCheck.equal(6, countOccluders(occludersFile), "same occluders whatever they block");
+      BlenderTestCheck.equal(1, countOccluders(occludersFile), "same occluders whatever they block");
 
       // Values of the rendering parameter
       BlenderTestCheck.equal(null, BlenderSceneExporter.getOccludersBlock("false"), "parameter false");
@@ -170,28 +169,33 @@ public class BlenderSceneExporterTest extends TestCase {
       BlenderSceneExporter.export(twoLevelHome, factory, folder, null);
       BlenderTestCheck.isTrue(!occludersFile.exists(), "occluders file of a previous export removed");
 
-      // A visible ceiling is written once, with the visible items
+      // A visible ceiling is written once, with the visible items, and a hidden level blocks nothing
       groundRoom.setCeilingVisible(true);
-      BlenderSceneExporter.export(twoLevelHome, factory, folder, "all");
-      BlenderTestCheck.equal(5, countOccluders(occludersFile), "visible ceiling isn't an occluder");
+      scene = BlenderSceneExporter.export(twoLevelHome, factory, folder, "all");
+      BlenderTestCheck.isTrue(!scene.containsKey("occluders") && !occludersFile.exists(),
+          "visible ceiling and hidden upper level aren't occluders");
       groundRoom.setCeilingVisible(false);
 
       // A level which isn't viewable stays out of the scene
       upper.setViewable(false);
       BlenderSceneExporter.export(twoLevelHome, factory, folder, "all");
-      BlenderTestCheck.equal(1, countOccluders(occludersFile), "only the ground ceiling when upper level isn't viewable");
+      BlenderTestCheck.equal(1, countOccluders(occludersFile), "ground ceiling when upper level isn't viewable");
 
-      // A hidden level without anything to stop light gives no occluders file, which Blender couldn't read
-      Home emptyLevelHome = BlenderTestHomes.createTwoLevelHome();
-      emptyLevelHome.getRooms().get(0).setCeilingVisible(true);
-      for (Wall wall : new java.util.ArrayList<Wall>(emptyLevelHome.getWalls())) {
-        if (wall.getLevel() == emptyLevelHome.getLevels().get(1)) {
-          emptyLevelHome.deleteWall(wall);
-        }
-      }
-      emptyLevelHome.deleteRoom(emptyLevelHome.getRooms().get(1));
-      scene = BlenderSceneExporter.export(emptyLevelHome, factory, folder, "all");
-      BlenderTestCheck.isTrue(!scene.containsKey("occluders") && !occludersFile.exists(), "empty hidden level, no occluders");
+      // Upper floor seen above the ground floor: the ceiling hidden at the ground level doesn't block
+      // the light falling on the ground floor from the upper one, only the upper ceiling caps the scene
+      Home upperHome = BlenderTestHomes.createTwoLevelHome();
+      Level upperLevel = upperHome.getLevels().get(1);
+      upperLevel.setVisible(true);
+      upperHome.setSelectedLevel(upperLevel);
+      upperHome.getRooms().get(1).setCeilingVisible(false);
+      BlenderSceneExporter.export(upperHome, factory, folder, "all");
+      BlenderTestCheck.equal(1, countOccluders(occludersFile), "only the upper ceiling blocks light");
+      BlenderTestCheck.isTrue(getMinY(occludersFile) > upperLevel.getElevation(), "occluder is the upper ceiling");
+
+      // Upper floor alone: the hidden ground level blocks nothing either
+      upperHome.getLevels().get(0).setVisible(false);
+      BlenderSceneExporter.export(upperHome, factory, folder, "all");
+      BlenderTestCheck.equal(1, countOccluders(occludersFile), "hidden ground level isn't an occluder");
 
       Home roomHome = BlenderTestHomes.createRoomHome(null);
       scene = BlenderSceneExporter.export(roomHome, factory, folder, "all");
@@ -280,6 +284,19 @@ public class BlenderSceneExporterTest extends TestCase {
     int end = mtl.indexOf("newmtl ", definition + 1);
     BlenderTestCheck.isTrue(mtl.substring(definition, end < 0 ? mtl.length() : end).contains("\nd 0.25"),
         "translucent material written with its opacity");
+  }
+
+  /**
+   * Returns the lowest elevation of the vertices of an OBJ file.
+   */
+  private static float getMinY(File objFile) throws Exception {
+    float minY = Float.MAX_VALUE;
+    for (String line : Files.readAllLines(objFile.toPath(), StandardCharsets.ISO_8859_1)) {
+      if (line.startsWith("v ")) {
+        minY = Math.min(minY, Float.parseFloat(line.trim().split("\\s+") [2]));
+      }
+    }
+    return minY;
   }
 
   /**
